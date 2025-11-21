@@ -148,7 +148,7 @@ func (s *ParticleEditorScene) tweenControls(ctx *debugui.Context, label string, 
 		ctx.Text(label)
 		if len(config.Steps) == 0 {
 			ctx.Button("Add Step").On(func() {
-				config.Steps = append(config.Steps, chirashi.TweenStep{Duration: 60, Easing: "Linear"})
+				config.Steps = append(config.Steps, chirashi.TweenStep{Duration: 1, Easing: "Linear"})
 				s.recreateParticles()
 			})
 			return
