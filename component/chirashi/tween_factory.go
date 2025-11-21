@@ -58,51 +58,6 @@ func (f *TweenFactory) CreateSequence(config TweenConfig, baseValue float64) *gw
 	return gween.NewSequence(tweens...)
 }
 
-func (f *TweenFactory) CreateSequenceV2(config TweenConfig, baseValue float64) *gween.Sequence {
-	if len(config.Steps) == 0 {
-		// Return a simple static sequence if no steps
-		return gween.NewSequence(gween.New(float32(baseValue), float32(baseValue), 1, ease.Linear))
-	}
-
-	if config.Type == "single" && len(config.Steps) > 0 {
-		// Create a single tween from the first step
-		step := config.Steps[0]
-		tween := f.CreateSingle(step, baseValue)
-		return gween.NewSequence(tween)
-	}
-
-	// Create sequence with multiple steps
-	var tweens []*gween.Tween
-	currentValue := baseValue
-
-	for _, step := range config.Steps {
-		fromValue := currentValue
-		if step.From != 0 || len(tweens) == 0 {
-			// Use explicit from value for first step or when specified (relative to baseValue)
-			fromValue = baseValue + step.From
-		}
-
-		// Calculate to value as relative to baseValue
-		toValue := baseValue + step.To
-		fromVal := float64(fromValue) / 100.0
-		toVal := float64(toValue) / 100.0
-		duration := float64(step.Duration) / 10.0
-
-		// Apply random range if specified
-		if step.ToRange != nil {
-			randomOffset := rangeFloat(step.ToRange.Min, step.ToRange.Max)
-			toValue = baseValue + randomOffset
-		}
-
-		easingFunc := f.ParseEasing(step.Easing)
-		tween := gween.New(float32(fromVal), float32(toVal), float32(duration), easingFunc)
-		tweens = append(tweens, tween)
-		currentValue = toValue
-	}
-
-	return gween.NewSequence(tweens...)
-}
-
 // CreateSingle creates a single gween.Tween from TweenStep
 func (f *TweenFactory) CreateSingle(step TweenStep, baseValue float64) *gween.Tween {
 	fromValue := baseValue

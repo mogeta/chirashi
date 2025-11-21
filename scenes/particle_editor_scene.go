@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"image"
 	"image/color"
+	"log"
 
 	"chirashi/component"
 	"chirashi/component/chirashi"
@@ -12,6 +13,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/yohamta/donburi"
 	"github.com/yohamta/donburi/ecs"
+	"github.com/yohamta/donburi/filter"
 )
 
 type ParticleEditorScene struct {
@@ -40,21 +42,8 @@ func NewParticleEditorScene() *ParticleEditorScene {
 	configPath := "assets/particles/sample.yaml"
 	config, err := chirashi.GetConfigLoader().LoadConfig(configPath)
 	if err != nil {
-		fmt.Printf("Failed to load config: %v\n", err)
-		// Fallback to default if file load fails
-		config = &chirashi.ParticleConfig{
-			Name: "Debug Particle",
-			Spawn: chirashi.SpawnConfig{
-				Interval:          10,
-				ParticlesPerSpawn: 1,
-				MaxParticles:      1000,
-				LifeTime:          60,
-				IsLoop:            true,
-			},
-			Emitter: chirashi.EmitterConfig{
-				Position: chirashi.PositionConfig{X: 0, Y: 0},
-			},
-		}
+		log.Fatalf("Failed to load config: %v\n", err)
+
 	}
 
 	// Initial particle creation
@@ -71,67 +60,46 @@ func NewParticleEditorScene() *ParticleEditorScene {
 func (s *ParticleEditorScene) Update() error {
 	// Update DebugUI
 	if _, err := s.debugui.Update(func(ctx *debugui.Context) error {
-		ctx.Window("Particle Editor", image.Rect(10, 10, 300, 400), func(layout debugui.ContainerLayout) {
+		// Window 1: General Settings
+		ctx.Window("General Settings", image.Rect(10, 10, 250, 300), func(layout debugui.ContainerLayout) {
 			ctx.Text("Spawn Config")
-			// Assuming InputInt and InputFloat exist on ctx and take pointers
-			// If not, we might need to adjust based on actual API which we are guessing slightly
-			// based on common Immediate Mode GUI patterns in Go.
-			// Note: The blog example only showed Button.
+			ctx.Text("Interval: " + fmt.Sprintf("%d", s.config.Spawn.Interval))
+			ctx.Button("I+").On(func() { s.config.Spawn.Interval++; s.recreateParticles() })
+			ctx.Button("I-").On(func() { s.config.Spawn.Interval--; s.recreateParticles() })
 
-			// Using generic "Input" if specific types aren't available?
-			// Let's try specific first as they are standard.
-			// If compilation fails, we will need to explore the API more.
-
-			// Note: debugui might use different names.
-			// Checking other Ebitengine UI libs...
-			// But let's stick to the most likely candidates.
-
-			// ctx.InputInt("Interval", &s.config.Spawn.Interval)
-			// ctx.InputInt("Per Spawn", &s.config.Spawn.ParticlesPerSpawn)
-			// ctx.InputInt("Max Particles", &s.config.Spawn.MaxParticles)
-			// ctx.InputInt("Life Time", &s.config.Spawn.LifeTime)
-
-			// Since I am not 100% sure of the API, I will comment out the inputs
-			// and just use the Button for now to verify the structure,
-			// then I will ask the user to verify or I will try to find the API.
-			// WAIT, the user wants to manage values. I MUST attempt to add inputs.
-			// I will try to use a safer bet: just Text for now and a Button to "Simulate" changes?
-			// No, that's useless.
-
-			// Let's assume the API follows the blog's "easy to use" claim.
-			// I'll try to use `ctx.IntInput` or `ctx.InputInt`.
-			// I'll go with `InputInt` as it matches the user's error log "undefined: debugui.InputInt"
-			// which implies they expected it there (or I put it there).
-
-			// To be safe against "undefined" errors, I will try to use `ctx` methods.
-
-			ctx.Text("Spawn Interval: " + fmt.Sprintf("%d", s.config.Spawn.Interval))
-			ctx.Button("+").On(func() { s.config.Spawn.Interval++ })
-			ctx.Button("-").On(func() { s.config.Spawn.Interval-- })
-
-			ctx.Text("Particles Per Spawn: " + fmt.Sprintf("%d", s.config.Spawn.ParticlesPerSpawn))
-			ctx.Button("+").On(func() { s.config.Spawn.ParticlesPerSpawn++ })
-			ctx.Button("-").On(func() { s.config.Spawn.ParticlesPerSpawn-- })
+			ctx.Text("Per Spawn: " + fmt.Sprintf("%d", s.config.Spawn.ParticlesPerSpawn))
+			ctx.Button("P+").On(func() { s.config.Spawn.ParticlesPerSpawn++; s.recreateParticles() })
+			ctx.Button("P-").On(func() { s.config.Spawn.ParticlesPerSpawn--; s.recreateParticles() })
 
 			ctx.Text("Max Particles: " + fmt.Sprintf("%d", s.config.Spawn.MaxParticles))
 
-			ctx.Text("Emitter X: " + fmt.Sprintf("%.1f", s.config.Emitter.Position.X))
-			ctx.Button("X+").On(func() { s.config.Emitter.Position.X += 10 })
-			ctx.Button("X-").On(func() { s.config.Emitter.Position.X -= 10 })
+			ctx.Text("Emitter")
+			ctx.Text("X: " + fmt.Sprintf("%.1f", s.config.Emitter.Position.X))
+			ctx.Button("X+").On(func() { s.config.Emitter.Position.X += 10; s.recreateParticles() })
+			ctx.Button("X-").On(func() { s.config.Emitter.Position.X -= 10; s.recreateParticles() })
 
-			ctx.Text("Emitter Y: " + fmt.Sprintf("%.1f", s.config.Emitter.Position.Y))
-			ctx.Button("Y+").On(func() { s.config.Emitter.Position.Y += 10 })
-			ctx.Button("Y-").On(func() { s.config.Emitter.Position.Y -= 10 })
-
-			ctx.Button("Apply Changes").On(func() {
-				s.recreateParticles()
-			})
-			// Note: .Clicked() might not exist, the example used .On(func).
-			// So I should use .On(func) for the Apply button too.
-			ctx.Button("Apply Changes (Click me)").On(func() {
-				s.recreateParticles()
-			})
+			ctx.Text("Y: " + fmt.Sprintf("%.1f", s.config.Emitter.Position.Y))
+			ctx.Button("Y+").On(func() { s.config.Emitter.Position.Y += 10; s.recreateParticles() })
+			ctx.Button("Y-").On(func() { s.config.Emitter.Position.Y -= 10; s.recreateParticles() })
 		})
+
+		// Window 2: Movement X
+		ctx.Window("Movement X", image.Rect(270, 10, 250, 300), func(layout debugui.ContainerLayout) {
+			s.tweenControls(ctx, "X Axis", &s.config.Movement.X, 5.0)
+		})
+
+		// Window 3: Movement Y
+		ctx.Window("Movement Y", image.Rect(530, 10, 250, 300), func(layout debugui.ContainerLayout) {
+			s.tweenControls(ctx, "Y Axis", &s.config.Movement.Y, 5.0)
+		})
+
+		// Window 4: Appearance
+		ctx.Window("Appearance", image.Rect(790, 10, 250, 400), func(layout debugui.ContainerLayout) {
+			s.tweenControls(ctx, "Alpha", &s.config.Appearance.Alpha, 0.1)
+			s.tweenControls(ctx, "Rotation", &s.config.Appearance.Rotation, 5.0)
+			s.tweenControls(ctx, "Scale", &s.config.Appearance.Scale, 0.1)
+		})
+
 		return nil
 	}); err != nil {
 		return err
@@ -148,15 +116,106 @@ func (s *ParticleEditorScene) Draw(screen *ebiten.Image) {
 }
 
 func (s *ParticleEditorScene) recreateParticles() {
-	// Clear existing particles (this is a bit hacky, might need a better way to clear specific entities)
-	// For now, we'll just create new ones and let old ones die or clear the world if we can.
-	// A better way is to query all particle entities and remove them.
+	// Clear existing particles
+	// Query all entities with the Particle Component and remove them
+	query := donburi.NewQuery(filter.Contains(chirashi.Component))
+	// We need to collect entries first to avoid modification during iteration issues if any
+	var entries []*donburi.Entry
+	query.Each(s.world, func(entry *donburi.Entry) {
+		entries = append(entries, entry)
+	})
 
-	// Simple approach: Create new particles on top.
+	for _, entry := range entries {
+		// Clean up sprite entities associated with this particle system
+		particleComponent := chirashi.Component.Get(entry)
+		for i := range particleComponent.ParticlePool {
+			particle := &particleComponent.ParticlePool[i]
+			if particle.SpriteEntity != nil && particle.SpriteEntity.Valid() {
+				s.world.Remove(particle.SpriteEntity.Entity())
+			}
+		}
+		s.world.Remove(entry.Entity())
+	}
+
+	// Create new particles
 	chirashi.NewParticlesFromConfig(s.world, s.img, s.config, 320, 240)
-	fmt.Println("Particles recreated")
+}
+
+func (s *ParticleEditorScene) tweenControls(ctx *debugui.Context, label string, config *chirashi.TweenConfig, stepVal float64) {
+	ctx.Text(label)
+	if len(config.Steps) == 0 {
+		ctx.Button("Add Step").On(func() {
+			config.Steps = append(config.Steps, chirashi.TweenStep{Duration: 1, Easing: "Linear"})
+			s.recreateParticles()
+		})
+		return
+	}
+
+	// Edit first step for now
+	step := &config.Steps[0]
+
+	s.sliderControl(ctx, "From", &step.From, -1000, 1000, stepVal)
+	s.sliderControl(ctx, "To", &step.To, -1000, 1000, stepVal)
+	s.sliderControl(ctx, "Duration", &step.Duration, 0, 600, 0.1) // Duration usually > 0
+
+	// Easing Cycler
+	ctx.Text("  Ease: " + step.Easing)
+	ctx.Button("  Cycle Ease").On(func() {
+		step.Easing = s.cycleEasing(step.Easing)
+		s.recreateParticles()
+	})
+}
+
+func (s *ParticleEditorScene) sliderControl(ctx *debugui.Context, label string, value *float64, min, max, step float64) {
+	ctx.IDScope(label, func() {
+		ctx.Text(fmt.Sprintf("  %s: %.1f", label, *value))
+
+		// Layout: [-] [Slider] [+]
+		// We use 3 columns: fixed width for buttons, remaining for slider
+		ctx.SetGridLayout([]int{30, -1, 30}, nil)
+
+		ctx.Button("-").On(func() {
+			*value -= step
+			s.recreateParticles()
+		})
+
+		ctx.SliderF(value, min, max, step, 1).On(func() {
+			s.recreateParticles()
+		})
+
+		ctx.Button("+").On(func() {
+			*value += step
+			s.recreateParticles()
+		})
+
+		// Reset layout to single column
+		ctx.SetGridLayout([]int{0}, nil)
+	})
+}
+
+func (s *ParticleEditorScene) cycleEasing(current string) string {
+	easings := []string{
+		"Linear",
+		"InQuad", "OutQuad", "InOutQuad",
+		"InCubic", "OutCubic", "InOutCubic",
+		"InQuart", "OutQuart", "InOutQuart",
+		"InQuint", "OutQuint", "InOutQuint",
+		"InSine", "OutSine", "InOutSine",
+		"InExpo", "OutExpo", "InOutExpo",
+		"InCirc", "OutCirc", "InOutCirc",
+		"InBack", "OutBack", "InOutBack",
+		"InElastic", "OutElastic", "InOutElastic",
+		"InBounce", "OutBounce", "InOutBounce",
+	}
+
+	for i, e := range easings {
+		if e == current {
+			return easings[(i+1)%len(easings)]
+		}
+	}
+	return "Linear"
 }
 
 func (s *ParticleEditorScene) Layout(outsideWidth, outsideHeight int) (int, int) {
-	return 640, 480 // Larger resolution for editor
+	return 1280, 960 // Larger resolution for editor
 }

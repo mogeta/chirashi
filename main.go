@@ -9,7 +9,7 @@ import (
 )
 
 func main() {
-	ebiten.SetWindowSize(640, 480)
+	ebiten.SetWindowSize(1280, 960)
 	ebiten.SetWindowTitle("Debug Particle")
 	if err := ebiten.RunGame(scenes.NewParticleEditorScene()); err != nil {
 		log.Fatal(err)

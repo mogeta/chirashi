@@ -92,7 +92,7 @@ func createParticlesFromConfig(w donburi.World, image *ebiten.Image, config *Par
 	var alphaFactory SequenceFunc
 	if len(config.Appearance.Alpha.Steps) > 0 {
 		alphaFactory = func() *gween.Sequence {
-			return tweenFactory.CreateSequenceV2(config.Appearance.Alpha, 0)
+			return tweenFactory.CreateSequence(config.Appearance.Alpha, 0)
 		}
 	}
 
