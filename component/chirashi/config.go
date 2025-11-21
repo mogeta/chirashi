@@ -1,4 +1,4 @@
-package particle
+package chirashi
 
 // ParticleConfig represents the complete configuration for a particle system
 type ParticleConfig struct {

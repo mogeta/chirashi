@@ -1,4 +1,4 @@
-package particle
+package chirashi
 
 import (
 	"fmt"
@@ -14,20 +14,10 @@ var (
 	tweenFactory = NewTweenFactory()
 )
 
-// NewParticlesFromConfig creates a particle system from a named configuration
-//func NewParticlesFromConfig(w donburi.World, image *ebiten.Image, configName string, x, y float64) error {
-//	config, err := configLoader.LoadFromAssets(configName)
-//
-//	if err != nil {
-//		return fmt.Errorf("failed to load config '%s': %w", configName, err)
-//	}
-//
-//	if config.Image.ImageFrom != "" && config.Image.ImageID != 0 {
-//		image = assets.Assets.GetImage(assets.StringToImageSource[config.Image.ImageFrom], config.Image.ImageID)
-//	}
-//
-//	return createParticlesFromConfig(w, image, config, x, y)
-//}
+// NewParticlesFromConfig creates a particle system from a configuration struct
+func NewParticlesFromConfig(w donburi.World, image *ebiten.Image, config *ParticleConfig, x, y float64) error {
+	return createParticlesFromConfig(w, image, config, x, y)
+}
 
 // NewParticlesFromConfigWithAssets creates a particle system from a named configuration, using image settings from config
 //func NewParticlesFromConfigWithAssets(w donburi.World, configName string, x, y float64) error {

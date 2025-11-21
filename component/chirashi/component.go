@@ -1,4 +1,4 @@
-package particle
+package chirashi
 
 import (
 	"github.com/hajimehoshi/ebiten/v2"

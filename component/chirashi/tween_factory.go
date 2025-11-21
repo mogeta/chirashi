@@ -1,4 +1,4 @@
-package particle
+package chirashi
 
 import (
 	"fmt"

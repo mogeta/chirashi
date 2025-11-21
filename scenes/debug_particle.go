@@ -2,7 +2,7 @@ package scenes
 
 import (
 	"chirashi/component"
-	"chirashi/component/particle"
+	"chirashi/component/chirashi"
 	"image/color"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -19,7 +19,7 @@ func NewDebugParticleScene() *DebugParticleScene {
 	world := donburi.NewWorld()
 	container := ecs.NewECS(world)
 
-	particleSys := particle.NewSpriteSystem()
+	particleSys := chirashi.NewSpriteSystem()
 	container.AddSystem(particleSys.Update)
 
 	spriteRender := component.NewSpriteRender()
@@ -29,7 +29,7 @@ func NewDebugParticleScene() *DebugParticleScene {
 	img := ebiten.NewImage(8, 8)
 	img.Fill(color.White)
 
-	particle.NewParticles(world, img, 100, 100)
+	chirashi.NewParticles(world, img, 100, 100)
 	return &DebugParticleScene{
 		world:     world,
 		container: container,

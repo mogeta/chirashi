@@ -1,0 +1,58 @@
+name: "crystal_shards"
+description: "Crystal shards that tumble and reflect light while falling"
+
+emitter:
+  position:
+    x: 0
+    y: 0
+
+# Image configuration - use Assets.GetImage
+image:
+  image_from: "ef1"  # Use EF1 image source
+  image_id: 16       # Sprite ID in EF1 spritesheet
+
+
+movement:
+  x:
+    type: "sequence"
+    steps:
+      - from: 0
+        to: 60
+        from_range:
+          min: 0
+          max: 0
+        to_range:
+          min: -60
+          max: 60
+        duration: 1
+        easing: "Linear"
+  
+  y:
+    type: "sequence"
+    steps:
+      - from: 0
+        to: 60
+        from_range:
+          min: 0
+          max: 0
+        to_range:
+          min: -60
+          max: 60
+        duration: 1
+        easing: "Linear"
+
+appearance:
+  alpha:
+    type: "sequence"
+    steps:
+      - from: 100
+        to: 10
+        duration: 10
+        easing: "Linear"
+
+spawn:
+  interval: 6
+  particles_per_spawn: 1
+  max_particles: 1000
+  is_loop: true
+  life_time: 300

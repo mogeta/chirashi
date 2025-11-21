@@ -1,4 +1,4 @@
-package particle
+package chirashi
 
 import (
 	"fmt"
@@ -50,8 +50,8 @@ func NewParticles(w donburi.World, image *ebiten.Image, x, y float64) {
 		MaxParticles:      maxParticles,
 		SourceImage:       image,
 		ActiveCount:       0,
-		IsLoop:            false, // Don't loop forever by default
-		LifeTime:          300,   // 5 seconds at 60fps
+		IsLoop:            true, // Don't loop forever by default
+		LifeTime:          300,  // 5 seconds at 60fps
 	}
 	donburi.SetValue(particles, Component, d)
 
