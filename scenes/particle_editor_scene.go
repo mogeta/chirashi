@@ -46,8 +46,10 @@ func NewParticleEditorScene() *ParticleEditorScene {
 
 	}
 
-	// Initial particle creation
-	chirashi.NewParticlesFromConfig(world, img, config, 320, 240)
+	// Create particles from config
+	if err := chirashi.NewParticlesFromConfig(world, img, config, 640, 480); err != nil {
+		log.Fatal(err)
+	}
 
 	return &ParticleEditorScene{
 		world:     world,
@@ -60,8 +62,8 @@ func NewParticleEditorScene() *ParticleEditorScene {
 func (s *ParticleEditorScene) Update() error {
 	// Update DebugUI
 	if _, err := s.debugui.Update(func(ctx *debugui.Context) error {
-		// Window 1: General Settings
-		ctx.Window("General Settings", image.Rect(10, 10, 250, 300), func(layout debugui.ContainerLayout) {
+		// Window 1: General Settings (Top Left)
+		ctx.Window("General Settings", image.Rect(10, 10, 260, 310), func(layout debugui.ContainerLayout) {
 			ctx.Text("Spawn Config")
 			ctx.Text("Interval: " + fmt.Sprintf("%d", s.config.Spawn.Interval))
 			ctx.Button("I+").On(func() { s.config.Spawn.Interval++; s.recreateParticles() })
@@ -83,21 +85,21 @@ func (s *ParticleEditorScene) Update() error {
 			ctx.Button("Y-").On(func() { s.config.Emitter.Position.Y -= 10; s.recreateParticles() })
 		})
 
-		// Window 2: Movement X
-		ctx.Window("Movement X", image.Rect(270, 10, 250, 300), func(layout debugui.ContainerLayout) {
-			s.tweenControls(ctx, "X Axis", &s.config.Movement.X, 5.0)
+		// Window 2: Movement X (Bottom Left)
+		ctx.Window("Movement X", image.Rect(10, 320, 260, 620), func(layout debugui.ContainerLayout) {
+			s.tweenControls(ctx, "X Axis", &s.config.Movement.X, -1000, 1000, 5.0)
 		})
 
-		// Window 3: Movement Y
-		ctx.Window("Movement Y", image.Rect(530, 10, 250, 300), func(layout debugui.ContainerLayout) {
-			s.tweenControls(ctx, "Y Axis", &s.config.Movement.Y, 5.0)
+		// Window 3: Movement Y (Top Right)
+		ctx.Window("Movement Y", image.Rect(1010, 10, 1260, 310), func(layout debugui.ContainerLayout) {
+			s.tweenControls(ctx, "Y Axis", &s.config.Movement.Y, -1000, 1000, 5.0)
 		})
 
-		// Window 4: Appearance
-		ctx.Window("Appearance", image.Rect(790, 10, 250, 400), func(layout debugui.ContainerLayout) {
-			s.tweenControls(ctx, "Alpha", &s.config.Appearance.Alpha, 0.1)
-			s.tweenControls(ctx, "Rotation", &s.config.Appearance.Rotation, 5.0)
-			s.tweenControls(ctx, "Scale", &s.config.Appearance.Scale, 0.1)
+		// Window 4: Appearance (Bottom Right)
+		ctx.Window("Appearance", image.Rect(1010, 320, 1260, 720), func(layout debugui.ContainerLayout) {
+			s.tweenControls(ctx, "Alpha", &s.config.Appearance.Alpha, 0, 1, 0.01)
+			s.tweenControls(ctx, "Rotation", &s.config.Appearance.Rotation, -360, 360, 5.0)
+			s.tweenControls(ctx, "Scale", &s.config.Appearance.Scale, -10, 10, 0.1)
 		})
 
 		return nil
@@ -137,38 +139,40 @@ func (s *ParticleEditorScene) recreateParticles() {
 		s.world.Remove(entry.Entity())
 	}
 
-	// Create new particles
-	chirashi.NewParticlesFromConfig(s.world, s.img, s.config, 320, 240)
+	// Create new particles at center of 1280x960 screen
+	chirashi.NewParticlesFromConfig(s.world, s.img, s.config, 640, 480)
 }
 
-func (s *ParticleEditorScene) tweenControls(ctx *debugui.Context, label string, config *chirashi.TweenConfig, stepVal float64) {
-	ctx.Text(label)
-	if len(config.Steps) == 0 {
-		ctx.Button("Add Step").On(func() {
-			config.Steps = append(config.Steps, chirashi.TweenStep{Duration: 1, Easing: "Linear"})
+func (s *ParticleEditorScene) tweenControls(ctx *debugui.Context, label string, config *chirashi.TweenConfig, min, max, stepVal float64) {
+	ctx.IDScope(label, func() {
+		ctx.Text(label)
+		if len(config.Steps) == 0 {
+			ctx.Button("Add Step").On(func() {
+				config.Steps = append(config.Steps, chirashi.TweenStep{Duration: 60, Easing: "Linear"})
+				s.recreateParticles()
+			})
+			return
+		}
+
+		// Edit first step for now
+		step := &config.Steps[0]
+
+		s.sliderControl(ctx, "From", &step.From, min, max, stepVal)
+		s.sliderControl(ctx, "To", &step.To, min, max, stepVal)
+		s.sliderControl(ctx, "Duration", &step.Duration, 0, 600, 0.1) // Duration usually > 0
+
+		// Easing Cycler
+		ctx.Text("  Ease: " + step.Easing)
+		ctx.Button("  Cycle Ease").On(func() {
+			step.Easing = s.cycleEasing(step.Easing)
 			s.recreateParticles()
 		})
-		return
-	}
-
-	// Edit first step for now
-	step := &config.Steps[0]
-
-	s.sliderControl(ctx, "From", &step.From, -1000, 1000, stepVal)
-	s.sliderControl(ctx, "To", &step.To, -1000, 1000, stepVal)
-	s.sliderControl(ctx, "Duration", &step.Duration, 0, 600, 0.1) // Duration usually > 0
-
-	// Easing Cycler
-	ctx.Text("  Ease: " + step.Easing)
-	ctx.Button("  Cycle Ease").On(func() {
-		step.Easing = s.cycleEasing(step.Easing)
-		s.recreateParticles()
 	})
 }
 
 func (s *ParticleEditorScene) sliderControl(ctx *debugui.Context, label string, value *float64, min, max, step float64) {
 	ctx.IDScope(label, func() {
-		ctx.Text(fmt.Sprintf("  %s: %.1f", label, *value))
+		ctx.Text(fmt.Sprintf("  %s: %.2f", label, *value))
 
 		// Layout: [-] [Slider] [+]
 		// We use 3 columns: fixed width for buttons, remaining for slider
@@ -176,15 +180,21 @@ func (s *ParticleEditorScene) sliderControl(ctx *debugui.Context, label string, 
 
 		ctx.Button("-").On(func() {
 			*value -= step
+			if *value < min {
+				*value = min
+			}
 			s.recreateParticles()
 		})
 
-		ctx.SliderF(value, min, max, step, 1).On(func() {
+		ctx.SliderF(value, min, max, step, 2).On(func() {
 			s.recreateParticles()
 		})
 
 		ctx.Button("+").On(func() {
 			*value += step
+			if *value > max {
+				*value = max
+			}
 			s.recreateParticles()
 		})
 
