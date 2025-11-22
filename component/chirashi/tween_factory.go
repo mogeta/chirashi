@@ -35,18 +35,34 @@ func (f *TweenFactory) CreateSequence(config TweenConfig, baseValue float64) *gw
 
 	for _, step := range config.Steps {
 		fromValue := currentValue
-		if step.From != 0 || len(tweens) == 0 {
+		if step.From != 0 || step.FromRange != nil || len(tweens) == 0 {
 			// Use explicit from value for first step or when specified (relative to baseValue)
-			fromValue = baseValue + step.From
+			if step.FromRange != nil {
+				randomOffset := rangeFloat(step.FromRange.Min, step.FromRange.Max)
+				fromValue = baseValue + randomOffset
+			} else {
+				fromValue = baseValue + step.From
+			}
 		}
 
-		// Calculate to value as relative to baseValue
-		toValue := baseValue + step.To
+		// Calculate to value
+		var toValue float64
+		if step.IsRelative {
+			// Relative to fromValue
+			toValue = fromValue + step.To
+		} else {
+			// Relative to baseValue (absolute in local space)
+			toValue = baseValue + step.To
+		}
 
 		// Apply random range if specified
 		if step.ToRange != nil {
 			randomOffset := rangeFloat(step.ToRange.Min, step.ToRange.Max)
-			toValue = baseValue + randomOffset
+			if step.IsRelative {
+				toValue = fromValue + randomOffset
+			} else {
+				toValue = baseValue + randomOffset
+			}
 		}
 
 		easingFunc := f.ParseEasing(step.Easing)
@@ -61,18 +77,32 @@ func (f *TweenFactory) CreateSequence(config TweenConfig, baseValue float64) *gw
 // CreateSingle creates a single gween.Tween from TweenStep
 func (f *TweenFactory) CreateSingle(step TweenStep, baseValue float64) *gween.Tween {
 	fromValue := baseValue
-	if step.From != 0 {
+	if step.FromRange != nil {
+		randomOffset := rangeFloat(step.FromRange.Min, step.FromRange.Max)
+		fromValue = baseValue + randomOffset
+	} else if step.From != 0 {
 		// Use explicit from value (relative to baseValue)
 		fromValue = baseValue + step.From
 	}
 
-	// Calculate to value as relative to baseValue
-	toValue := baseValue + step.To
+	// Calculate to value
+	var toValue float64
+	if step.IsRelative {
+		// Relative to fromValue
+		toValue = fromValue + step.To
+	} else {
+		// Relative to baseValue (absolute in local space)
+		toValue = baseValue + step.To
+	}
 
 	// Apply random range if specified
 	if step.ToRange != nil {
 		randomOffset := rangeFloat(step.ToRange.Min, step.ToRange.Max)
-		toValue = baseValue + randomOffset
+		if step.IsRelative {
+			toValue = fromValue + randomOffset
+		} else {
+			toValue = baseValue + randomOffset
+		}
 	}
 
 	easingFunc := f.ParseEasing(step.Easing)

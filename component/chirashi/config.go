@@ -45,11 +45,13 @@ type TweenConfig struct {
 
 // TweenStep defines a single tween step
 type TweenStep struct {
-	From     float64    `yaml:"from"`
-	To       float64    `yaml:"to"`
-	ToRange  *RangeData `yaml:"to_range,omitempty"` // Optional random range for 'to' value
-	Duration float64    `yaml:"duration"`
-	Easing   string     `yaml:"easing"` // "OutCirc", "InBack", etc
+	From       float64    `yaml:"from"`
+	FromRange  *RangeData `yaml:"from_range,omitempty"` // Optional random range for 'from' value
+	To         float64    `yaml:"to"`
+	ToRange    *RangeData `yaml:"to_range,omitempty"` // Optional random range for 'to' value
+	IsRelative bool       `yaml:"is_relative,omitempty"`
+	Duration   float64    `yaml:"duration"`
+	Easing     string     `yaml:"easing"` // "OutCirc", "InBack", etc
 }
 
 // RangeData defines a random value range

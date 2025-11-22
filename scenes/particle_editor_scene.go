@@ -117,6 +117,7 @@ func (s *ParticleEditorScene) recreateParticles() {
 
 func (s *ParticleEditorScene) tweenControls(ctx *debugui.Context, label string, config *chirashi.TweenConfig, min, max, stepVal float64) {
 	ctx.IDScope(label, func() {
+		ctx.SetGridLayout([]int{-1}, nil)
 		ctx.Text(label)
 
 		// Iterate over all steps
@@ -127,7 +128,30 @@ func (s *ParticleEditorScene) tweenControls(ctx *debugui.Context, label string, 
 
 				ctx.Text(fmt.Sprintf("Step %d", i+1))
 
-				s.sliderControl(ctx, "From", &step.From, min, max, stepVal)
+				// Random Start Toggle
+				isRandomStart := step.FromRange != nil
+				ctx.Button(fmt.Sprintf("Random Start: %v", isRandomStart)).On(func() {
+					if isRandomStart {
+						step.FromRange = nil
+					} else {
+						step.FromRange = &chirashi.RangeData{Min: step.From, Max: step.From}
+					}
+					s.recreateParticles()
+				})
+
+				if step.FromRange != nil {
+					s.sliderControl(ctx, "From Min", &step.FromRange.Min, min, max, stepVal)
+					s.sliderControl(ctx, "From Max", &step.FromRange.Max, min, max, stepVal)
+				} else {
+					s.sliderControl(ctx, "From", &step.From, min, max, stepVal)
+				}
+
+				// Relative Toggle
+				ctx.Button(fmt.Sprintf("Relative: %v", step.IsRelative)).On(func() {
+					step.IsRelative = !step.IsRelative
+					s.recreateParticles()
+				})
+
 				// Random Range Toggle
 				isRandom := step.ToRange != nil
 				ctx.Button(fmt.Sprintf("Random Target: %v", isRandom)).On(func() {
@@ -208,8 +232,8 @@ func (s *ParticleEditorScene) sliderControl(ctx *debugui.Context, label string, 
 			s.recreateParticles()
 		})
 
-		// Reset layout to single column
-		ctx.SetGridLayout([]int{0}, nil)
+		// Reset layout to single column full width
+		ctx.SetGridLayout([]int{-1}, nil)
 	})
 }
 
@@ -241,7 +265,7 @@ func (s *ParticleEditorScene) Layout(outsideWidth, outsideHeight int) (int, int)
 }
 
 func (s *ParticleEditorScene) drawGeneralSettingsWindow(ctx *debugui.Context) {
-	ctx.Window("General Settings", image.Rect(10, 10, 260, 310), func(layout debugui.ContainerLayout) {
+	ctx.Window("General Settings", image.Rect(10, 10, 410, 310), func(layout debugui.ContainerLayout) {
 		ctx.Text("Spawn Config")
 		ctx.Text("Interval: " + fmt.Sprintf("%d", s.config.Spawn.Interval))
 		ctx.Button("I+").On(func() { s.config.Spawn.Interval++; s.recreateParticles() })
@@ -286,7 +310,7 @@ func (s *ParticleEditorScene) drawMovementXWindow(ctx *debugui.Context) {
 	if s.config.Movement.Type == "polar" {
 		title = "Movement Angle"
 	}
-	ctx.Window(title, image.Rect(10, 320, 260, 620), func(layout debugui.ContainerLayout) {
+	ctx.Window(title, image.Rect(10, 320, 410, 620), func(layout debugui.ContainerLayout) {
 		if s.config.Movement.Type == "polar" {
 			s.tweenControls(ctx, "Angle", &s.config.Movement.Angle, 0, 360, 15.0)
 		} else {
@@ -300,7 +324,7 @@ func (s *ParticleEditorScene) drawMovementYWindow(ctx *debugui.Context) {
 	if s.config.Movement.Type == "polar" {
 		title = "Movement Dist"
 	}
-	ctx.Window(title, image.Rect(1010, 10, 1260, 310), func(layout debugui.ContainerLayout) {
+	ctx.Window(title, image.Rect(870, 10, 1270, 310), func(layout debugui.ContainerLayout) {
 		if s.config.Movement.Type == "polar" {
 			s.tweenControls(ctx, "Distance", &s.config.Movement.Distance, 0, 1000, 5.0)
 		} else {
@@ -310,7 +334,7 @@ func (s *ParticleEditorScene) drawMovementYWindow(ctx *debugui.Context) {
 }
 
 func (s *ParticleEditorScene) drawAppearanceWindow(ctx *debugui.Context) {
-	ctx.Window("Appearance", image.Rect(1010, 320, 1260, 720), func(layout debugui.ContainerLayout) {
+	ctx.Window("Appearance", image.Rect(870, 320, 1270, 720), func(layout debugui.ContainerLayout) {
 		s.tweenControls(ctx, "Alpha", &s.config.Appearance.Alpha, 0, 1, 0.01)
 		s.tweenControls(ctx, "Rotation", &s.config.Appearance.Rotation, -360, 360, 5.0)
 		s.tweenControls(ctx, "Scale", &s.config.Appearance.Scale, -10, 10, 0.1)
