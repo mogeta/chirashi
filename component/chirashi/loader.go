@@ -2,7 +2,6 @@ package chirashi
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 	"sync"
 
@@ -12,6 +11,7 @@ import (
 // ConfigLoader manages particle configuration loading and caching
 type ConfigLoader struct {
 	configs map[string]*ParticleConfig
+	storage ParticleStorage
 	mutex   sync.RWMutex
 }
 
@@ -19,6 +19,7 @@ type ConfigLoader struct {
 func NewConfigLoader() *ConfigLoader {
 	return &ConfigLoader{
 		configs: make(map[string]*ParticleConfig),
+		storage: NewStorage(),
 	}
 }
 
@@ -32,25 +33,21 @@ func (l *ConfigLoader) LoadConfig(path string) (*ParticleConfig, error) {
 		return config, nil
 	}
 
-	// Load from file
-	data, err := os.ReadFile(path)
+	// Load from storage
+	config, err := l.storage.Load(path)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read config file %s: %w", path, err)
-	}
-
-	var config ParticleConfig
-	if err := yaml.Unmarshal(data, &config); err != nil {
-		return nil, fmt.Errorf("failed to parse YAML config %s: %w", path, err)
+		return nil, err
 	}
 
 	// Validate configuration
-	if err := l.validateConfig(&config); err != nil {
+	// Validate configuration
+	if err := l.validateConfig(config); err != nil {
 		return nil, fmt.Errorf("invalid config %s: %w", path, err)
 	}
 
 	// Cache the configuration
-	l.configs[path] = &config
-	return &config, nil
+	l.configs[path] = config
+	return config, nil
 }
 
 // SaveConfig saves a particle configuration to a file path
@@ -58,13 +55,8 @@ func (l *ConfigLoader) SaveConfig(path string, config *ParticleConfig) error {
 	l.mutex.Lock()
 	defer l.mutex.Unlock()
 
-	data, err := yaml.Marshal(config)
-	if err != nil {
-		return fmt.Errorf("failed to marshal config: %w", err)
-	}
-
-	if err := os.WriteFile(path, data, 0644); err != nil {
-		return fmt.Errorf("failed to write config file %s: %w", path, err)
+	if err := l.storage.Save(path, config); err != nil {
+		return err
 	}
 
 	// Update cache
@@ -123,6 +115,11 @@ func (l *ConfigLoader) ClearCache() {
 	defer l.mutex.Unlock()
 
 	l.configs = make(map[string]*ParticleConfig)
+}
+
+// ListConfigs returns a list of configuration files matching the pattern
+func (l *ConfigLoader) ListConfigs(pattern string) ([]string, error) {
+	return l.storage.List(pattern)
 }
 
 // validateConfig validates a particle configuration

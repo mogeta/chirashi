@@ -405,7 +405,7 @@ func (s *ParticleEditorScene) drawDebugWindow(ctx *debugui.Context) {
 }
 
 func (s *ParticleEditorScene) refreshFileList() {
-	files, err := filepath.Glob("assets/particles/*.yaml")
+	files, err := chirashi.GetConfigLoader().ListConfigs("assets/particles/*.yaml")
 	if err != nil {
 		log.Println("Failed to list files:", err)
 		return
