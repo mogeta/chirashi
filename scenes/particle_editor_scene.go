@@ -128,7 +128,23 @@ func (s *ParticleEditorScene) tweenControls(ctx *debugui.Context, label string, 
 				ctx.Text(fmt.Sprintf("Step %d", i+1))
 
 				s.sliderControl(ctx, "From", &step.From, min, max, stepVal)
-				s.sliderControl(ctx, "To", &step.To, min, max, stepVal)
+				// Random Range Toggle
+				isRandom := step.ToRange != nil
+				ctx.Button(fmt.Sprintf("Random Target: %v", isRandom)).On(func() {
+					if isRandom {
+						step.ToRange = nil
+					} else {
+						step.ToRange = &chirashi.RangeData{Min: step.To, Max: step.To}
+					}
+					s.recreateParticles()
+				})
+
+				if step.ToRange != nil {
+					s.sliderControl(ctx, "To Min", &step.ToRange.Min, min, max, stepVal)
+					s.sliderControl(ctx, "To Max", &step.ToRange.Max, min, max, stepVal)
+				} else {
+					s.sliderControl(ctx, "To", &step.To, min, max, stepVal)
+				}
 				s.sliderControl(ctx, "Duration", &step.Duration, 0, 600, 0.1)
 
 				// Easing Cycler
