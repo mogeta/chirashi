@@ -146,25 +146,47 @@ func (s *ParticleEditorScene) recreateParticles() {
 func (s *ParticleEditorScene) tweenControls(ctx *debugui.Context, label string, config *chirashi.TweenConfig, min, max, stepVal float64) {
 	ctx.IDScope(label, func() {
 		ctx.Text(label)
-		if len(config.Steps) == 0 {
-			ctx.Button("Add Step").On(func() {
-				config.Steps = append(config.Steps, chirashi.TweenStep{Duration: 1, Easing: "Linear"})
-				s.recreateParticles()
+
+		// Iterate over all steps
+		for i := range config.Steps {
+			// Use index to create unique ID scope for each step
+			ctx.IDScope(fmt.Sprintf("Step_%d", i), func() {
+				step := &config.Steps[i]
+
+				ctx.Text(fmt.Sprintf("Step %d", i+1))
+
+				s.sliderControl(ctx, "From", &step.From, min, max, stepVal)
+				s.sliderControl(ctx, "To", &step.To, min, max, stepVal)
+				s.sliderControl(ctx, "Duration", &step.Duration, 0, 600, 0.1)
+
+				// Easing Cycler
+				ctx.Text("  Ease: " + step.Easing)
+				ctx.Button("  Cycle Ease").On(func() {
+					step.Easing = s.cycleEasing(step.Easing)
+					s.recreateParticles()
+				})
+
+				// Remove Step Button
+				ctx.Button("  Remove Step").On(func() {
+					// Remove element at index i
+					config.Steps = append(config.Steps[:i], config.Steps[i+1:]...)
+					s.recreateParticles()
+				})
+
+				ctx.Text("----------------")
 			})
-			return
 		}
 
-		// Edit first step for now
-		step := &config.Steps[0]
-
-		s.sliderControl(ctx, "From", &step.From, min, max, stepVal)
-		s.sliderControl(ctx, "To", &step.To, min, max, stepVal)
-		s.sliderControl(ctx, "Duration", &step.Duration, 0, 600, 0.1) // Duration usually > 0
-
-		// Easing Cycler
-		ctx.Text("  Ease: " + step.Easing)
-		ctx.Button("  Cycle Ease").On(func() {
-			step.Easing = s.cycleEasing(step.Easing)
+		// Add Step Button
+		ctx.Button("Add Step").On(func() {
+			// Add a new step with default values (or copy previous)
+			newStep := chirashi.TweenStep{Duration: 60, Easing: "Linear"}
+			if len(config.Steps) > 0 {
+				lastStep := config.Steps[len(config.Steps)-1]
+				newStep.From = lastStep.To
+				newStep.To = lastStep.To // Start where last ended
+			}
+			config.Steps = append(config.Steps, newStep)
 			s.recreateParticles()
 		})
 	})
