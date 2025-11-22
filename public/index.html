@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scaled Ebiten Game Host</title>
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
+        }
+        .iframe-container {
+            width: 320px;  /* 元のサイズの半分 */
+            height: 350px; /* 元のサイズの半分 */
+            overflow: hidden;
+        }
+        iframe {
+            border: none;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            transform: scale(0.5);
+            transform-origin: 0 0;
+            width: 200%;  /* 元のサイズの2倍 */
+            height: 200%; /* 元のサイズの2倍 */
+        }
+    </style>
+</head>
+<body>
+<div class="iframe-container">
+    <iframe src="main.html" width="640" height="700" allow="autoplay"></iframe>
+</div>
+</body>
+</html>
