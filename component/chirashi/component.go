@@ -17,6 +17,8 @@ type SystemData struct {
 	EmitterPosition      Position
 	SequenceFactoryX     SequenceFunc
 	SequenceFactoryY     SequenceFunc
+	SequenceFactoryAngle SequenceFunc // Polar Angle
+	SequenceFactoryDist  SequenceFunc // Polar Distance
 	SequenceFactoryAlpha SequenceFunc // Alpha
 	SequenceFactoryR     SequenceFunc // Rotation
 	SequenceFactoryS     SequenceFunc // Scale
@@ -27,9 +29,10 @@ type SystemData struct {
 	// Rendering
 	SourceImage *ebiten.Image //
 	// Internal state
-	ActiveCount int
-	IsLoop      bool // IsLoop indicates whether the particle system should loop its behavior.
-	LifeTime    int  // LifeTime specifies the total duration (in frames) the particle system remains active.
+	ActiveCount  int
+	IsLoop       bool   // IsLoop indicates whether the particle system should loop its behavior.
+	LifeTime     int    // LifeTime specifies the total duration (in frames) the particle system remains active.
+	MovementType string // "cartesian" or "polar"
 }
 
 // Position represents a 2D position
@@ -47,6 +50,8 @@ type Instance struct {
 	// Animation sequences
 	SequenceX      *gween.Sequence
 	SequenceY      *gween.Sequence
+	SequenceAngle  *gween.Sequence // Polar Angle
+	SequenceDist   *gween.Sequence // Polar Distance
 	SequenceAlpha  *gween.Sequence
 	SequenceRotate *gween.Sequence // Rotation sequence
 	SequenceScale  *gween.Sequence // Scale sequence

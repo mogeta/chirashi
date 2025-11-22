@@ -158,6 +158,19 @@ func (f *TweenFactory) CreateMovementFactories(movement MovementConfig, baseX, b
 	return xFactory, yFactory
 }
 
+// CreatePolarFactories creates Angle and Distance sequence factories from MovementConfig
+func (f *TweenFactory) CreatePolarFactories(movement MovementConfig) (SequenceFunc, SequenceFunc) {
+	angleFactory := func() *gween.Sequence {
+		return f.CreateSequence(movement.Angle, 0)
+	}
+
+	distFactory := func() *gween.Sequence {
+		return f.CreateSequence(movement.Distance, 0)
+	}
+
+	return angleFactory, distFactory
+}
+
 // CreateDefaultSequence creates a default alpha sequence from AppearanceConfig
 func (f *TweenFactory) CreateDefaultSequence(appearance AppearanceConfig) *gween.Sequence {
 	if len(appearance.Alpha.Steps) == 0 {

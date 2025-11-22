@@ -69,7 +69,17 @@ func createParticlesFromConfig(w donburi.World, image *ebiten.Image, config *Par
 	emitterY := y + config.Emitter.Position.Y
 
 	// Create movement sequence factories
-	xFactory, yFactory := tweenFactory.CreateMovementFactories(config.Movement, emitterX, emitterY)
+	var xFactory, yFactory, angleFactory, distFactory SequenceFunc
+	movementType := config.Movement.Type
+	if movementType == "" {
+		movementType = "cartesian" // Default
+	}
+
+	if movementType == "polar" {
+		angleFactory, distFactory = tweenFactory.CreatePolarFactories(config.Movement)
+	} else {
+		xFactory, yFactory = tweenFactory.CreateMovementFactories(config.Movement, emitterX, emitterY)
+	}
 
 	// Create rotation sequence factory
 	var rotationFactory SequenceFunc
@@ -102,6 +112,8 @@ func createParticlesFromConfig(w donburi.World, image *ebiten.Image, config *Par
 		EmitterPosition:      Position{X: emitterX, Y: emitterY},
 		SequenceFactoryX:     xFactory,
 		SequenceFactoryY:     yFactory,
+		SequenceFactoryAngle: angleFactory,
+		SequenceFactoryDist:  distFactory,
 		SequenceFactoryR:     rotationFactory,
 		SequenceFactoryS:     scaleFactory,
 		SequenceFactoryAlpha: alphaFactory,
@@ -112,6 +124,7 @@ func createParticlesFromConfig(w donburi.World, image *ebiten.Image, config *Par
 		ActiveCount:          0,
 		IsLoop:               config.Spawn.IsLoop,
 		LifeTime:             config.Spawn.LifeTime,
+		MovementType:         movementType,
 	}
 
 	donburi.SetValue(particles, Component, systemData)

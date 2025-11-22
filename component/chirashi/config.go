@@ -30,8 +30,11 @@ type PositionConfig struct {
 
 // MovementConfig defines movement animations
 type MovementConfig struct {
-	X TweenConfig `yaml:"x"`
-	Y TweenConfig `yaml:"y"`
+	Type     string      `yaml:"type"` // "cartesian" or "polar"
+	X        TweenConfig `yaml:"x"`
+	Y        TweenConfig `yaml:"y"`
+	Angle    TweenConfig `yaml:"angle"`    // For Polar
+	Distance TweenConfig `yaml:"distance"` // For Polar
 }
 
 // TweenConfig defines a tween animation configuration

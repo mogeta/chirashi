@@ -2,6 +2,7 @@ package chirashi
 
 import (
 	"chirashi/component"
+	"math"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/yohamta/donburi"
@@ -56,11 +57,30 @@ func updateEachSprite(ecs *ecs.ECS, particleComponent *SystemData) {
 		}
 
 		// Update particle animation sequences
+		// Update particle animation sequences
 		deltaTime := float32(1.0 / float64(ebiten.TPS()))
-		x, _, f1 := particle.SequenceX.Update(deltaTime)
-		y, _, f2 := particle.SequenceY.Update(deltaTime)
-		particle.Position.X = float64(x)
-		particle.Position.Y = float64(y)
+
+		f1, f2 := true, true
+		if particleComponent.MovementType == "polar" {
+			// Polar Movement
+			angle, _, finished1 := particle.SequenceAngle.Update(deltaTime)
+			dist, _, finished2 := particle.SequenceDist.Update(deltaTime)
+			f1, f2 = finished1, finished2
+
+			// Convert angle to radians (assuming config is in degrees)
+			rad := float64(angle) * math.Pi / 180.0
+
+			// Calculate position relative to emitter
+			particle.Position.X = particleComponent.EmitterPosition.X + float64(dist)*math.Cos(rad)
+			particle.Position.Y = particleComponent.EmitterPosition.Y + float64(dist)*math.Sin(rad)
+		} else {
+			// Cartesian Movement (Default)
+			x, _, finished1 := particle.SequenceX.Update(deltaTime)
+			y, _, finished2 := particle.SequenceY.Update(deltaTime)
+			f1, f2 = finished1, finished2
+			particle.Position.X = float64(x)
+			particle.Position.Y = float64(y)
+		}
 
 		f3 := true
 		if particle.SequenceAlpha != nil {
@@ -133,8 +153,14 @@ func spawn(ecs *ecs.ECS, sys *SpriteSystem, particleComponent *SystemData) {
 				particle.Rotation = 0.0
 				particle.Scale = 1.0
 				particle.Active = true
-				particle.SequenceX = particleComponent.SequenceFactoryX()
-				particle.SequenceY = particleComponent.SequenceFactoryY()
+
+				if particleComponent.MovementType == "polar" {
+					particle.SequenceAngle = particleComponent.SequenceFactoryAngle()
+					particle.SequenceDist = particleComponent.SequenceFactoryDist()
+				} else {
+					particle.SequenceX = particleComponent.SequenceFactoryX()
+					particle.SequenceY = particleComponent.SequenceFactoryY()
+				}
 
 				if particleComponent.SequenceFactoryAlpha != nil {
 					particle.SequenceAlpha = particleComponent.SequenceFactoryAlpha()

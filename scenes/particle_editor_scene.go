@@ -245,18 +245,51 @@ func (s *ParticleEditorScene) drawGeneralSettingsWindow(ctx *debugui.Context) {
 		ctx.Text("Y: " + fmt.Sprintf("%.1f", s.config.Emitter.Position.Y))
 		ctx.Button("Y+").On(func() { s.config.Emitter.Position.Y += 10; s.recreateParticles() })
 		ctx.Button("Y-").On(func() { s.config.Emitter.Position.Y -= 10; s.recreateParticles() })
+
+		ctx.Text("----------------")
+
+		// Movement Type Toggle
+		currentType := s.config.Movement.Type
+		if currentType == "" {
+			currentType = "cartesian"
+		}
+		ctx.Text("Type: " + currentType)
+		ctx.Button("Toggle Type").On(func() {
+			if s.config.Movement.Type == "polar" {
+				s.config.Movement.Type = "cartesian"
+			} else {
+				s.config.Movement.Type = "polar"
+			}
+			s.recreateParticles()
+		})
 	})
 }
 
 func (s *ParticleEditorScene) drawMovementXWindow(ctx *debugui.Context) {
-	ctx.Window("Movement X", image.Rect(10, 320, 260, 620), func(layout debugui.ContainerLayout) {
-		s.tweenControls(ctx, "X Axis", &s.config.Movement.X, -1000, 1000, 5.0)
+	title := "Movement X"
+	if s.config.Movement.Type == "polar" {
+		title = "Movement Angle"
+	}
+	ctx.Window(title, image.Rect(10, 320, 260, 620), func(layout debugui.ContainerLayout) {
+		if s.config.Movement.Type == "polar" {
+			s.tweenControls(ctx, "Angle", &s.config.Movement.Angle, 0, 360, 15.0)
+		} else {
+			s.tweenControls(ctx, "X Axis", &s.config.Movement.X, -1000, 1000, 5.0)
+		}
 	})
 }
 
 func (s *ParticleEditorScene) drawMovementYWindow(ctx *debugui.Context) {
-	ctx.Window("Movement Y", image.Rect(1010, 10, 1260, 310), func(layout debugui.ContainerLayout) {
-		s.tweenControls(ctx, "Y Axis", &s.config.Movement.Y, -1000, 1000, 5.0)
+	title := "Movement Y"
+	if s.config.Movement.Type == "polar" {
+		title = "Movement Dist"
+	}
+	ctx.Window(title, image.Rect(1010, 10, 1260, 310), func(layout debugui.ContainerLayout) {
+		if s.config.Movement.Type == "polar" {
+			s.tweenControls(ctx, "Distance", &s.config.Movement.Distance, 0, 1000, 5.0)
+		} else {
+			s.tweenControls(ctx, "Y Axis", &s.config.Movement.Y, -1000, 1000, 5.0)
+		}
 	})
 }
 
