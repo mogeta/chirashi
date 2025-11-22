@@ -5,16 +5,18 @@ import (
 	"image"
 	"image/color"
 	"log"
-
-	"chirashi/assets"
-	"chirashi/component"
-	"chirashi/component/chirashi"
+	"path/filepath"
+	"time"
 
 	"github.com/ebitengine/debugui"
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/yohamta/donburi"
 	"github.com/yohamta/donburi/ecs"
 	"github.com/yohamta/donburi/filter"
+
+	"chirashi/assets"
+	"chirashi/component"
+	"chirashi/component/chirashi"
 )
 
 type ParticleEditorScene struct {
@@ -27,6 +29,7 @@ type ParticleEditorScene struct {
 	offscreen       *ebiten.Image
 	glitchIntensity float64
 	time            float64
+	fileList        []string
 }
 
 func NewParticleEditorScene() *ParticleEditorScene {
@@ -90,6 +93,9 @@ func (s *ParticleEditorScene) Update() error {
 
 		// Window 5: Debug Info (Top Center)
 		s.drawDebugWindow(ctx)
+
+		// Window 6: File Operations (Bottom Left)
+		s.drawFileWindow(ctx)
 
 		return nil
 	}); err != nil {
@@ -395,5 +401,72 @@ func (s *ParticleEditorScene) drawDebugWindow(ctx *debugui.Context) {
 		// Count active sprite entities
 		count := donburi.NewQuery(filter.Contains(component.Sprite)).Count(s.world)
 		ctx.Text(fmt.Sprintf("Objects: %d", count))
+	})
+}
+
+func (s *ParticleEditorScene) refreshFileList() {
+	files, err := filepath.Glob("assets/particles/*.yaml")
+	if err != nil {
+		log.Println("Failed to list files:", err)
+		return
+	}
+	s.fileList = files
+}
+
+func (s *ParticleEditorScene) drawFileWindow(ctx *debugui.Context) {
+	ctx.Window("File Operations", image.Rect(10, 630, 410, 850), func(layout debugui.ContainerLayout) {
+		// Save
+		ctx.Button("Save " + s.config.Name + ".yaml").On(func() {
+			path := filepath.Join("assets", "particles", s.config.Name+".yaml")
+			err := chirashi.GetConfigLoader().SaveConfig(path, s.config)
+			if err != nil {
+				log.Println("Save error:", err)
+			} else {
+				log.Println("Saved to", path)
+				s.refreshFileList()
+			}
+		})
+
+		// Save As New
+		ctx.Button("Save As New").On(func() {
+			timestamp := time.Now().Format("20060102_150405")
+			newName := "particle_" + timestamp
+			s.config.Name = newName // Update internal name too
+			path := filepath.Join("assets", "particles", newName+".yaml")
+			err := chirashi.GetConfigLoader().SaveConfig(path, s.config)
+			if err != nil {
+				log.Println("Save error:", err)
+			} else {
+				log.Println("Saved to", path)
+				s.refreshFileList()
+			}
+		})
+
+		ctx.Text("----------------")
+		ctx.Text("Load File:")
+
+		// Refresh list
+		ctx.Button("Refresh List").On(func() {
+			s.refreshFileList()
+		})
+
+		for _, f := range s.fileList {
+			name := filepath.Base(f)
+			// Capture loop variable
+			f := f
+			ctx.Button(name).On(func() {
+				// Clear cache to ensure fresh load
+				chirashi.GetConfigLoader().ClearCache()
+
+				cfg, err := chirashi.GetConfigLoader().LoadConfig(f)
+				if err != nil {
+					log.Println("Load error:", err)
+				} else {
+					s.config = cfg
+					s.recreateParticles()
+					log.Println("Loaded", name)
+				}
+			})
+		}
 	})
 }

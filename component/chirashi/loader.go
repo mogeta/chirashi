@@ -53,6 +53,25 @@ func (l *ConfigLoader) LoadConfig(path string) (*ParticleConfig, error) {
 	return &config, nil
 }
 
+// SaveConfig saves a particle configuration to a file path
+func (l *ConfigLoader) SaveConfig(path string, config *ParticleConfig) error {
+	l.mutex.Lock()
+	defer l.mutex.Unlock()
+
+	data, err := yaml.Marshal(config)
+	if err != nil {
+		return fmt.Errorf("failed to marshal config: %w", err)
+	}
+
+	if err := os.WriteFile(path, data, 0644); err != nil {
+		return fmt.Errorf("failed to write config file %s: %w", path, err)
+	}
+
+	// Update cache
+	l.configs[path] = config
+	return nil
+}
+
 // LoadConfigFromBytes loads a particle configuration from byte data
 func (l *ConfigLoader) LoadConfigFromBytes(data []byte, name string) (*ParticleConfig, error) {
 	l.mutex.Lock()
