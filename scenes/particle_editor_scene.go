@@ -74,6 +74,9 @@ func (s *ParticleEditorScene) Update() error {
 		// Window 4: Appearance (Bottom Right)
 		s.drawAppearanceWindow(ctx)
 
+		// Window 5: Debug Info (Top Center)
+		s.drawDebugWindow(ctx)
+
 		return nil
 	}); err != nil {
 		return err
@@ -192,7 +195,7 @@ func (s *ParticleEditorScene) tweenControls(ctx *debugui.Context, label string, 
 		// Add Step Button
 		ctx.Button("Add Step").On(func() {
 			// Add a new step with default values (or copy previous)
-			newStep := chirashi.TweenStep{Duration: 60, Easing: "Linear"}
+			newStep := chirashi.TweenStep{Duration: 1, Easing: "Linear"}
 			if len(config.Steps) > 0 {
 				lastStep := config.Steps[len(config.Steps)-1]
 				newStep.From = lastStep.To
@@ -338,5 +341,16 @@ func (s *ParticleEditorScene) drawAppearanceWindow(ctx *debugui.Context) {
 		s.tweenControls(ctx, "Alpha", &s.config.Appearance.Alpha, 0, 1, 0.01)
 		s.tweenControls(ctx, "Rotation", &s.config.Appearance.Rotation, -360, 360, 5.0)
 		s.tweenControls(ctx, "Scale", &s.config.Appearance.Scale, -10, 10, 0.1)
+	})
+}
+
+func (s *ParticleEditorScene) drawDebugWindow(ctx *debugui.Context) {
+	ctx.Window("Debug Info", image.Rect(420, 10, 620, 110), func(layout debugui.ContainerLayout) {
+		fps := ebiten.ActualFPS()
+		ctx.Text(fmt.Sprintf("FPS: %.2f", fps))
+
+		// Count active sprite entities
+		count := donburi.NewQuery(filter.Contains(component.Sprite)).Count(s.world)
+		ctx.Text(fmt.Sprintf("Objects: %d", count))
 	})
 }
