@@ -63,44 +63,16 @@ func (s *ParticleEditorScene) Update() error {
 	// Update DebugUI
 	if _, err := s.debugui.Update(func(ctx *debugui.Context) error {
 		// Window 1: General Settings (Top Left)
-		ctx.Window("General Settings", image.Rect(10, 10, 260, 310), func(layout debugui.ContainerLayout) {
-			ctx.Text("Spawn Config")
-			ctx.Text("Interval: " + fmt.Sprintf("%d", s.config.Spawn.Interval))
-			ctx.Button("I+").On(func() { s.config.Spawn.Interval++; s.recreateParticles() })
-			ctx.Button("I-").On(func() { s.config.Spawn.Interval--; s.recreateParticles() })
-
-			ctx.Text("Per Spawn: " + fmt.Sprintf("%d", s.config.Spawn.ParticlesPerSpawn))
-			ctx.Button("P+").On(func() { s.config.Spawn.ParticlesPerSpawn++; s.recreateParticles() })
-			ctx.Button("P-").On(func() { s.config.Spawn.ParticlesPerSpawn--; s.recreateParticles() })
-
-			ctx.Text("Max Particles: " + fmt.Sprintf("%d", s.config.Spawn.MaxParticles))
-
-			ctx.Text("Emitter")
-			ctx.Text("X: " + fmt.Sprintf("%.1f", s.config.Emitter.Position.X))
-			ctx.Button("X+").On(func() { s.config.Emitter.Position.X += 10; s.recreateParticles() })
-			ctx.Button("X-").On(func() { s.config.Emitter.Position.X -= 10; s.recreateParticles() })
-
-			ctx.Text("Y: " + fmt.Sprintf("%.1f", s.config.Emitter.Position.Y))
-			ctx.Button("Y+").On(func() { s.config.Emitter.Position.Y += 10; s.recreateParticles() })
-			ctx.Button("Y-").On(func() { s.config.Emitter.Position.Y -= 10; s.recreateParticles() })
-		})
+		s.drawGeneralSettingsWindow(ctx)
 
 		// Window 2: Movement X (Bottom Left)
-		ctx.Window("Movement X", image.Rect(10, 320, 260, 620), func(layout debugui.ContainerLayout) {
-			s.tweenControls(ctx, "X Axis", &s.config.Movement.X, -1000, 1000, 5.0)
-		})
+		s.drawMovementXWindow(ctx)
 
 		// Window 3: Movement Y (Top Right)
-		ctx.Window("Movement Y", image.Rect(1010, 10, 1260, 310), func(layout debugui.ContainerLayout) {
-			s.tweenControls(ctx, "Y Axis", &s.config.Movement.Y, -1000, 1000, 5.0)
-		})
+		s.drawMovementYWindow(ctx)
 
 		// Window 4: Appearance (Bottom Right)
-		ctx.Window("Appearance", image.Rect(1010, 320, 1260, 720), func(layout debugui.ContainerLayout) {
-			s.tweenControls(ctx, "Alpha", &s.config.Appearance.Alpha, 0, 1, 0.01)
-			s.tweenControls(ctx, "Rotation", &s.config.Appearance.Rotation, -360, 360, 5.0)
-			s.tweenControls(ctx, "Scale", &s.config.Appearance.Scale, -10, 10, 0.1)
-		})
+		s.drawAppearanceWindow(ctx)
 
 		return nil
 	}); err != nil {
@@ -250,4 +222,48 @@ func (s *ParticleEditorScene) cycleEasing(current string) string {
 
 func (s *ParticleEditorScene) Layout(outsideWidth, outsideHeight int) (int, int) {
 	return 1280, 960 // Larger resolution for editor
+}
+
+func (s *ParticleEditorScene) drawGeneralSettingsWindow(ctx *debugui.Context) {
+	ctx.Window("General Settings", image.Rect(10, 10, 260, 310), func(layout debugui.ContainerLayout) {
+		ctx.Text("Spawn Config")
+		ctx.Text("Interval: " + fmt.Sprintf("%d", s.config.Spawn.Interval))
+		ctx.Button("I+").On(func() { s.config.Spawn.Interval++; s.recreateParticles() })
+		ctx.Button("I-").On(func() { s.config.Spawn.Interval--; s.recreateParticles() })
+
+		ctx.Text("Per Spawn: " + fmt.Sprintf("%d", s.config.Spawn.ParticlesPerSpawn))
+		ctx.Button("P+").On(func() { s.config.Spawn.ParticlesPerSpawn++; s.recreateParticles() })
+		ctx.Button("P-").On(func() { s.config.Spawn.ParticlesPerSpawn--; s.recreateParticles() })
+
+		ctx.Text("Max Particles: " + fmt.Sprintf("%d", s.config.Spawn.MaxParticles))
+
+		ctx.Text("Emitter")
+		ctx.Text("X: " + fmt.Sprintf("%.1f", s.config.Emitter.Position.X))
+		ctx.Button("X+").On(func() { s.config.Emitter.Position.X += 10; s.recreateParticles() })
+		ctx.Button("X-").On(func() { s.config.Emitter.Position.X -= 10; s.recreateParticles() })
+
+		ctx.Text("Y: " + fmt.Sprintf("%.1f", s.config.Emitter.Position.Y))
+		ctx.Button("Y+").On(func() { s.config.Emitter.Position.Y += 10; s.recreateParticles() })
+		ctx.Button("Y-").On(func() { s.config.Emitter.Position.Y -= 10; s.recreateParticles() })
+	})
+}
+
+func (s *ParticleEditorScene) drawMovementXWindow(ctx *debugui.Context) {
+	ctx.Window("Movement X", image.Rect(10, 320, 260, 620), func(layout debugui.ContainerLayout) {
+		s.tweenControls(ctx, "X Axis", &s.config.Movement.X, -1000, 1000, 5.0)
+	})
+}
+
+func (s *ParticleEditorScene) drawMovementYWindow(ctx *debugui.Context) {
+	ctx.Window("Movement Y", image.Rect(1010, 10, 1260, 310), func(layout debugui.ContainerLayout) {
+		s.tweenControls(ctx, "Y Axis", &s.config.Movement.Y, -1000, 1000, 5.0)
+	})
+}
+
+func (s *ParticleEditorScene) drawAppearanceWindow(ctx *debugui.Context) {
+	ctx.Window("Appearance", image.Rect(1010, 320, 1260, 720), func(layout debugui.ContainerLayout) {
+		s.tweenControls(ctx, "Alpha", &s.config.Appearance.Alpha, 0, 1, 0.01)
+		s.tweenControls(ctx, "Rotation", &s.config.Appearance.Rotation, -360, 360, 5.0)
+		s.tweenControls(ctx, "Scale", &s.config.Appearance.Scale, -10, 10, 0.1)
+	})
 }
