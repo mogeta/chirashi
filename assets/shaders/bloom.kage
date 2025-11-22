@@ -1,0 +1,62 @@
+//go:build ignore
+
+//kage:unit pixels
+
+package shaders
+
+var Time float
+var GlitchIntensity float
+
+func rand(co vec2) float {
+	return fract(sin(dot(co.xy, vec2(12.9898, 78.233))) * 43758.5453)
+}
+
+func Fragment(dstPos vec4, srcPos vec2, color vec4) vec4 {
+	// Scanline Jitter
+	jitter := float(0.0)
+	if GlitchIntensity > 0.0 {
+		// Create random offset based on time and y position
+		// We use floor to make it blocky/scanline-like
+		blockY := floor(srcPos.y * 0.05)
+		noise := rand(vec2(Time*10.0, blockY))
+
+		// Only apply jitter occasionally based on intensity
+		if noise < GlitchIntensity*0.5 {
+			jitter = (rand(vec2(Time, blockY)) - 0.5) * 20.0 * GlitchIntensity
+		}
+	}
+
+	// Chromatic Aberration
+	// Shift RGB channels slightly based on distance from center + glitch intensity
+	center := vec2(640, 480) // Assuming 1280x960 resolution
+	dist := distance(dstPos.xy, center)
+	aberration := dist*0.001 + (GlitchIntensity * 0.02)
+
+	// Texture coordinates for each channel with jitter
+	rPos := srcPos + vec2(aberration+jitter, 0)
+	gPos := srcPos + vec2(jitter, 0)
+	bPos := srcPos - vec2(aberration-jitter, 0)
+
+	// Sample texture
+	r := imageSrc0At(rPos).r
+	g := imageSrc0At(gPos).g
+	b := imageSrc0At(bPos).b
+	a := imageSrc0At(srcPos + vec2(jitter, 0)).a // Use alpha from jittered pos
+
+	// Simple Bloom (Glow)
+	// Sample neighbors to create a blur/glow effect
+	glow := vec3(0.0)
+	offset := float(2.0)
+
+	glow += imageSrc0At(srcPos + vec2(offset, 0)).rgb
+	glow += imageSrc0At(srcPos - vec2(offset, 0)).rgb
+	glow += imageSrc0At(srcPos + vec2(0, offset)).rgb
+	glow += imageSrc0At(srcPos - vec2(0, offset)).rgb
+
+	glow *= 0.15 // Intensity of glow
+
+	// Combine original color with glow
+	finalColor := vec3(r, g, b) + glow
+
+	return vec4(finalColor, a) * color
+}

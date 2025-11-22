@@ -6,6 +6,7 @@ import (
 	"image/color"
 	"log"
 
+	"chirashi/assets"
 	"chirashi/component"
 	"chirashi/component/chirashi"
 
@@ -17,11 +18,15 @@ import (
 )
 
 type ParticleEditorScene struct {
-	world     donburi.World
-	container *ecs.ECS
-	config    *chirashi.ParticleConfig
-	img       *ebiten.Image
-	debugui   debugui.DebugUI
+	world           donburi.World
+	container       *ecs.ECS
+	config          *chirashi.ParticleConfig
+	img             *ebiten.Image
+	debugui         debugui.DebugUI
+	shader          *ebiten.Shader
+	offscreen       *ebiten.Image
+	glitchIntensity float64
+	time            float64
 }
 
 func NewParticleEditorScene() *ParticleEditorScene {
@@ -51,15 +56,24 @@ func NewParticleEditorScene() *ParticleEditorScene {
 		log.Fatal(err)
 	}
 
+	// Load Shader
+	shader, err := ebiten.NewShader(assets.BloomShader)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	return &ParticleEditorScene{
 		world:     world,
 		container: container,
 		config:    config,
 		img:       img,
+		shader:    shader,
 	}
 }
 
 func (s *ParticleEditorScene) Update() error {
+	s.time += 1.0 / 60.0
+
 	// Update DebugUI
 	if _, err := s.debugui.Update(func(ctx *debugui.Context) error {
 		// Window 1: General Settings (Top Left)
@@ -87,8 +101,26 @@ func (s *ParticleEditorScene) Update() error {
 }
 
 func (s *ParticleEditorScene) Draw(screen *ebiten.Image) {
-	screen.Fill(color.RGBA{0x20, 0x20, 0x20, 0xff})
-	s.container.Draw(screen)
+	if s.offscreen == nil {
+		s.offscreen = ebiten.NewImage(screen.Bounds().Dx(), screen.Bounds().Dy())
+	}
+
+	// Clear offscreen
+	s.offscreen.Fill(color.RGBA{0x20, 0x20, 0x20, 0xff})
+
+	// Draw particles to offscreen
+	s.container.Draw(s.offscreen)
+
+	// Apply shader and draw to screen
+	op := &ebiten.DrawRectShaderOptions{}
+	op.Images[0] = s.offscreen
+	op.Uniforms = map[string]interface{}{
+		"Time":            float32(s.time),
+		"GlitchIntensity": float32(s.glitchIntensity),
+	}
+	screen.DrawRectShader(screen.Bounds().Dx(), screen.Bounds().Dy(), s.shader, op)
+
+	// Draw UI on top
 	s.debugui.Draw(screen)
 }
 
@@ -115,7 +147,9 @@ func (s *ParticleEditorScene) recreateParticles() {
 	}
 
 	// Create new particles at center of 1280x960 screen
-	chirashi.NewParticlesFromConfig(s.world, s.img, s.config, 640, 480)
+	if err := chirashi.NewParticlesFromConfig(s.world, s.img, s.config, 640, 480); err != nil {
+		log.Println("Failed to recreate particles:", err)
+	}
 }
 
 func (s *ParticleEditorScene) tweenControls(ctx *debugui.Context, label string, config *chirashi.TweenConfig, min, max, stepVal float64) {
@@ -195,7 +229,7 @@ func (s *ParticleEditorScene) tweenControls(ctx *debugui.Context, label string, 
 		// Add Step Button
 		ctx.Button("Add Step").On(func() {
 			// Add a new step with default values (or copy previous)
-			newStep := chirashi.TweenStep{Duration: 1, Easing: "Linear"}
+			newStep := chirashi.TweenStep{Duration: 60, Easing: "Linear"}
 			if len(config.Steps) > 0 {
 				lastStep := config.Steps[len(config.Steps)-1]
 				newStep.From = lastStep.To
@@ -264,6 +298,10 @@ func (s *ParticleEditorScene) cycleEasing(current string) string {
 }
 
 func (s *ParticleEditorScene) Layout(outsideWidth, outsideHeight int) (int, int) {
+	if s.offscreen != nil && (s.offscreen.Bounds().Dx() != outsideWidth || s.offscreen.Bounds().Dy() != outsideHeight) {
+		s.offscreen.Dispose()
+		s.offscreen = nil
+	}
 	return 1280, 960 // Larger resolution for editor
 }
 
@@ -305,6 +343,11 @@ func (s *ParticleEditorScene) drawGeneralSettingsWindow(ctx *debugui.Context) {
 			}
 			s.recreateParticles()
 		})
+
+		ctx.Text("----------------")
+
+		// Glitch Intensity
+		s.sliderControl(ctx, "Glitch Intensity", &s.glitchIntensity, 0.0, 1.0, 0.01)
 	})
 }
 
