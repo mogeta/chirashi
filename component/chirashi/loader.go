@@ -53,6 +53,31 @@ func (l *ConfigLoader) LoadConfig(path string) (*ParticleConfig, error) {
 	return &config, nil
 }
 
+// LoadConfigFromBytes loads a particle configuration from byte data
+func (l *ConfigLoader) LoadConfigFromBytes(data []byte, name string) (*ParticleConfig, error) {
+	l.mutex.Lock()
+	defer l.mutex.Unlock()
+
+	// Check cache first
+	if config, exists := l.configs[name]; exists {
+		return config, nil
+	}
+
+	var config ParticleConfig
+	if err := yaml.Unmarshal(data, &config); err != nil {
+		return nil, fmt.Errorf("failed to parse YAML config %s: %w", name, err)
+	}
+
+	// Validate configuration
+	if err := l.validateConfig(&config); err != nil {
+		return nil, fmt.Errorf("invalid config %s: %w", name, err)
+	}
+
+	// Cache the configuration
+	l.configs[name] = &config
+	return &config, nil
+}
+
 // LoadFromAssets loads a particle configuration from assets directory
 func (l *ConfigLoader) LoadFromAssets(name string) (*ParticleConfig, error) {
 	// Check if name already has .yaml extension

@@ -44,12 +44,12 @@ func NewParticleEditorScene() *ParticleEditorScene {
 	img.Fill(color.White)
 
 	// Load configuration from file
-	configPath := "assets/particles/sample.yaml"
-	config, err := chirashi.GetConfigLoader().LoadConfig(configPath)
+	log.Println("Loading particle configuration...")
+	config, err := chirashi.GetConfigLoader().LoadConfigFromBytes(assets.SampleParticleConfig, "sample.yaml")
 	if err != nil {
 		log.Fatalf("Failed to load config: %v\n", err)
-
 	}
+	log.Println("Particle configuration loaded successfully")
 
 	// Create particles from config
 	if err := chirashi.NewParticlesFromConfig(world, img, config, 640, 480); err != nil {
