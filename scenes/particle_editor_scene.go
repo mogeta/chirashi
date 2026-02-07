@@ -384,18 +384,29 @@ func (s *ParticleEditorScene) drawAppearanceWindow(ctx *debugui.Context) {
 }
 
 func (s *ParticleEditorScene) drawDebugWindow(ctx *debugui.Context) {
-	ctx.Window("Debug Info", image.Rect(420, 10, 620, 110), func(layout debugui.ContainerLayout) {
+	ctx.Window("Debug Info", image.Rect(420, 10, 720, 200), func(layout debugui.ContainerLayout) {
 		fps := ebiten.ActualFPS()
 		ctx.Text(fmt.Sprintf("FPS: %.2f", fps))
 
-		// Count active particles
-		activeCount := 0
+		// Collect metrics from all particle systems
+		var activeCount, totalSpawned, totalDeactivated int
+		var updateTimeUs, drawTimeUs int64
 		query := donburi.NewQuery(filter.Contains(chirashi.Component))
 		query.Each(s.world, func(entry *donburi.Entry) {
 			particleData := chirashi.Component.Get(entry)
 			activeCount += particleData.ActiveCount
+			totalSpawned += particleData.Metrics.SpawnCount
+			totalDeactivated += particleData.Metrics.DeactivateCount
+			updateTimeUs += particleData.Metrics.UpdateTimeUs
+			drawTimeUs += particleData.Metrics.DrawTimeUs
 		})
-		ctx.Text(fmt.Sprintf("Active Particles: %d", activeCount))
+
+		ctx.Text(fmt.Sprintf("Active: %d", activeCount))
+		ctx.Text(fmt.Sprintf("Spawned: %d", totalSpawned))
+		ctx.Text(fmt.Sprintf("Deactivated: %d", totalDeactivated))
+		ctx.Text(fmt.Sprintf("Update: %d µs", updateTimeUs))
+		ctx.Text(fmt.Sprintf("Draw: %d µs", drawTimeUs))
+		ctx.Text(fmt.Sprintf("Total: %.2f ms", float64(updateTimeUs+drawTimeUs)/1000.0))
 	})
 }
 

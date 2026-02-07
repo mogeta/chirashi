@@ -2,12 +2,21 @@ package chirashi
 
 import (
 	"math"
+	"sync"
+	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/yohamta/donburi"
 	"github.com/yohamta/donburi/ecs"
 	"github.com/yohamta/donburi/filter"
 )
+
+// drawOptsPool pools DrawImageOptions to reduce GC pressure
+var drawOptsPool = sync.Pool{
+	New: func() interface{} {
+		return &ebiten.DrawImageOptions{}
+	},
+}
 
 // System manages particle systems with direct rendering
 type System struct {
@@ -27,8 +36,15 @@ func (sys *System) Update(ecs *ecs.ECS) {
 	for entry := range sys.query.Iter(ecs.World) {
 		particleComponent := Component.Get(entry)
 
+		// Track update time
+		startTime := time.Now()
+
 		sys.spawn(particleComponent)
 		sys.updateParticles(particleComponent)
+
+		// Update metrics
+		particleComponent.Metrics.UpdateTimeUs = time.Since(startTime).Microseconds()
+		particleComponent.Metrics.FrameCount++
 
 		// Handle lifetime
 		if !particleComponent.IsLoop {
@@ -103,6 +119,7 @@ func (sys *System) updateParticles(particleComponent *SystemData) {
 			particle.Active = false
 			indicesToRemove = append(indicesToRemove, i)
 			particleComponent.ActiveCount--
+			particleComponent.Metrics.DeactivateCount++
 			// Return to free indices pool
 			particleComponent.FreeIndices = append(particleComponent.FreeIndices, particleIdx)
 		}
@@ -164,6 +181,7 @@ func (sys *System) spawn(particleComponent *SystemData) {
 			// Add to active indices
 			particleComponent.ActiveIndices = append(particleComponent.ActiveIndices, freeIdx)
 			particleComponent.ActiveCount++
+			particleComponent.Metrics.SpawnCount++
 		}
 	}
 }
@@ -177,16 +195,23 @@ func (sys *System) Draw(ecs *ecs.ECS, screen *ebiten.Image) {
 			continue
 		}
 
-		// Get image dimensions once
-		bounds := particleComponent.SourceImage.Bounds()
-		baseWidth := float64(bounds.Dx())
-		baseHeight := float64(bounds.Dy())
+		// Track draw time
+		startTime := time.Now()
+
+		// Use cached image dimensions
+		baseWidth := particleComponent.ImageWidth
+		baseHeight := particleComponent.ImageHeight
 
 		// Draw only active particles
 		for _, particleIdx := range particleComponent.ActiveIndices {
 			particle := &particleComponent.ParticlePool[particleIdx]
 
-			opts := &ebiten.DrawImageOptions{}
+			// Get DrawImageOptions from pool
+			opts := drawOptsPool.Get().(*ebiten.DrawImageOptions)
+
+			// Reset to default state
+			opts.GeoM.Reset()
+			opts.ColorScale.Reset()
 
 			width := baseWidth
 			height := baseHeight
@@ -224,6 +249,12 @@ func (sys *System) Draw(ecs *ecs.ECS, screen *ebiten.Image) {
 			opts.CompositeMode = ebiten.CompositeModeSourceOver
 
 			screen.DrawImage(particleComponent.SourceImage, opts)
+
+			// Return to pool
+			drawOptsPool.Put(opts)
 		}
+
+		// Update draw metrics
+		particleComponent.Metrics.DrawTimeUs = time.Since(startTime).Microseconds()
 	}
 }

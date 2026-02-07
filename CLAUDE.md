@@ -54,9 +54,8 @@ mage buildrelease
 The codebase follows ECS patterns with donburi:
 
 1. **`component/chirashi/`** - Core particle system implementation
-   - `component.go`: Defines `SystemData` and `Instance` structs for particle data
-   - `system.go`: Update logic for particle lifecycle (spawn, animate, deactivate)
-   - `sprite_system.go`: Alternative rendering system using sprite entities
+   - `component.go`: Defines `SystemData`, `Instance`, and `Metrics` structs
+   - `system.go`: Optimized particle lifecycle with direct rendering (spawn, update, draw)
    - `config.go`: YAML-based particle configuration structs
    - `factory.go`, `configurable_factory.go`: Factory functions for creating particles
    - `tween_factory.go`: Creates tween animation sequences from config
@@ -78,6 +77,11 @@ The codebase follows ECS patterns with donburi:
 
 ### Particle System Design
 
+**Rendering Architecture:**
+- **Direct Rendering**: Particles are rendered directly without intermediate sprite entities
+- Single `System` handles update and draw (no separate systems)
+- Optimized for minimal memory allocations and GC pressure
+
 **Two Movement Systems:**
 - **Cartesian**: Particles move using X/Y tween sequences
 - **Polar**: Particles move using Angle/Distance tween sequences
@@ -93,11 +97,38 @@ The codebase follows ECS patterns with donburi:
 - See `sample.yaml` for reference structure
 
 **Particle Lifecycle:**
-1. Spawned from pool at configured interval
+1. Spawned from pool at configured interval using O(1) free index stack
 2. Initialized with tween sequences from factories
-3. Updated each frame by `System.Update()`
-4. Deactivated when all tween sequences finish
-5. Returned to pool for reuse
+3. Updated each frame by `System.Update()` (only active particles)
+4. Rendered by `System.Draw()` (only active particles)
+5. Deactivated when all tween sequences finish
+6. Returned to free index stack for reuse
+
+### Performance Optimizations
+
+**Active Index Management (O(1) operations):**
+- `ActiveIndices []int`: Compact array of active particle indices
+- `FreeIndices []int`: Stack of available particle indices
+- Update/Draw iterate only active particles (not entire pool)
+- Spawn uses O(1) pop from free stack (no linear search)
+
+**Memory Optimizations:**
+- `DrawImageOptions` pooling with `sync.Pool` (zero allocations per frame)
+- Image dimensions cached in `SystemData` (no repeated `Bounds()` calls)
+- Direct rendering without intermediate sprite entities
+
+**Performance Metrics:**
+The `Metrics` struct tracks:
+- `UpdateTimeUs`: Update time in microseconds
+- `DrawTimeUs`: Draw time in microseconds
+- `SpawnCount`: Total particles spawned (cumulative)
+- `DeactivateCount`: Total particles deactivated (cumulative)
+- Displayed in editor's Debug Info window
+
+**Typical Performance (1000 max particles, 10 active):**
+- Update: ~10 iterations instead of 1000 (100x improvement)
+- Draw: ~10 iterations instead of 1000 (100x improvement)
+- Spawn: O(1) instead of O(n) linear search
 
 ### Platform-Specific Code
 

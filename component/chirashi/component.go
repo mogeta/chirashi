@@ -30,12 +30,16 @@ type SystemData struct {
 	ParticlesPerSpawn int
 	MaxParticles      int
 	// Rendering
-	SourceImage *ebiten.Image //
+	SourceImage *ebiten.Image
+	ImageWidth  float64 // Cached image width
+	ImageHeight float64 // Cached image height
 	// Internal state
 	ActiveCount  int
 	IsLoop       bool   // IsLoop indicates whether the particle system should loop its behavior.
 	LifeTime     int    // LifeTime specifies the total duration (in frames) the particle system remains active.
 	MovementType string // "cartesian" or "polar"
+	// Performance metrics
+	Metrics Metrics
 }
 
 // Position represents a 2D position
@@ -60,6 +64,15 @@ type Instance struct {
 	SequenceScale  *gween.Sequence // Scale sequence
 	// State
 	Active bool
+}
+
+// Metrics tracks performance data for a particle system
+type Metrics struct {
+	UpdateTimeUs    int64 // Update time in microseconds
+	DrawTimeUs      int64 // Draw time in microseconds
+	SpawnCount      int   // Total particles spawned (cumulative)
+	DeactivateCount int   // Total particles deactivated (cumulative)
+	FrameCount      int   // Frame counter for averaging
 }
 
 // Component is the Donburi component type for particle systems
