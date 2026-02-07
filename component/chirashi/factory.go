@@ -19,8 +19,16 @@ func NewParticles(w donburi.World, image *ebiten.Image, x, y float64) {
 
 	const maxParticles = 1000
 
+	// Initialize free indices pool
+	freeIndices := make([]int, maxParticles)
+	for i := range freeIndices {
+		freeIndices[i] = maxParticles - 1 - i // Reverse order for stack
+	}
+
 	var d = SystemData{
 		ParticlePool:    make([]Instance, maxParticles),
+		ActiveIndices:   make([]int, 0, maxParticles),
+		FreeIndices:     freeIndices,
 		EmitterPosition: Position{X: x, Y: y},
 		SequenceFactoryX: func() *gween.Sequence {
 			targetx := rangeFloat(x-300, x+300)

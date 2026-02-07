@@ -106,9 +106,17 @@ func createParticlesFromConfig(w donburi.World, image *ebiten.Image, config *Par
 		}
 	}
 
+	// Initialize free indices pool (all particles are free initially)
+	freeIndices := make([]int, config.Spawn.MaxParticles)
+	for i := range freeIndices {
+		freeIndices[i] = config.Spawn.MaxParticles - 1 - i // Reverse order for stack
+	}
+
 	// Build particle system data
 	systemData := SystemData{
 		ParticlePool:         make([]Instance, config.Spawn.MaxParticles),
+		ActiveIndices:        make([]int, 0, config.Spawn.MaxParticles),
+		FreeIndices:          freeIndices,
 		EmitterPosition:      Position{X: emitterX, Y: emitterY},
 		SequenceFactoryX:     xFactory,
 		SequenceFactoryY:     yFactory,

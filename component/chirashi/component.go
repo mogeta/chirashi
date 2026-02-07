@@ -13,6 +13,9 @@ type SequenceFunc func() *gween.Sequence
 type SystemData struct {
 	// Pool of particles for efficient memory management
 	ParticlePool []Instance
+	// Index management for O(1) operations
+	ActiveIndices []int // Indices of active particles (compact array)
+	FreeIndices   []int // Stack of free particle indices
 	// Emitter configuration
 	EmitterPosition      Position
 	SequenceFactoryX     SequenceFunc

@@ -43,12 +43,13 @@ func (sys *System) Update(ecs *ecs.ECS) {
 func (sys *System) updateParticles(particleComponent *SystemData) {
 	deltaTime := float32(1.0 / float64(ebiten.TPS()))
 
-	// Update existing particles
-	for i := range particleComponent.ParticlePool {
-		particle := &particleComponent.ParticlePool[i]
-		if !particle.Active {
-			continue
-		}
+	// Track indices to remove (particles that finished)
+	indicesToRemove := []int{}
+
+	// Iterate only active particles
+	for i := 0; i < len(particleComponent.ActiveIndices); i++ {
+		particleIdx := particleComponent.ActiveIndices[i]
+		particle := &particleComponent.ParticlePool[particleIdx]
 
 		// Update movement based on type
 		f1, f2 := true, true
@@ -97,11 +98,23 @@ func (sys *System) updateParticles(particleComponent *SystemData) {
 			f5 = finished
 		}
 
-		// Deactivate particle if all sequences finished
+		// Mark for removal if all sequences finished
 		if f1 && f2 && f3 && f4 && f5 {
 			particle.Active = false
+			indicesToRemove = append(indicesToRemove, i)
 			particleComponent.ActiveCount--
+			// Return to free indices pool
+			particleComponent.FreeIndices = append(particleComponent.FreeIndices, particleIdx)
 		}
+	}
+
+	// Remove finished particles from active indices (iterate backwards to avoid index shift issues)
+	for i := len(indicesToRemove) - 1; i >= 0; i-- {
+		removeIdx := indicesToRemove[i]
+		// Swap with last element and truncate
+		lastIdx := len(particleComponent.ActiveIndices) - 1
+		particleComponent.ActiveIndices[removeIdx] = particleComponent.ActiveIndices[lastIdx]
+		particleComponent.ActiveIndices = particleComponent.ActiveIndices[:lastIdx]
 	}
 }
 
@@ -109,43 +122,48 @@ func (sys *System) spawn(particleComponent *SystemData) {
 	// Spawn new particles
 	if sys.cnt%particleComponent.SpawnInterval == 0 {
 		for i := 0; i < particleComponent.ParticlesPerSpawn && particleComponent.ActiveCount < particleComponent.MaxParticles; i++ {
-			for j := range particleComponent.ParticlePool {
-				particle := &particleComponent.ParticlePool[j]
-				if particle.Active {
-					continue
-				}
-
-				// Initialize particle
-				particle.Position.X = particleComponent.EmitterPosition.X
-				particle.Position.Y = particleComponent.EmitterPosition.Y
-				particle.Alpha = 1
-				particle.Rotation = 0.0
-				particle.Scale = 1.0
-				particle.Active = true
-
-				// Create movement sequences based on type
-				if particleComponent.MovementType == "polar" {
-					particle.SequenceAngle = particleComponent.SequenceFactoryAngle()
-					particle.SequenceDist = particleComponent.SequenceFactoryDist()
-				} else {
-					particle.SequenceX = particleComponent.SequenceFactoryX()
-					particle.SequenceY = particleComponent.SequenceFactoryY()
-				}
-
-				// Create appearance sequences
-				if particleComponent.SequenceFactoryAlpha != nil {
-					particle.SequenceAlpha = particleComponent.SequenceFactoryAlpha()
-				}
-				if particleComponent.SequenceFactoryR != nil {
-					particle.SequenceRotate = particleComponent.SequenceFactoryR()
-				}
-				if particleComponent.SequenceFactoryS != nil {
-					particle.SequenceScale = particleComponent.SequenceFactoryS()
-				}
-
-				particleComponent.ActiveCount++
-				break
+			// O(1) free index retrieval
+			if len(particleComponent.FreeIndices) == 0 {
+				break // No free particles available
 			}
+
+			// Pop from free indices stack
+			freeIdx := particleComponent.FreeIndices[len(particleComponent.FreeIndices)-1]
+			particleComponent.FreeIndices = particleComponent.FreeIndices[:len(particleComponent.FreeIndices)-1]
+
+			particle := &particleComponent.ParticlePool[freeIdx]
+
+			// Initialize particle
+			particle.Position.X = particleComponent.EmitterPosition.X
+			particle.Position.Y = particleComponent.EmitterPosition.Y
+			particle.Alpha = 1
+			particle.Rotation = 0.0
+			particle.Scale = 1.0
+			particle.Active = true
+
+			// Create movement sequences based on type
+			if particleComponent.MovementType == "polar" {
+				particle.SequenceAngle = particleComponent.SequenceFactoryAngle()
+				particle.SequenceDist = particleComponent.SequenceFactoryDist()
+			} else {
+				particle.SequenceX = particleComponent.SequenceFactoryX()
+				particle.SequenceY = particleComponent.SequenceFactoryY()
+			}
+
+			// Create appearance sequences
+			if particleComponent.SequenceFactoryAlpha != nil {
+				particle.SequenceAlpha = particleComponent.SequenceFactoryAlpha()
+			}
+			if particleComponent.SequenceFactoryR != nil {
+				particle.SequenceRotate = particleComponent.SequenceFactoryR()
+			}
+			if particleComponent.SequenceFactoryS != nil {
+				particle.SequenceScale = particleComponent.SequenceFactoryS()
+			}
+
+			// Add to active indices
+			particleComponent.ActiveIndices = append(particleComponent.ActiveIndices, freeIdx)
+			particleComponent.ActiveCount++
 		}
 	}
 }
@@ -155,19 +173,23 @@ func (sys *System) Draw(ecs *ecs.ECS, screen *ebiten.Image) {
 	for entry := range sys.query.Iter(ecs.World) {
 		particleComponent := Component.Get(entry)
 
-		// Draw all active particles
-		for i := range particleComponent.ParticlePool {
-			particle := &particleComponent.ParticlePool[i]
-			if !particle.Active || particleComponent.SourceImage == nil {
-				continue
-			}
+		if particleComponent.SourceImage == nil {
+			continue
+		}
+
+		// Get image dimensions once
+		bounds := particleComponent.SourceImage.Bounds()
+		baseWidth := float64(bounds.Dx())
+		baseHeight := float64(bounds.Dy())
+
+		// Draw only active particles
+		for _, particleIdx := range particleComponent.ActiveIndices {
+			particle := &particleComponent.ParticlePool[particleIdx]
 
 			opts := &ebiten.DrawImageOptions{}
 
-			// Get image dimensions
-			bounds := particleComponent.SourceImage.Bounds()
-			width := float64(bounds.Dx())
-			height := float64(bounds.Dy())
+			width := baseWidth
+			height := baseHeight
 
 			// Apply scale
 			if particle.Scale > 0 {
