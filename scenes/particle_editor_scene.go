@@ -15,7 +15,6 @@ import (
 	"github.com/yohamta/donburi/filter"
 
 	"chirashi/assets"
-	"chirashi/component"
 	"chirashi/component/chirashi"
 )
 
@@ -36,11 +35,9 @@ func NewParticleEditorScene() *ParticleEditorScene {
 	world := donburi.NewWorld()
 	container := ecs.NewECS(world)
 
-	particleSys := chirashi.NewSpriteSystem()
+	particleSys := chirashi.NewSystem()
 	container.AddSystem(particleSys.Update)
-
-	spriteRender := component.NewSpriteRender()
-	container.AddRenderer(0, spriteRender.Draw)
+	container.AddRenderer(0, particleSys.Draw)
 
 	// Create debug particle image
 	img := ebiten.NewImage(8, 8)
@@ -141,14 +138,7 @@ func (s *ParticleEditorScene) recreateParticles() {
 	})
 
 	for _, entry := range entries {
-		// Clean up sprite entities associated with this particle system
-		particleComponent := chirashi.Component.Get(entry)
-		for i := range particleComponent.ParticlePool {
-			particle := &particleComponent.ParticlePool[i]
-			if particle.SpriteEntity != nil && particle.SpriteEntity.Valid() {
-				s.world.Remove(particle.SpriteEntity.Entity())
-			}
-		}
+		// Remove particle system entities
 		s.world.Remove(entry.Entity())
 	}
 
@@ -398,9 +388,14 @@ func (s *ParticleEditorScene) drawDebugWindow(ctx *debugui.Context) {
 		fps := ebiten.ActualFPS()
 		ctx.Text(fmt.Sprintf("FPS: %.2f", fps))
 
-		// Count active sprite entities
-		count := donburi.NewQuery(filter.Contains(component.Sprite)).Count(s.world)
-		ctx.Text(fmt.Sprintf("Objects: %d", count))
+		// Count active particles
+		activeCount := 0
+		query := donburi.NewQuery(filter.Contains(chirashi.Component))
+		query.Each(s.world, func(entry *donburi.Entry) {
+			particleData := chirashi.Component.Get(entry)
+			activeCount += particleData.ActiveCount
+		})
+		ctx.Text(fmt.Sprintf("Active Particles: %d", activeCount))
 	})
 }
 

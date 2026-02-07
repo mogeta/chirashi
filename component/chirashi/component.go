@@ -57,8 +57,6 @@ type Instance struct {
 	SequenceScale  *gween.Sequence // Scale sequence
 	// State
 	Active bool
-	// Sprite entity reference (for sprite-based rendering)
-	SpriteEntity *donburi.Entry
 }
 
 // Component is the Donburi component type for particle systems
