@@ -1,6 +1,7 @@
 package aburi
 
 import (
+	"fmt"
 	"math/rand"
 	"time"
 
@@ -56,12 +57,22 @@ func (sys *System) Update(ecs *ecs.ECS) {
 }
 
 func (sys *System) spawn(data *SystemData) {
-	if sys.cnt%data.SpawnInterval != 0 {
+	if data.SpawnInterval <= 0 || sys.cnt%data.SpawnInterval != 0 {
 		return
 	}
 
 	params := &data.AnimParams
 	currentTime := data.CurrentTime
+
+	// Debug: log first spawn
+	if data.Metrics.SpawnCount == 0 {
+		fmt.Printf("First spawn: UsePolar=%v, Angle(%.2f-%.2f), Dist(%.0f-%.0f), Color(%.1f,%.1f,%.1f)->(%.1f,%.1f,%.1f)\n",
+			params.UsePolar,
+			params.AngleMin, params.AngleMax,
+			params.DistanceMin, params.DistanceMax,
+			params.StartR, params.StartG, params.StartB,
+			params.EndR, params.EndG, params.EndB)
+	}
 
 	for i := 0; i < data.ParticlesPerSpawn && data.ActiveCount < data.MaxParticles; i++ {
 		// O(1) free index retrieval
@@ -116,6 +127,15 @@ func (sys *System) spawn(data *SystemData) {
 		particle.StartRotation = params.StartRotation
 		particle.EndRotation = params.EndRotation
 		particle.RotationEasing = params.RotationEasing
+
+		// Color
+		particle.StartR = params.StartR
+		particle.StartG = params.StartG
+		particle.StartB = params.StartB
+		particle.EndR = params.EndR
+		particle.EndG = params.EndG
+		particle.EndB = params.EndB
+		particle.ColorEasing = params.ColorEasing
 
 		particle.Active = true
 
@@ -222,10 +242,15 @@ func (sys *System) Draw(ecs *ecs.ECS, screen *ebiten.Image) {
 				{scaledHalfW, scaledHalfH},
 			}
 
-			// Prepare vertex custom data for GPU alpha interpolation
-			// color.r = startAlpha, color.g = endAlpha, color.b = alphaEasing (normalized)
-			// custom0.x = spawnTime, custom0.y = duration
-			alphaEasingNorm := float32(p.AlphaEasing) / 25.0 // Normalize to [0,1]
+			// Prepare vertex custom data for GPU interpolation
+			// color.r = startAlpha, color.g = endAlpha
+			// color.b = alphaEasing (normalized), color.a = colorEasing (normalized)
+			// custom.x = spawnTime, custom.y = duration
+			// custom.z = startColor (packed RGB), custom.w = endColor (packed RGB)
+			alphaEasingNorm := float32(p.AlphaEasing) / 25.0
+			colorEasingNorm := float32(p.ColorEasing) / 25.0
+			startColorPacked := packRGB(p.StartR, p.StartG, p.StartB)
+			endColorPacked := packRGB(p.EndR, p.EndG, p.EndB)
 
 			vertexBase := uint16(len(data.Vertices))
 
@@ -259,11 +284,11 @@ func (sys *System) Draw(ecs *ecs.ECS, screen *ebiten.Image) {
 					ColorR:  p.StartAlpha,
 					ColorG:  p.EndAlpha,
 					ColorB:  alphaEasingNorm,
-					ColorA:  1.0,
+					ColorA:  colorEasingNorm,
 					Custom0: p.SpawnTime,
 					Custom1: p.Duration,
-					Custom2: 0,
-					Custom3: 0,
+					Custom2: startColorPacked,
+					Custom3: endColorPacked,
 				})
 			}
 
@@ -294,6 +319,24 @@ func rangeFloat32(min, max float32) float32 {
 		return min
 	}
 	return min + rand.Float32()*(max-min)
+}
+
+// packRGB packs RGB (0-1) into a single float for shader transfer
+func packRGB(r, g, b float32) float32 {
+	ri := uint32(clampf(r, 0, 1) * 255)
+	gi := uint32(clampf(g, 0, 1) * 255)
+	bi := uint32(clampf(b, 0, 1) * 255)
+	return float32(ri<<16 | gi<<8 | bi)
+}
+
+func clampf(v, min, max float32) float32 {
+	if v < min {
+		return min
+	}
+	if v > max {
+		return max
+	}
+	return v
 }
 
 func lerp(a, b, t float32) float32 {

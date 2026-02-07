@@ -134,8 +134,8 @@ func (l *ConfigLoader) validateConfig(config *ParticleConfig) error {
 		return fmt.Errorf("particles_per_spawn must be greater than 0")
 	}
 
-	if config.Spawn.Interval < 0 {
-		return fmt.Errorf("interval must be non-negative")
+	if config.Spawn.Interval <= 0 {
+		return fmt.Errorf("interval must be greater than 0")
 	}
 
 	if config.Animation.Duration.Value <= 0 {

@@ -129,13 +129,20 @@ func (s *AburiEditorScene) recreateParticles() {
 		entries = append(entries, entry)
 	})
 
+	log.Printf("Removing %d existing particle systems", len(entries))
 	for _, entry := range entries {
 		s.world.Remove(entry.Entity())
 	}
 
 	// Create new particles
+	log.Printf("Creating particles with config: %s, PosType=%s, UsePolar=%v",
+		s.config.Name,
+		s.config.Animation.Position.Type,
+		s.config.Animation.Position.Type == "polar")
 	if err := aburi.NewParticlesFromConfig(s.world, s.shader, s.img, s.config, 640, 480); err != nil {
 		log.Println("Failed to recreate particles:", err)
+	} else {
+		log.Println("Particles recreated successfully")
 	}
 }
 
@@ -207,7 +214,7 @@ func (s *AburiEditorScene) drawGeneralSettingsWindow(ctx *debugui.Context) {
 }
 
 func (s *AburiEditorScene) drawAnimationWindow(ctx *debugui.Context) {
-	ctx.Window("Animation", image.Rect(10, 360, 410, 800), func(layout debugui.ContainerLayout) {
+	ctx.Window("Animation", image.Rect(10, 360, 410, 950), func(layout debugui.ContainerLayout) {
 		// Duration
 		ctx.Text("Duration")
 		dv := float64(s.config.Animation.Duration.Value)
@@ -308,6 +315,50 @@ func (s *AburiEditorScene) drawAnimationWindow(ctx *debugui.Context) {
 			s.config.Animation.Rotation.Easing = s.cycleEasing(s.config.Animation.Rotation.Easing)
 			s.recreateParticles()
 		})
+
+		ctx.Text("----------------")
+
+		// Color
+		ctx.Text("Color")
+		// Initialize color config if nil
+		if s.config.Animation.Color == nil {
+			ctx.Button("Enable Color").On(func() {
+				s.config.Animation.Color = &aburi.ColorConfig{
+					StartR: 1.0, StartG: 1.0, StartB: 1.0,
+					EndR: 1.0, EndG: 0.2, EndB: 0.0,
+					Easing: "Linear",
+				}
+				s.recreateParticles()
+			})
+		} else {
+			ctx.Button("Disable Color").On(func() {
+				s.config.Animation.Color = nil
+				s.recreateParticles()
+			})
+			startR := float64(s.config.Animation.Color.StartR)
+			startG := float64(s.config.Animation.Color.StartG)
+			startB := float64(s.config.Animation.Color.StartB)
+			endR := float64(s.config.Animation.Color.EndR)
+			endG := float64(s.config.Animation.Color.EndG)
+			endB := float64(s.config.Animation.Color.EndB)
+			s.sliderControl(ctx, "Start R", &startR, 0.0, 1.0, 0.05)
+			s.sliderControl(ctx, "Start G", &startG, 0.0, 1.0, 0.05)
+			s.sliderControl(ctx, "Start B", &startB, 0.0, 1.0, 0.05)
+			s.sliderControl(ctx, "End R", &endR, 0.0, 1.0, 0.05)
+			s.sliderControl(ctx, "End G", &endG, 0.0, 1.0, 0.05)
+			s.sliderControl(ctx, "End B", &endB, 0.0, 1.0, 0.05)
+			s.config.Animation.Color.StartR = float32(startR)
+			s.config.Animation.Color.StartG = float32(startG)
+			s.config.Animation.Color.StartB = float32(startB)
+			s.config.Animation.Color.EndR = float32(endR)
+			s.config.Animation.Color.EndG = float32(endG)
+			s.config.Animation.Color.EndB = float32(endB)
+			ctx.Text("  Easing: " + s.config.Animation.Color.Easing)
+			ctx.Button("  Cycle Easing##color").On(func() {
+				s.config.Animation.Color.Easing = s.cycleEasing(s.config.Animation.Color.Easing)
+				s.recreateParticles()
+			})
+		}
 	})
 }
 
@@ -340,7 +391,7 @@ func (s *AburiEditorScene) drawDebugWindow(ctx *debugui.Context) {
 }
 
 func (s *AburiEditorScene) drawFileWindow(ctx *debugui.Context) {
-	ctx.Window("File Operations", image.Rect(10, 760, 410, 950), func(layout debugui.ContainerLayout) {
+	ctx.Window("File Operations", image.Rect(420, 210, 720, 450), func(layout debugui.ContainerLayout) {
 		// Save
 		ctx.Button("Save " + s.config.Name + ".yaml").On(func() {
 			path := filepath.Join("assets", "particles", "aburi", s.config.Name+".yaml")
@@ -375,20 +426,23 @@ func (s *AburiEditorScene) drawFileWindow(ctx *debugui.Context) {
 			s.refreshFileList()
 		})
 
-		for _, f := range s.fileList {
+		for idx, f := range s.fileList {
 			name := filepath.Base(f)
-			f := f
-			ctx.Button(name).On(func() {
-				aburi.GetConfigLoader().ClearCache()
+			filePath := f
+			ctx.IDScope(fmt.Sprintf("file_%d", idx), func() {
+				ctx.Button(name).On(func() {
+					log.Printf("Button clicked: file=%s", name)
+					aburi.GetConfigLoader().ClearCache()
 
-				cfg, err := aburi.GetConfigLoader().LoadConfig(f)
-				if err != nil {
-					log.Println("Load error:", err)
-				} else {
-					s.config = cfg
-					s.recreateParticles()
-					log.Println("Loaded", name)
-				}
+					cfg, err := aburi.GetConfigLoader().LoadConfig(filePath)
+					if err != nil {
+						log.Println("Load error:", err)
+					} else {
+						s.config = cfg
+						s.recreateParticles()
+						log.Printf("Loaded %s", name)
+					}
+				})
 			})
 		}
 	})

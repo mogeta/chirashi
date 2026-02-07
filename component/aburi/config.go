@@ -29,6 +29,7 @@ type AnimationConfig struct {
 	Alpha    PropertyConfig `yaml:"alpha"`
 	Scale    PropertyConfig `yaml:"scale"`
 	Rotation PropertyConfig `yaml:"rotation"`
+	Color    *ColorConfig   `yaml:"color,omitempty"`
 }
 
 // DurationConfig defines particle lifetime with optional randomization
@@ -64,6 +65,17 @@ type PositionConfig struct {
 type PropertyConfig struct {
 	Start  float32 `yaml:"start"`
 	End    float32 `yaml:"end"`
+	Easing string  `yaml:"easing"`
+}
+
+// ColorConfig defines color animation (RGB values 0-1)
+type ColorConfig struct {
+	StartR float32 `yaml:"start_r"`
+	StartG float32 `yaml:"start_g"`
+	StartB float32 `yaml:"start_b"`
+	EndR   float32 `yaml:"end_r"`
+	EndG   float32 `yaml:"end_g"`
+	EndB   float32 `yaml:"end_b"`
 	Easing string  `yaml:"easing"`
 }
 

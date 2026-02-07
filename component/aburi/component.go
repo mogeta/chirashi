@@ -20,11 +20,16 @@ type Instance struct {
 	StartScale, EndScale       float32
 	StartRotation, EndRotation float32
 
+	// Color animation (RGB 0-1)
+	StartR, StartG, StartB float32
+	EndR, EndG, EndB       float32
+
 	// Easing types for each property
 	PositionEasing EasingType
 	AlphaEasing    EasingType
 	ScaleEasing    EasingType
 	RotationEasing EasingType
+	ColorEasing    EasingType
 
 	// State
 	Active bool
@@ -106,6 +111,12 @@ type AnimationParams struct {
 	// Rotation
 	StartRotation, EndRotation float32
 	RotationEasing             EasingType
+
+	// Color
+	UseColor                   bool
+	StartR, StartG, StartB     float32
+	EndR, EndG, EndB           float32
+	ColorEasing                EasingType
 }
 
 // Metrics tracks performance data for a particle system

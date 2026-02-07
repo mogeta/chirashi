@@ -216,16 +216,24 @@ func applyEasing(t float, easingType float) float {
 	return t
 }
 
+// unpackRGB unpacks RGB from a packed float (R<<16 | G<<8 | B)
+func unpackRGB(packed float) vec3 {
+	r := floor(packed / 65536.0) / 255.0
+	g := floor(mod(packed, 65536.0) / 256.0) / 255.0
+	b := mod(packed, 256.0) / 255.0
+	return vec3(r, g, b)
+}
+
 // Fragment shader for particle rendering
 // Custom vertex data usage:
 // - color.r: startAlpha
 // - color.g: endAlpha
-// - color.b: alphaEasing (float, normalized to 0-1)
-// - color.a: (unused, set to 1.0)
+// - color.b: alphaEasing (normalized to 0-1)
+// - color.a: colorEasing (normalized to 0-1)
 // - custom.x: spawnTime (Custom0)
 // - custom.y: duration (Custom1)
-// - custom.z: (reserved)
-// - custom.w: (reserved)
+// - custom.z: startColor (packed RGB)
+// - custom.w: endColor (packed RGB)
 func Fragment(dstPos vec4, srcPos vec2, color vec4, custom vec4) vec4 {
 	// Extract timing info from custom data
 	spawnTime := custom.x
@@ -237,17 +245,25 @@ func Fragment(dstPos vec4, srcPos vec2, color vec4, custom vec4) vec4 {
 
 	// Apply alpha easing
 	alphaEasing := color.b * 25.0 // Scale back from [0,1] to [0,25]
-	easedT := applyEasing(normalizedT, alphaEasing)
+	alphaT := applyEasing(normalizedT, alphaEasing)
 
 	// Interpolate alpha
 	startAlpha := color.r
 	endAlpha := color.g
-	alpha := mix(startAlpha, endAlpha, easedT)
+	alpha := mix(startAlpha, endAlpha, alphaT)
+
+	// Apply color easing
+	colorEasing := color.a * 25.0
+	colorT := applyEasing(normalizedT, colorEasing)
+
+	// Unpack and interpolate color
+	startColor := unpackRGB(custom.z)
+	endColor := unpackRGB(custom.w)
+	tintColor := mix(startColor, endColor, colorT)
 
 	// Sample texture
 	texColor := imageSrc0At(srcPos)
 
-	// Apply alpha with premultiplied alpha (required by Ebitengine)
-	// RGB channels must also be multiplied by alpha
-	return texColor * alpha
+	// Apply color tint and alpha with premultiplied alpha
+	return vec4(texColor.rgb*tintColor*alpha, texColor.a*alpha)
 }

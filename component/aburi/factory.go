@@ -1,6 +1,8 @@
 package aburi
 
 import (
+	"fmt"
+
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/yohamta/donburi"
 )
@@ -107,6 +109,8 @@ func buildAnimationParams(config *ParticleConfig) AnimationParams {
 			params.DistanceMin = config.Animation.Position.Distance.Min
 			params.DistanceMax = config.Animation.Position.Distance.Max
 		}
+		fmt.Printf("buildAnimationParams: Polar mode - Angle(%.2f-%.2f) Dist(%.0f-%.0f)\n",
+			params.AngleMin, params.AngleMax, params.DistanceMin, params.DistanceMax)
 	} else {
 		// Cartesian mode
 		if config.Animation.Position.StartX != nil {
@@ -148,6 +152,22 @@ func buildAnimationParams(config *ParticleConfig) AnimationParams {
 	params.StartRotation = config.Animation.Rotation.Start
 	params.EndRotation = config.Animation.Rotation.End
 	params.RotationEasing = ParseEasing(config.Animation.Rotation.Easing)
+
+	// Color
+	if config.Animation.Color != nil {
+		params.UseColor = true
+		params.StartR = config.Animation.Color.StartR
+		params.StartG = config.Animation.Color.StartG
+		params.StartB = config.Animation.Color.StartB
+		params.EndR = config.Animation.Color.EndR
+		params.EndG = config.Animation.Color.EndG
+		params.EndB = config.Animation.Color.EndB
+		params.ColorEasing = ParseEasing(config.Animation.Color.Easing)
+	} else {
+		// Default: white (no color tinting)
+		params.StartR, params.StartG, params.StartB = 1, 1, 1
+		params.EndR, params.EndG, params.EndB = 1, 1, 1
+	}
 
 	return params
 }

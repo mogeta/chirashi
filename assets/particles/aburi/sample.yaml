@@ -41,6 +41,16 @@ animation:
     end: 6.2
     easing: "Linear"
 
+  # Fire color: white/yellow -> orange -> red
+  color:
+    start_r: 1.0
+    start_g: 1.0
+    start_b: 0.8
+    end_r: 1.0
+    end_g: 0.2
+    end_b: 0.0
+    easing: "Linear"
+
 spawn:
   interval: 1
   particles_per_spawn: 50
