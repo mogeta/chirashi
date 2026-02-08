@@ -15,7 +15,7 @@ GPU最適化されたパーティクルシステム。`DrawTrianglesShader`に�
 ### 1. セットアップ
 
 ```go
-import (ええええええ
+import (
     "chirashi/assets"
     "chirashi/component/aburi"
 )
