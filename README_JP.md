@@ -1,55 +1,55 @@
 # chirashi
 
-[日本語はこちら](README_JP.md)
+[English version](README.md)
 
-`chirashi` is a GPU-oriented particle component and editor for Ebitengine.
-It uses [donburi](https://github.com/yohamta/donburi) as the ECS library.
+`chirashi` は Ebitengine 向けのGPU志向パーティクルコンポーネントとエディターです。
+ECSライブラリとして [donburi](https://github.com/yohamta/donburi) を利用しています。
 
-## Features
+## 特徴
 
-- GPU batch rendering with `DrawTrianglesShader`
-- Built-in editor for real-time parameter tuning
-- `polar` / `cartesian` position modes
-- Property animation with easing and multi-step sequences
-- Save/load particle configs as YAML
-- donburi (ECS) integration
+- `DrawTrianglesShader` を使ったGPUバッチ描画
+- リアルタイムで調整できるビルトインエディター
+- `polar` / `cartesian` の位置モード
+- イージング + マルチステップシーケンス対応
+- YAMLでの保存/読み込み
+- donburi (ECS) 連携
 
-## Requirements
+## 要件
 
 - Go 1.24+
-- A platform supported by Ebitengine (desktop or web build target)
+- Ebitengine が対応する実行環境（デスクトップまたはWebビルド先）
 
-## Quick Start
+## クイックスタート
 
-Run the editor directly:
+エディターを直接起動:
 
 ```bash
 go run ./cmd/chirashi-editor
 ```
 
-Or use Mage tasks:
+または Mage タスクを利用:
 
 ```bash
 mage run
 ```
 
-Available tasks:
+利用可能なタスク一覧:
 
 ```bash
 mage -l
 ```
 
-Key build commands:
+主なビルド/実行コマンド:
 
 ```bash
-mage build         # Build native binary to build/
-mage buildRelease  # Optimized build
-mage buildWeb      # Build WASM files into build/web
-mage serve         # Build web assets and serve on localhost:8080
-mage test          # Run go test ./...
+mage build         # ネイティブバイナリを build/ に出力
+mage buildRelease  # 最適化ビルド
+mage buildWeb      # WASM を build/web に出力
+mage serve         # Web用ビルド + localhost:8080 で配信
+mage test          # go test ./... を実行
 ```
 
-## Using chirashi as a Component
+## コンポーネントとして使う
 
 ```go
 import (
@@ -74,9 +74,9 @@ _ = manager.Preload("sample", "assets/particles/sample.yaml")
 _, _ = manager.SpawnLoop(world, "sample", 640, 480)
 ```
 
-## Config Format (YAML)
+## 設定ファイル（YAML）
 
-Particle effects are defined in YAML (see `assets/particles/*.yaml`):
+パーティクルは YAML で定義します（`assets/particles/*.yaml` を参照）:
 
 ```yaml
 name: "sample"
@@ -114,11 +114,11 @@ spawn:
   is_loop: true
 ```
 
-## Demo
+## デモ
 
-You can try it in your browser:
+Web上で動作確認ができます。
 [https://muzigen.net/ebiten/chirashi/](https://muzigen.net/ebiten/chirashi/)
 
-## License
+## ライセンス
 
 MIT License

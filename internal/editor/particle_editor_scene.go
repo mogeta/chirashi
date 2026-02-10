@@ -1,4 +1,4 @@
-package scenes
+package editor
 
 import (
 	"fmt"
@@ -14,8 +14,8 @@ import (
 	"github.com/yohamta/donburi/ecs"
 	"github.com/yohamta/donburi/filter"
 
-	"chirashi/assets"
-	"chirashi/component/chirashi"
+	"github.com/mogeta/chirashi/assets"
+	"github.com/mogeta/chirashi/component/chirashi"
 )
 
 type ParticleEditorScene struct {

@@ -21,6 +21,7 @@ const (
 	BuildDir    = "build"
 	WebBuildDir = "build/web"
 	PublicDir   = "public"
+	AppDir      = "./cmd/chirashi-editor"
 )
 
 // Build builds the Ebiten game for the current platform
@@ -29,7 +30,7 @@ func Build() error {
 	if err := os.MkdirAll(BuildDir, 0755); err != nil {
 		return err
 	}
-	return sh.Run("go", "build", "-o", filepath.Join(BuildDir, getBinaryName()), ".")
+	return sh.Run("go", "build", "-o", filepath.Join(BuildDir, getBinaryName()), AppDir)
 }
 
 // BuildRelease builds the Ebiten game with optimizations for release
@@ -38,7 +39,7 @@ func BuildRelease() error {
 	if err := os.MkdirAll(BuildDir, 0755); err != nil {
 		return err
 	}
-	return sh.Run("go", "build", "-ldflags", "-s -w", "-o", filepath.Join(BuildDir, getBinaryName()), ".")
+	return sh.Run("go", "build", "-ldflags", "-s -w", "-o", filepath.Join(BuildDir, getBinaryName()), AppDir)
 }
 
 // BuildWindows builds the Ebiten game for Windows
@@ -51,7 +52,7 @@ func BuildWindows() error {
 		"GOOS":   "windows",
 		"GOARCH": "amd64",
 	}
-	return sh.RunWith(env, "go", "build", "-o", filepath.Join(BuildDir, ProjectName+".exe"), ".")
+	return sh.RunWith(env, "go", "build", "-o", filepath.Join(BuildDir, ProjectName+".exe"), AppDir)
 }
 
 // BuildMac builds the Ebiten game for macOS
@@ -64,7 +65,7 @@ func BuildMac() error {
 		"GOOS":   "darwin",
 		"GOARCH": "amd64",
 	}
-	return sh.RunWith(env, "go", "build", "-o", filepath.Join(BuildDir, ProjectName), ".")
+	return sh.RunWith(env, "go", "build", "-o", filepath.Join(BuildDir, ProjectName), AppDir)
 }
 
 // BuildLinux builds the Ebiten game for Linux
@@ -77,7 +78,7 @@ func BuildLinux() error {
 		"GOOS":   "linux",
 		"GOARCH": "amd64",
 	}
-	return sh.RunWith(env, "go", "build", "-o", filepath.Join(BuildDir, ProjectName), ".")
+	return sh.RunWith(env, "go", "build", "-o", filepath.Join(BuildDir, ProjectName), AppDir)
 }
 
 // BuildWeb builds the Ebiten game for web (WASM)
@@ -101,7 +102,7 @@ func BuildWeb() error {
 		"GOOS":   "js",
 		"GOARCH": "wasm",
 	}
-	return sh.RunWith(env, "go", "build", "-o", filepath.Join(WebBuildDir, "game.wasm"), ".")
+	return sh.RunWith(env, "go", "build", "-o", filepath.Join(WebBuildDir, "game.wasm"), AppDir)
 }
 
 // Clean removes build artifacts
