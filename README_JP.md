@@ -142,3 +142,9 @@ Web上で動作確認ができます。
 ## ライセンス
 
 MIT License
+
+## リリース情報
+
+- Changelog: `CHANGELOG.md`
+- リリース手順: `docs/RELEASE_PROCESS.md`
+- 移行ノート: `docs/MIGRATIONS.md`

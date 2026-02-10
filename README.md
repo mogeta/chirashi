@@ -142,3 +142,9 @@ You can try it in your browser:
 ## License
 
 MIT License
+
+## Release Notes
+
+- Changelog: `CHANGELOG.md`
+- Release process: `docs/RELEASE_PROCESS.md`
+- Migration notes: `docs/MIGRATIONS.md`

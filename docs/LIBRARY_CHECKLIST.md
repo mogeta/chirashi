@@ -76,25 +76,25 @@ Definition of done:
 
 ## Phase 6: Tests and CI
 
-- [ ] Add tests for:
+- [x] Add tests for:
   - config loading/validation
   - easing behavior basics
   - sequence snapshot/evaluation
   - spawn/lifetime behavior (logic level)
-- [ ] Add CI workflow:
+- [x] Add CI workflow:
   - `go test ./...`
   - `go vet ./...`
-  - optional `staticcheck ./...`
+  - `staticcheck ./...`
 
 Definition of done:
 - pull requests have automatic quality checks
 
 ## Phase 7: Release Management
 
-- [ ] Choose versioning policy (start with `v0.x` until API is stable)
-- [ ] Create `CHANGELOG.md`
-- [ ] Tag releases (`v0.1.0`, etc.) after compatibility checkpoints
-- [ ] Add migration notes when public API/config changes
+- [x] Choose versioning policy (start with `v0.x` until API is stable)
+- [x] Create `CHANGELOG.md`
+- [x] Tag releases (`v0.1.0`, etc.) after compatibility checkpoints
+- [x] Add migration notes when public API/config changes
 
 Definition of done:
 - external consumers can track upgrade risk
