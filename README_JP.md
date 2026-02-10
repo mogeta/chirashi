@@ -10,6 +10,7 @@
 
 `chirashi` は Ebitengine 向けのGPU志向パーティクルコンポーネントとエディターです。
 ECSライブラリとして [donburi](https://github.com/yohamta/donburi) を利用しています。
+![chirashi editor screenshot](docs/images/editor.png)
 
 ## 特徴
 

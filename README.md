@@ -10,6 +10,7 @@
 
 `chirashi` is a GPU-oriented particle component and editor for Ebitengine.
 It uses [donburi](https://github.com/yohamta/donburi) as the ECS library.
+![chirashi editor screenshot](docs/images/editor.png)
 
 ## Features
 
