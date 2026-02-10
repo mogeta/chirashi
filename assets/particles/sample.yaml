@@ -1,58 +1,59 @@
-name: "crystal_shards"
-description: "Crystal shards that tumble and reflect light while falling"
+name: "gpu_burst"
+description: "GPU-accelerated circular particle burst effect"
+
+image:
+  image_from: "ef1"
+  image_id: 16
 
 emitter:
+  x: 0
+  y: 0
+
+animation:
+  duration:
+    value: 1.0
+    range:
+      min: 0.8
+      max: 1.2
+
   position:
-    x: 0
-    y: 0
+    type: "polar"
+    angle:
+      min: 0
+      max: 6.2 # 2π for full circle
+    distance:
+      min: 50
+      max: 150
+    easing: "OutCirc"
 
-# Image configuration - use Assets.GetImage
-image:
-  image_from: "ef1"  # Use EF1 image source
-  image_id: 16       # Sprite ID in EF1 spritesheet
-
-
-movement:
-  x:
-    type: "sequence"
-    steps:
-      - from: 0
-        to: 60
-        from_range:
-          min: 0
-          max: 0
-        to_range:
-          min: -60
-          max: 60
-        duration: 1
-        easing: "Linear"
-  
-  y:
-    type: "sequence"
-    steps:
-      - from: 0
-        to: 60
-        from_range:
-          min: 0
-          max: 0
-        to_range:
-          min: -60
-          max: 60
-        duration: 1
-        easing: "Linear"
-
-appearance:
   alpha:
-    type: "sequence"
-    steps:
-      - from: 1
-        to: 0
-        duration: 1
-        easing: "Linear"
+    start: 1.0
+    end: 0.0
+    easing: "Linear"
+
+  scale:
+    start: 0.5
+    end: 1.5
+    easing: "OutBack"
+
+  rotation:
+    start: 0
+    end: 6.2
+    easing: "Linear"
+
+  # Fire color: white/yellow -> orange -> red
+  color:
+    start_r: 1.0
+    start_g: 1.0
+    start_b: 0.8
+    end_r: 1.0
+    end_g: 0.2
+    end_b: 0.0
+    easing: "Linear"
 
 spawn:
   interval: 1
-  particles_per_spawn: 240
-  max_particles: 100000
+  particles_per_spawn: 50
+  max_particles: 5000
   is_loop: true
   life_time: 300

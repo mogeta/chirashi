@@ -25,7 +25,6 @@ func (s *WebStorage) Save(path string, config *ParticleConfig) error {
 
 	// In Web environment, we can't write to file system directly.
 	// For now, we'll log the YAML to console so user can copy it.
-	// TODO: Implement browser download or local storage
 	log.Printf("--- SAVE YAML (%s) ---\n%s\n------------------------", path, string(data))
 
 	return nil
@@ -33,13 +32,10 @@ func (s *WebStorage) Save(path string, config *ParticleConfig) error {
 
 func (s *WebStorage) Load(path string) (*ParticleConfig, error) {
 	// In Web environment, we can't read arbitrary files.
-	// We might need to fetch from URL or use embedded assets.
-	// For now, return error or implement fetch if needed.
 	return nil, fmt.Errorf("loading from file path not supported in web version yet")
 }
 
 func (s *WebStorage) List(pattern string) ([]string, error) {
 	// Cannot glob in web environment easily without a file server index
-	// Return empty list or static list
 	return []string{}, nil
 }

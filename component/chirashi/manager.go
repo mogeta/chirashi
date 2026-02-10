@@ -1,4 +1,4 @@
-package aburi
+package chirashi
 
 import (
 	"fmt"
@@ -133,6 +133,9 @@ func (m *ParticleManager) SpawnLoop(world donburi.World, name string, x, y float
 		AnimParams:        animParams,
 	}
 
+	// Apply sequence configurations if present
+	buildSequenceConfigs(config, &systemData)
+
 	donburi.SetValue(entry, Component, systemData)
 	return entity, nil
 }
@@ -180,6 +183,17 @@ func copyConfig(src *ParticleConfig) *ParticleConfig {
 	if src.Animation.Position.Distance != nil {
 		r := *src.Animation.Position.Distance
 		dst.Animation.Position.Distance = &r
+	}
+
+	if src.Animation.Position.X != nil {
+		x := *src.Animation.Position.X
+		x.Steps = append([]StepConfig(nil), src.Animation.Position.X.Steps...)
+		dst.Animation.Position.X = &x
+	}
+	if src.Animation.Position.Y != nil {
+		y := *src.Animation.Position.Y
+		y.Steps = append([]StepConfig(nil), src.Animation.Position.Y.Steps...)
+		dst.Animation.Position.Y = &y
 	}
 
 	if src.Animation.Color != nil {

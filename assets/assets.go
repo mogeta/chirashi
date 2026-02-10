@@ -12,6 +12,3 @@ var ParticleShader []byte
 
 //go:embed particles/sample.yaml
 var SampleParticleConfig []byte
-
-//go:embed particles/aburi/sample.yaml
-var AburiSampleConfig []byte
