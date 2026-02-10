@@ -26,7 +26,8 @@ jobs:
         run: go install github.com/magefile/mage@latest
 
       - name: Build web assets
-        run: "$(go env GOPATH)/bin/mage" buildWeb
+        run: |
+          "$(go env GOPATH)/bin/mage" buildWeb
 
       - name: Checkout muzigen.net_v2
         uses: actions/checkout@v4
