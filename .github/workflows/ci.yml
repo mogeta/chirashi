@@ -22,9 +22,9 @@ jobs:
       - name: Install Linux deps for Ebitengine
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends xorg-dev libasound2-dev
+          sudo apt-get install -y --no-install-recommends xorg-dev libasound2-dev xvfb
       - name: Go test
-        run: go test ./...
+        run: xvfb-run -a go test ./...
 
       - name: Go vet
         run: go vet ./...
