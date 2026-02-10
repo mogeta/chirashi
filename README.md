@@ -12,6 +12,11 @@
 It uses [donburi](https://github.com/yohamta/donburi) as the ECS library.
 ![chirashi editor screenshot](docs/images/editor.png)
 
+## Demo
+
+You can try it in your browser:
+[https://muzigen.net/ebiten/chirashi/](https://muzigen.net/ebiten/chirashi/)
+
 ## Features
 
 - GPU batch rendering with `DrawTrianglesShader`
@@ -134,11 +139,6 @@ mage buildWeb      # Build WASM files into build/web
 mage serve         # Build web assets and serve on localhost:8080
 mage test          # Run go test ./...
 ```
-
-## Demo
-
-You can try it in your browser:
-[https://muzigen.net/ebiten/chirashi/](https://muzigen.net/ebiten/chirashi/)
 
 ## License
 

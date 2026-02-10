@@ -12,6 +12,11 @@
 ECSライブラリとして [donburi](https://github.com/yohamta/donburi) を利用しています。
 ![chirashi editor screenshot](docs/images/editor.png)
 
+## デモ
+
+Web上で動作確認ができます。
+[https://muzigen.net/ebiten/chirashi/](https://muzigen.net/ebiten/chirashi/)
+
 ## 特徴
 
 - `DrawTrianglesShader` を使ったGPUバッチ描画
@@ -134,11 +139,6 @@ mage buildWeb      # WASM を build/web に出力
 mage serve         # Web用ビルド + localhost:8080 で配信
 mage test          # go test ./... を実行
 ```
-
-## デモ
-
-Web上で動作確認ができます。
-[https://muzigen.net/ebiten/chirashi/](https://muzigen.net/ebiten/chirashi/)
 
 ## ライセンス
 
