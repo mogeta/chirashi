@@ -3,7 +3,7 @@ package main
 import (
 	"log"
 
-	"chirashi/scenes"
+	"github.com/mogeta/chirashi/scenes"
 
 	"github.com/hajimehoshi/ebiten/v2"
 )

@@ -1,4 +1,4 @@
-module chirashi
+module github.com/mogeta/chirashi
 
 go 1.24.0
 
