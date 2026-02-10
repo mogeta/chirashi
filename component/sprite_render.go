@@ -74,7 +74,7 @@ func (r *SpriteRender) Draw(ecs *ecs.ECS, screen *ebiten.Image) {
 				opts.GeoM.Translate(position.X, position.Y)
 			}
 
-			// Apply alpha and composite mode
+			// Apply alpha and blend mode
 			if sprite.Alpha >= 0 && sprite.Alpha < 1.0 {
 				opts.ColorScale.Scale(
 					1*float32(sprite.Alpha),
@@ -83,7 +83,7 @@ func (r *SpriteRender) Draw(ecs *ecs.ECS, screen *ebiten.Image) {
 					float32(sprite.Alpha),
 				)
 			}
-			opts.CompositeMode = sprite.CompositeMode
+			opts.Blend = sprite.Blend
 
 			screen.DrawImage(sprite.Image, opts)
 		}

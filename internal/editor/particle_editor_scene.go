@@ -148,7 +148,7 @@ func (s *ParticleEditorScene) recreateParticles() {
 
 func (s *ParticleEditorScene) Layout(outsideWidth, outsideHeight int) (int, int) {
 	if s.offscreen != nil && (s.offscreen.Bounds().Dx() != outsideWidth || s.offscreen.Bounds().Dy() != outsideHeight) {
-		s.offscreen.Dispose()
+		s.offscreen.Deallocate()
 		s.offscreen = nil
 	}
 	return 1280, 960
