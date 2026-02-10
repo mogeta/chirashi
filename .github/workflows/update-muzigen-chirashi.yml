@@ -1,0 +1,70 @@
+name: Update muzigen.net chirashi assets
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+jobs:
+  update-muzigen-assets:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout chirashi
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Install Mage
+        run: go install github.com/magefile/mage@latest
+
+      - name: Build web assets
+        run: "$(go env GOPATH)/bin/mage" buildWeb
+
+      - name: Checkout muzigen.net_v2
+        uses: actions/checkout@v4
+        with:
+          repository: mogeta/muzigen.net_v2
+          token: ${{ secrets.MUZIGEN_REPO_TOKEN }}
+          path: muzigen.net_v2
+
+      - name: Sync chirashi web files
+        run: |
+          mkdir -p muzigen.net_v2/public/chirashi
+          cp build/web/game.wasm muzigen.net_v2/public/chirashi/game.wasm
+          cp build/web/index.html muzigen.net_v2/public/chirashi/index.html
+          cp build/web/main.html muzigen.net_v2/public/chirashi/main.html
+          cp build/web/wasm_exec.js muzigen.net_v2/public/chirashi/wasm_exec.js
+
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ secrets.MUZIGEN_REPO_TOKEN }}
+          path: muzigen.net_v2
+          branch: chore/update-chirashi-assets-${{ github.ref_name }}
+          delete-branch: true
+          commit-message: "chore: update chirashi web assets from ${{ github.repository }}@${{ github.ref_name }}"
+          title: "chore: update chirashi assets (${{ github.ref_name }})"
+          body: |
+            Automated update from `${{ github.repository }}`.
+
+            Source ref: `${{ github.ref_name }}`
+            Source commit: `${{ github.sha }}`
+
+            Updated files:
+            - `public/chirashi/game.wasm`
+            - `public/chirashi/index.html`
+            - `public/chirashi/main.html`
+            - `public/chirashi/wasm_exec.js`
+          add-paths: |
+            public/chirashi/game.wasm
+            public/chirashi/index.html
+            public/chirashi/main.html
+            public/chirashi/wasm_exec.js
