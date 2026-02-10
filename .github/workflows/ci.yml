@@ -19,6 +19,11 @@ jobs:
           go-version-file: go.mod
           cache: true
 
+      - name: Install Linux deps for Ebitengine
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends xorg-dev libasound2-dev
+
       - name: Go test
         run: go test ./...
 
