@@ -54,3 +54,5 @@ build/
 debug
 
 NeburaV2
+# Local agent rules
+.agent/
