@@ -51,8 +51,8 @@ appearance:
         easing: "Linear"
 
 spawn:
-  interval: 6
-  particles_per_spawn: 1
-  max_particles: 1000
+  interval: 1
+  particles_per_spawn: 240
+  max_particles: 100000
   is_loop: true
   life_time: 300

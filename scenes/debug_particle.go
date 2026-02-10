@@ -1,7 +1,6 @@
 package scenes
 
 import (
-	"chirashi/component"
 	"chirashi/component/chirashi"
 	"image/color"
 
@@ -19,11 +18,9 @@ func NewDebugParticleScene() *DebugParticleScene {
 	world := donburi.NewWorld()
 	container := ecs.NewECS(world)
 
-	particleSys := chirashi.NewSpriteSystem()
+	particleSys := chirashi.NewSystem()
 	container.AddSystem(particleSys.Update)
-
-	spriteRender := component.NewSpriteRender()
-	container.AddRenderer(0, spriteRender.Draw)
+	container.AddRenderer(0, particleSys.Draw)
 
 	// Create debug particle image
 	img := ebiten.NewImage(8, 8)

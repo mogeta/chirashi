@@ -1,0 +1,59 @@
+name: "hit_spark"
+description: "Impact spark effect - quick burst on hit"
+
+image:
+  image_from: "ef1"
+  image_id: 16
+
+emitter:
+  x: 0
+  y: 0
+
+animation:
+  duration:
+    value: 0.3
+    range:
+      min: 0.2
+      max: 0.4
+
+  position:
+    type: "polar"
+    angle:
+      min: 0
+      max: 6.28  # Full circle burst
+    distance:
+      min: 20
+      max: 80
+    easing: "OutQuad"
+
+  alpha:
+    start: 1.0
+    end: 0.0
+    easing: "InQuad"
+
+  scale:
+    start: 0.8
+    end: 0.2
+    easing: "OutQuad"
+
+  rotation:
+    start: 0
+    end: 3.14
+    easing: "Linear"
+
+  # Spark: white-yellow -> orange
+  color:
+    start_r: 1.0
+    start_g: 1.0
+    start_b: 0.9
+    end_r: 1.0
+    end_g: 0.6
+    end_b: 0.2
+    easing: "Linear"
+
+spawn:
+  interval: 1
+  particles_per_spawn: 20
+  max_particles: 500
+  is_loop: false
+  life_time: 30

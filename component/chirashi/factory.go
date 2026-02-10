@@ -19,8 +19,24 @@ func NewParticles(w donburi.World, image *ebiten.Image, x, y float64) {
 
 	const maxParticles = 1000
 
+	// Initialize free indices pool
+	freeIndices := make([]int, maxParticles)
+	for i := range freeIndices {
+		freeIndices[i] = maxParticles - 1 - i // Reverse order for stack
+	}
+
+	// Cache image dimensions
+	var imgWidth, imgHeight float64
+	if image != nil {
+		bounds := image.Bounds()
+		imgWidth = float64(bounds.Dx())
+		imgHeight = float64(bounds.Dy())
+	}
+
 	var d = SystemData{
 		ParticlePool:    make([]Instance, maxParticles),
+		ActiveIndices:   make([]int, 0, maxParticles),
+		FreeIndices:     freeIndices,
 		EmitterPosition: Position{X: x, Y: y},
 		SequenceFactoryX: func() *gween.Sequence {
 			targetx := rangeFloat(x-300, x+300)
@@ -49,6 +65,8 @@ func NewParticles(w donburi.World, image *ebiten.Image, x, y float64) {
 		ParticlesPerSpawn: 5, // Spawn more particles per interval
 		MaxParticles:      maxParticles,
 		SourceImage:       image,
+		ImageWidth:        imgWidth,
+		ImageHeight:       imgHeight,
 		ActiveCount:       0,
 		IsLoop:            true, // Don't loop forever by default
 		LifeTime:          300,  // 5 seconds at 60fps

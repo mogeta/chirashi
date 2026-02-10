@@ -1,0 +1,269 @@
+//go:build ignore
+
+//kage:unit pixels
+
+package shaders
+
+// Uniforms
+var Time float
+
+// Easing type constants (must match Go EasingType enum)
+const (
+	EasingLinear     = 0.0
+	EasingInQuad     = 1.0
+	EasingOutQuad    = 2.0
+	EasingInOutQuad  = 3.0
+	EasingInCubic    = 4.0
+	EasingOutCubic   = 5.0
+	EasingInOutCubic = 6.0
+	EasingInQuart    = 7.0
+	EasingOutQuart   = 8.0
+	EasingInOutQuart = 9.0
+	EasingInQuint    = 10.0
+	EasingOutQuint   = 11.0
+	EasingInOutQuint = 12.0
+	EasingInSine     = 13.0
+	EasingOutSine    = 14.0
+	EasingInOutSine  = 15.0
+	EasingInExpo     = 16.0
+	EasingOutExpo    = 17.0
+	EasingInOutExpo  = 18.0
+	EasingInCirc     = 19.0
+	EasingOutCirc    = 20.0
+	EasingInOutCirc  = 21.0
+	EasingInBack     = 22.0
+	EasingOutBack    = 23.0
+	EasingInOutBack  = 24.0
+)
+
+// PI constant for easing calculations
+const PI = 3.14159265358979323846
+
+// applyEasing applies easing function based on type
+func applyEasing(t float, easingType float) float {
+	// Linear
+	if easingType < 0.5 {
+		return t
+	}
+
+	// InQuad
+	if easingType < 1.5 {
+		return t * t
+	}
+
+	// OutQuad
+	if easingType < 2.5 {
+		return t * (2 - t)
+	}
+
+	// InOutQuad
+	if easingType < 3.5 {
+		if t < 0.5 {
+			return 2 * t * t
+		}
+		return -1 + (4-2*t)*t
+	}
+
+	// InCubic
+	if easingType < 4.5 {
+		return t * t * t
+	}
+
+	// OutCubic
+	if easingType < 5.5 {
+		t1 := t - 1
+		return t1*t1*t1 + 1
+	}
+
+	// InOutCubic
+	if easingType < 6.5 {
+		if t < 0.5 {
+			return 4 * t * t * t
+		}
+		return (t-1)*(2*t-2)*(2*t-2) + 1
+	}
+
+	// InQuart
+	if easingType < 7.5 {
+		return t * t * t * t
+	}
+
+	// OutQuart
+	if easingType < 8.5 {
+		t1 := t - 1
+		return 1 - t1*t1*t1*t1
+	}
+
+	// InOutQuart
+	if easingType < 9.5 {
+		if t < 0.5 {
+			return 8 * t * t * t * t
+		}
+		t1 := t - 1
+		return 1 - 8*t1*t1*t1*t1
+	}
+
+	// InQuint
+	if easingType < 10.5 {
+		return t * t * t * t * t
+	}
+
+	// OutQuint
+	if easingType < 11.5 {
+		t1 := t - 1
+		return 1 + t1*t1*t1*t1*t1
+	}
+
+	// InOutQuint
+	if easingType < 12.5 {
+		if t < 0.5 {
+			return 16 * t * t * t * t * t
+		}
+		t1 := t - 1
+		return 1 + 16*t1*t1*t1*t1*t1
+	}
+
+	// InSine
+	if easingType < 13.5 {
+		return 1 - cos(t*PI/2)
+	}
+
+	// OutSine
+	if easingType < 14.5 {
+		return sin(t * PI / 2)
+	}
+
+	// InOutSine
+	if easingType < 15.5 {
+		return -(cos(t*PI) - 1) / 2
+	}
+
+	// InExpo
+	if easingType < 16.5 {
+		if t <= 0 {
+			return 0
+		}
+		return pow(2, 10*(t-1))
+	}
+
+	// OutExpo
+	if easingType < 17.5 {
+		if t >= 1 {
+			return 1
+		}
+		return 1 - pow(2, -10*t)
+	}
+
+	// InOutExpo
+	if easingType < 18.5 {
+		if t <= 0 {
+			return 0
+		}
+		if t >= 1 {
+			return 1
+		}
+		if t < 0.5 {
+			return pow(2, 20*t-10) / 2
+		}
+		return (2 - pow(2, -20*t+10)) / 2
+	}
+
+	// InCirc
+	if easingType < 19.5 {
+		return 1 - sqrt(1-t*t)
+	}
+
+	// OutCirc
+	if easingType < 20.5 {
+		t1 := t - 1
+		return sqrt(1 - t1*t1)
+	}
+
+	// InOutCirc
+	if easingType < 21.5 {
+		if t < 0.5 {
+			return (1 - sqrt(1-4*t*t)) / 2
+		}
+		return (sqrt(1-(2*t-2)*(2*t-2)) + 1) / 2
+	}
+
+	// InBack
+	if easingType < 22.5 {
+		c1 := 1.70158
+		c3 := c1 + 1
+		return c3*t*t*t - c1*t*t
+	}
+
+	// OutBack
+	if easingType < 23.5 {
+		c1 := 1.70158
+		c3 := c1 + 1
+		t1 := t - 1
+		return 1 + c3*t1*t1*t1 + c1*t1*t1
+	}
+
+	// InOutBack
+	if easingType < 24.5 {
+		c1 := 1.70158
+		c2 := c1 * 1.525
+		if t < 0.5 {
+			return (4 * t * t * ((c2+1)*2*t - c2)) / 2
+		}
+		return ((2*t-2)*(2*t-2)*((c2+1)*(2*t-2)+c2) + 2) / 2
+	}
+
+	// Default: Linear
+	return t
+}
+
+// unpackRGB unpacks RGB from a packed float (R<<16 | G<<8 | B)
+func unpackRGB(packed float) vec3 {
+	r := floor(packed / 65536.0) / 255.0
+	g := floor(mod(packed, 65536.0) / 256.0) / 255.0
+	b := mod(packed, 256.0) / 255.0
+	return vec3(r, g, b)
+}
+
+// Fragment shader for particle rendering
+// Custom vertex data usage:
+// - color.r: startAlpha
+// - color.g: endAlpha
+// - color.b: alphaEasing (normalized to 0-1)
+// - color.a: colorEasing (normalized to 0-1)
+// - custom.x: spawnTime (Custom0)
+// - custom.y: duration (Custom1)
+// - custom.z: startColor (packed RGB)
+// - custom.w: endColor (packed RGB)
+func Fragment(dstPos vec4, srcPos vec2, color vec4, custom vec4) vec4 {
+	// Extract timing info from custom data
+	spawnTime := custom.x
+	duration := custom.y
+
+	// Calculate normalized time
+	elapsed := Time - spawnTime
+	normalizedT := clamp(elapsed/duration, 0.0, 1.0)
+
+	// Apply alpha easing
+	alphaEasing := color.b * 25.0 // Scale back from [0,1] to [0,25]
+	alphaT := applyEasing(normalizedT, alphaEasing)
+
+	// Interpolate alpha
+	startAlpha := color.r
+	endAlpha := color.g
+	alpha := mix(startAlpha, endAlpha, alphaT)
+
+	// Apply color easing
+	colorEasing := color.a * 25.0
+	colorT := applyEasing(normalizedT, colorEasing)
+
+	// Unpack and interpolate color
+	startColor := unpackRGB(custom.z)
+	endColor := unpackRGB(custom.w)
+	tintColor := mix(startColor, endColor, colorT)
+
+	// Sample texture
+	texColor := imageSrc0At(srcPos)
+
+	// Apply color tint and alpha with premultiplied alpha
+	return vec4(texColor.rgb*tintColor*alpha, texColor.a*alpha)
+}

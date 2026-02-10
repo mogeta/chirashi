@@ -1,0 +1,59 @@
+name: "rocket_thrust"
+description: "Rocket engine exhaust - downward thrust with fire colors"
+
+image:
+  image_from: "ef1"
+  image_id: 16
+
+emitter:
+  x: 0
+  y: 0
+
+animation:
+  duration:
+    value: 0.4
+    range:
+      min: 0.3
+      max: 0.5
+
+  position:
+    type: "polar"
+    angle:
+      min: 1.2   # ~70 degrees (down-left)
+      max: 1.94  # ~110 degrees (down-right)
+    distance:
+      min: 80
+      max: 200
+    easing: "OutQuad"
+
+  alpha:
+    start: 1.0
+    end: 0.0
+    easing: "InQuad"
+
+  scale:
+    start: 0.8
+    end: 0.2
+    easing: "Linear"
+
+  rotation:
+    start: 0
+    end: 3.14
+    easing: "Linear"
+
+  # Hot exhaust: white-yellow core -> orange -> red edges
+  color:
+    start_r: 1.0
+    start_g: 0.95
+    start_b: 0.7
+    end_r: 1.0
+    end_g: 0.3
+    end_b: 0.0
+    easing: "InQuad"
+
+spawn:
+  interval: 1
+  particles_per_spawn: 30
+  max_particles: 3000
+  is_loop: true
+  life_time: 300

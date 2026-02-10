@@ -1,0 +1,49 @@
+name: particle_20260207_204136
+description: GPU-accelerated circular particle burst effect
+image:
+    image_from: ef1
+    image_id: 16
+emitter:
+    x: 0
+    "y": 0
+animation:
+    duration:
+        value: 1
+        range:
+            min: 0.8
+            max: 1.2
+    position:
+        type: polar
+        angle:
+            min: 1
+            max: 2.2
+        distance:
+            min: 50
+            max: 150
+        easing: OutCirc
+    alpha:
+        start: 1
+        end: 0
+        easing: Linear
+    scale:
+        start: 0.5
+        end: 1.5
+        easing: OutBack
+    rotation:
+        start: 0
+        end: 6.2
+        easing: Linear
+    color:
+        start_r: 1
+        start_g: 1
+        start_b: 0.8
+        end_r: 1
+        end_g: 0.2
+        end_b: 0
+        easing: Linear
+spawn:
+    interval: 10
+    particles_per_spawn: 10
+    max_particles: 5000
+    is_loop: true
+    life_time: 300
