@@ -1,5 +1,11 @@
 # chirashi
 
+[![CI](https://github.com/mogeta/chirashi/actions/workflows/ci.yml/badge.svg)](https://github.com/mogeta/chirashi/actions/workflows/ci.yml)
+[![Go Reference](https://pkg.go.dev/badge/github.com/mogeta/chirashi.svg)](https://pkg.go.dev/github.com/mogeta/chirashi)
+[![Go Report Card](https://goreportcard.com/badge/github.com/mogeta/chirashi)](https://goreportcard.com/report/github.com/mogeta/chirashi)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Release](https://img.shields.io/github/v/release/mogeta/chirashi)](https://github.com/mogeta/chirashi/releases)
+
 [English version](README.md)
 
 `chirashi` は Ebitengine 向けのGPU志向パーティクルコンポーネントとエディターです。
