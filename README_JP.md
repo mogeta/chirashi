@@ -24,7 +24,7 @@ ECSライブラリとして [donburi](https://github.com/yohamta/donburi) を利
 エディターを直接起動:
 
 ```bash
-go run .
+go run ./cmd/chirashi-editor
 ```
 
 または Mage タスクを利用:

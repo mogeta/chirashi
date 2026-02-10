@@ -24,7 +24,7 @@ It uses [donburi](https://github.com/yohamta/donburi) as the ECS library.
 Run the editor directly:
 
 ```bash
-go run .
+go run ./cmd/chirashi-editor
 ```
 
 Or use Mage tasks:
