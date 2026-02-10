@@ -18,6 +18,7 @@ func NewStorage() ParticleStorage {
 	return &FileStorage{}
 }
 
+// Save writes a particle config as YAML to the local file system.
 func (s *FileStorage) Save(path string, config *ParticleConfig) error {
 	data, err := yaml.Marshal(config)
 	if err != nil {
@@ -37,6 +38,7 @@ func (s *FileStorage) Save(path string, config *ParticleConfig) error {
 	return nil
 }
 
+// Load reads and parses a particle config YAML file from the local file system.
 func (s *FileStorage) Load(path string) (*ParticleConfig, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -51,6 +53,7 @@ func (s *FileStorage) Load(path string) (*ParticleConfig, error) {
 	return &config, nil
 }
 
+// List returns file paths that match the given glob pattern.
 func (s *FileStorage) List(pattern string) ([]string, error) {
 	return filepath.Glob(pattern)
 }

@@ -1,8 +1,6 @@
 package chirashi
 
 import (
-	"fmt"
-
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/yohamta/donburi"
 )
@@ -112,8 +110,6 @@ func buildAnimationParams(config *ParticleConfig) AnimationParams {
 			params.DistanceMin = config.Animation.Position.Distance.Min
 			params.DistanceMax = config.Animation.Position.Distance.Max
 		}
-		fmt.Printf("buildAnimationParams: Polar mode - Angle(%.2f-%.2f) Dist(%.0f-%.0f)\n",
-			params.AngleMin, params.AngleMax, params.DistanceMin, params.DistanceMax)
 	} else {
 		// Cartesian mode
 		if config.Animation.Position.StartX != nil {

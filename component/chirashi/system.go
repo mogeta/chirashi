@@ -1,7 +1,6 @@
 package chirashi
 
 import (
-	"fmt"
 	"math/rand"
 	"time"
 
@@ -17,6 +16,7 @@ type System struct {
 	cnt   int
 }
 
+// NewSystem creates a particle ECS system that updates and draws particle entities.
 func NewSystem() *System {
 	return &System{
 		query: donburi.NewQuery(filter.Contains(Component)),
@@ -24,6 +24,7 @@ func NewSystem() *System {
 	}
 }
 
+// Update advances particle simulation for all entities with the particle component.
 func (sys *System) Update(ecs *ecs.ECS) {
 	sys.cnt++
 	deltaTime := float32(1.0 / float64(ebiten.TPS()))
@@ -63,16 +64,6 @@ func (sys *System) spawn(data *SystemData) {
 
 	params := &data.AnimParams
 	currentTime := data.CurrentTime
-
-	// Debug: log first spawn
-	if data.Metrics.SpawnCount == 0 {
-		fmt.Printf("First spawn: UsePolar=%v, Angle(%.2f-%.2f), Dist(%.0f-%.0f), Color(%.1f,%.1f,%.1f)->(%.1f,%.1f,%.1f)\n",
-			params.UsePolar,
-			params.AngleMin, params.AngleMax,
-			params.DistanceMin, params.DistanceMax,
-			params.StartR, params.StartG, params.StartB,
-			params.EndR, params.EndG, params.EndB)
-	}
 
 	for i := 0; i < data.ParticlesPerSpawn && data.ActiveCount < data.MaxParticles; i++ {
 		// O(1) free index retrieval

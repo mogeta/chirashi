@@ -25,41 +25,11 @@ It uses [donburi](https://github.com/yohamta/donburi) as the ECS library.
 - Go 1.24+
 - A platform supported by Ebitengine (desktop or web build target)
 
-## Quick Start
-
-Run the editor directly:
-
-```bash
-go run ./cmd/chirashi-editor
-```
-
-Or use Mage tasks:
-
-```bash
-mage run
-```
-
-Available tasks:
-
-```bash
-mage -l
-```
-
-Key build commands:
-
-```bash
-mage build         # Build native binary to build/
-mage buildRelease  # Optimized build
-mage buildWeb      # Build WASM files into build/web
-mage serve         # Build web assets and serve on localhost:8080
-mage test          # Run go test ./...
-```
-
-## Using chirashi as a Component
+## Library Quick Start
 
 ```go
 import (
-    "github.com/mogeta/chirashi/component/chirashi"
+    "github.com/mogeta/chirashi"
     "github.com/hajimehoshi/ebiten/v2"
     "github.com/yohamta/donburi"
     "github.com/yohamta/donburi/ecs"
@@ -80,9 +50,23 @@ _ = manager.Preload("sample", "assets/particles/sample.yaml")
 _, _ = manager.SpawnLoop(world, "sample", 640, 480)
 ```
 
+Runnable examples:
+
+```bash
+go run ./examples/minimal
+go run ./examples/oneshot
+```
+
+Web example build:
+
+```bash
+GOOS=js GOARCH=wasm go build -o build/web/examples_web.wasm ./examples/web
+```
+
 ## Config Format (YAML)
 
 Particle effects are defined in YAML (see `assets/particles/*.yaml`):
+Full schema and compatibility policy: `docs/CONFIG_SCHEMA.md`.
 
 ```yaml
 name: "sample"
@@ -118,6 +102,36 @@ spawn:
   particles_per_spawn: 10
   max_particles: 1000
   is_loop: true
+```
+
+## Editor
+
+Run the editor directly:
+
+```bash
+go run ./cmd/chirashi-editor
+```
+
+Or use Mage tasks:
+
+```bash
+mage run
+```
+
+Available tasks:
+
+```bash
+mage -l
+```
+
+Key build commands:
+
+```bash
+mage build         # Build native binary to build/
+mage buildRelease  # Optimized build
+mage buildWeb      # Build WASM files into build/web
+mage serve         # Build web assets and serve on localhost:8080
+mage test          # Run go test ./...
 ```
 
 ## Demo

@@ -25,41 +25,11 @@ ECSライブラリとして [donburi](https://github.com/yohamta/donburi) を利
 - Go 1.24+
 - Ebitengine が対応する実行環境（デスクトップまたはWebビルド先）
 
-## クイックスタート
-
-エディターを直接起動:
-
-```bash
-go run ./cmd/chirashi-editor
-```
-
-または Mage タスクを利用:
-
-```bash
-mage run
-```
-
-利用可能なタスク一覧:
-
-```bash
-mage -l
-```
-
-主なビルド/実行コマンド:
-
-```bash
-mage build         # ネイティブバイナリを build/ に出力
-mage buildRelease  # 最適化ビルド
-mage buildWeb      # WASM を build/web に出力
-mage serve         # Web用ビルド + localhost:8080 で配信
-mage test          # go test ./... を実行
-```
-
-## コンポーネントとして使う
+## ライブラリ導入
 
 ```go
 import (
-    "github.com/mogeta/chirashi/component/chirashi"
+    "github.com/mogeta/chirashi"
     "github.com/hajimehoshi/ebiten/v2"
     "github.com/yohamta/donburi"
     "github.com/yohamta/donburi/ecs"
@@ -80,9 +50,23 @@ _ = manager.Preload("sample", "assets/particles/sample.yaml")
 _, _ = manager.SpawnLoop(world, "sample", 640, 480)
 ```
 
+実行可能なサンプル:
+
+```bash
+go run ./examples/minimal
+go run ./examples/oneshot
+```
+
+Webサンプルのビルド:
+
+```bash
+GOOS=js GOARCH=wasm go build -o build/web/examples_web.wasm ./examples/web
+```
+
 ## 設定ファイル（YAML）
 
 パーティクルは YAML で定義します（`assets/particles/*.yaml` を参照）:
+スキーマ詳細と互換方針は `docs/CONFIG_SCHEMA.md` を参照してください。
 
 ```yaml
 name: "sample"
@@ -118,6 +102,36 @@ spawn:
   particles_per_spawn: 10
   max_particles: 1000
   is_loop: true
+```
+
+## エディター
+
+エディターを直接起動:
+
+```bash
+go run ./cmd/chirashi-editor
+```
+
+または Mage タスクを利用:
+
+```bash
+mage run
+```
+
+利用可能なタスク一覧:
+
+```bash
+mage -l
+```
+
+主なビルド/実行コマンド:
+
+```bash
+mage build         # ネイティブバイナリを build/ に出力
+mage buildRelease  # 最適化ビルド
+mage buildWeb      # WASM を build/web に出力
+mage serve         # Web用ビルド + localhost:8080 で配信
+mage test          # go test ./... を実行
 ```
 
 ## デモ
