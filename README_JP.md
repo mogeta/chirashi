@@ -53,7 +53,7 @@ mage test          # go test ./... を実行
 
 ```go
 import (
-    "chirashi/component/chirashi"
+    "github.com/mogeta/chirashi/component/chirashi"
     "github.com/hajimehoshi/ebiten/v2"
     "github.com/yohamta/donburi"
     "github.com/yohamta/donburi/ecs"
