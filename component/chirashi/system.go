@@ -1,8 +1,8 @@
 package chirashi
 
 import (
-	"math"
-	"sync"
+	"fmt"
+	"math/rand"
 	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -11,14 +11,7 @@ import (
 	"github.com/yohamta/donburi/filter"
 )
 
-// drawOptsPool pools DrawImageOptions to reduce GC pressure
-var drawOptsPool = sync.Pool{
-	New: func() interface{} {
-		return &ebiten.DrawImageOptions{}
-	},
-}
-
-// System manages particle systems with direct rendering
+// System manages GPU-based particle systems with batch rendering
 type System struct {
 	query *donburi.Query
 	cnt   int
@@ -33,228 +26,408 @@ func NewSystem() *System {
 
 func (sys *System) Update(ecs *ecs.ECS) {
 	sys.cnt++
-	for entry := range sys.query.Iter(ecs.World) {
-		particleComponent := Component.Get(entry)
+	deltaTime := float32(1.0 / float64(ebiten.TPS()))
 
-		// Track update time
+	for entry := range sys.query.Iter(ecs.World) {
+		data := Component.Get(entry)
+
 		startTime := time.Now()
 
-		sys.spawn(particleComponent)
-		sys.updateParticles(particleComponent)
+		// Update current time
+		data.CurrentTime += deltaTime
+
+		// Spawn new particles
+		sys.spawn(data)
+
+		// Deactivate expired particles
+		sys.updateParticles(data)
 
 		// Update metrics
-		particleComponent.Metrics.UpdateTimeUs = time.Since(startTime).Microseconds()
-		particleComponent.Metrics.FrameCount++
+		data.Metrics.UpdateTimeUs = time.Since(startTime).Microseconds()
+		data.Metrics.FrameCount++
 
 		// Handle lifetime
-		if !particleComponent.IsLoop {
-			particleComponent.LifeTime--
-			if particleComponent.LifeTime <= 0 {
+		if !data.IsLoop {
+			data.LifeTime--
+			if data.LifeTime <= 0 {
 				ecs.World.Remove(entry.Entity())
 			}
 		}
 	}
 }
 
-func (sys *System) updateParticles(particleComponent *SystemData) {
-	deltaTime := float32(1.0 / float64(ebiten.TPS()))
+func (sys *System) spawn(data *SystemData) {
+	if data.SpawnInterval <= 0 || sys.cnt%data.SpawnInterval != 0 {
+		return
+	}
 
-	// Track indices to remove (particles that finished)
+	params := &data.AnimParams
+	currentTime := data.CurrentTime
+
+	// Debug: log first spawn
+	if data.Metrics.SpawnCount == 0 {
+		fmt.Printf("First spawn: UsePolar=%v, Angle(%.2f-%.2f), Dist(%.0f-%.0f), Color(%.1f,%.1f,%.1f)->(%.1f,%.1f,%.1f)\n",
+			params.UsePolar,
+			params.AngleMin, params.AngleMax,
+			params.DistanceMin, params.DistanceMax,
+			params.StartR, params.StartG, params.StartB,
+			params.EndR, params.EndG, params.EndB)
+	}
+
+	for i := 0; i < data.ParticlesPerSpawn && data.ActiveCount < data.MaxParticles; i++ {
+		// O(1) free index retrieval
+		if len(data.FreeIndices) == 0 {
+			break
+		}
+
+		// Pop from free indices stack
+		freeIdx := data.FreeIndices[len(data.FreeIndices)-1]
+		data.FreeIndices = data.FreeIndices[:len(data.FreeIndices)-1]
+
+		particle := &data.ParticlePool[freeIdx]
+
+		// Initialize particle with randomized values
+		particle.SpawnTime = currentTime
+		particle.Duration = params.DurationBase
+		if params.DurationRange > 0 {
+			particle.Duration += (rand.Float32()*2 - 1) * params.DurationRange
+		}
+
+		// Position
+		if params.UsePolar {
+			// Polar mode: convert to cartesian at spawn time (no per-frame cost)
+			angle := rangeFloat32(params.AngleMin, params.AngleMax)
+			dist := rangeFloat32(params.DistanceMin, params.DistanceMax)
+			cos, sin := cosf(angle), sinf(angle)
+
+			particle.StartX = data.EmitterX
+			particle.StartY = data.EmitterY
+			particle.EndX = data.EmitterX + dist*cos
+			particle.EndY = data.EmitterY + dist*sin
+		} else {
+			// Cartesian mode
+			particle.StartX = data.EmitterX + rangeFloat32(params.StartXMin, params.StartXMax)
+			particle.EndX = data.EmitterX + rangeFloat32(params.EndXMin, params.EndXMax)
+			particle.StartY = data.EmitterY + rangeFloat32(params.StartYMin, params.StartYMax)
+			particle.EndY = data.EmitterY + rangeFloat32(params.EndYMin, params.EndYMax)
+		}
+		particle.PositionEasing = params.PositionEasing
+
+		// Alpha
+		particle.StartAlpha = params.StartAlpha
+		particle.EndAlpha = params.EndAlpha
+		particle.AlphaEasing = params.AlphaEasing
+
+		// Scale
+		particle.StartScale = params.StartScale
+		particle.EndScale = params.EndScale
+		particle.ScaleEasing = params.ScaleEasing
+
+		// Rotation
+		particle.StartRotation = params.StartRotation
+		particle.EndRotation = params.EndRotation
+		particle.RotationEasing = params.RotationEasing
+
+		// Color
+		particle.StartR = params.StartR
+		particle.StartG = params.StartG
+		particle.StartB = params.StartB
+		particle.EndR = params.EndR
+		particle.EndG = params.EndG
+		particle.EndB = params.EndB
+		particle.ColorEasing = params.ColorEasing
+
+		particle.Active = true
+
+		// Initialize multi-step sequences if configured
+		if data.PosXSeq != nil || data.PosYSeq != nil || data.ScaleSeq != nil || data.RotSeq != nil || data.AlphaSeq != nil {
+			particle.MultiStep = true
+			if data.PosXSeq != nil {
+				particle.PosXSnap = GenerateSnapshot(data.PosXSeq, data.EmitterX)
+			}
+			if data.PosYSeq != nil {
+				particle.PosYSnap = GenerateSnapshot(data.PosYSeq, data.EmitterY)
+			}
+			if data.ScaleSeq != nil {
+				particle.ScaleSnap = GenerateSnapshot(data.ScaleSeq, 0)
+			}
+			if data.RotSeq != nil {
+				particle.RotSnap = GenerateSnapshot(data.RotSeq, 0)
+			}
+			if data.AlphaSeq != nil {
+				particle.AlphaSnap = GenerateSnapshot(data.AlphaSeq, 0)
+			}
+		} else {
+			particle.MultiStep = false
+		}
+
+		// Add to active indices
+		data.ActiveIndices = append(data.ActiveIndices, freeIdx)
+		data.ActiveCount++
+		data.Metrics.SpawnCount++
+	}
+}
+
+func (sys *System) updateParticles(data *SystemData) {
+	currentTime := data.CurrentTime
 	indicesToRemove := []int{}
 
-	// Iterate only active particles
-	for i := 0; i < len(particleComponent.ActiveIndices); i++ {
-		particleIdx := particleComponent.ActiveIndices[i]
-		particle := &particleComponent.ParticlePool[particleIdx]
+	// Check for expired particles
+	for i := 0; i < len(data.ActiveIndices); i++ {
+		particleIdx := data.ActiveIndices[i]
+		particle := &data.ParticlePool[particleIdx]
 
-		// Update movement based on type
-		f1, f2 := true, true
-		if particleComponent.MovementType == "polar" {
-			// Polar Movement
-			angle, _, finished1 := particle.SequenceAngle.Update(deltaTime)
-			dist, _, finished2 := particle.SequenceDist.Update(deltaTime)
-			f1, f2 = finished1, finished2
-
-			// Convert angle to radians (assuming config is in degrees)
-			rad := float64(angle) * math.Pi / 180.0
-
-			// Calculate position relative to emitter
-			particle.Position.X = particleComponent.EmitterPosition.X + float64(dist)*math.Cos(rad)
-			particle.Position.Y = particleComponent.EmitterPosition.Y + float64(dist)*math.Sin(rad)
-		} else {
-			// Cartesian Movement (Default)
-			x, _, finished1 := particle.SequenceX.Update(deltaTime)
-			y, _, finished2 := particle.SequenceY.Update(deltaTime)
-			f1, f2 = finished1, finished2
-			particle.Position.X = float64(x)
-			particle.Position.Y = float64(y)
-		}
-
-		// Update alpha
-		f3 := true
-		if particle.SequenceAlpha != nil {
-			a, _, finished := particle.SequenceAlpha.Update(deltaTime)
-			particle.Alpha = float64(a)
-			f3 = finished
-		}
-
-		// Update rotation
-		f4 := true
-		if particle.SequenceRotate != nil {
-			r, _, finished := particle.SequenceRotate.Update(deltaTime)
-			particle.Rotation = float64(r)
-			f4 = finished
-		}
-
-		// Update scale
-		f5 := true
-		if particle.SequenceScale != nil {
-			s, _, finished := particle.SequenceScale.Update(deltaTime)
-			particle.Scale = float64(s)
-			f5 = finished
-		}
-
-		// Mark for removal if all sequences finished
-		if f1 && f2 && f3 && f4 && f5 {
+		elapsed := currentTime - particle.SpawnTime
+		if elapsed >= particle.Duration {
 			particle.Active = false
 			indicesToRemove = append(indicesToRemove, i)
-			particleComponent.ActiveCount--
-			particleComponent.Metrics.DeactivateCount++
+			data.ActiveCount--
+			data.Metrics.DeactivateCount++
 			// Return to free indices pool
-			particleComponent.FreeIndices = append(particleComponent.FreeIndices, particleIdx)
+			data.FreeIndices = append(data.FreeIndices, particleIdx)
 		}
 	}
 
-	// Remove finished particles from active indices (iterate backwards to avoid index shift issues)
+	// Remove finished particles from active indices (iterate backwards)
 	for i := len(indicesToRemove) - 1; i >= 0; i-- {
 		removeIdx := indicesToRemove[i]
-		// Swap with last element and truncate
-		lastIdx := len(particleComponent.ActiveIndices) - 1
-		particleComponent.ActiveIndices[removeIdx] = particleComponent.ActiveIndices[lastIdx]
-		particleComponent.ActiveIndices = particleComponent.ActiveIndices[:lastIdx]
+		lastIdx := len(data.ActiveIndices) - 1
+		data.ActiveIndices[removeIdx] = data.ActiveIndices[lastIdx]
+		data.ActiveIndices = data.ActiveIndices[:lastIdx]
 	}
 }
 
-func (sys *System) spawn(particleComponent *SystemData) {
-	// Spawn new particles
-	if sys.cnt%particleComponent.SpawnInterval == 0 {
-		for i := 0; i < particleComponent.ParticlesPerSpawn && particleComponent.ActiveCount < particleComponent.MaxParticles; i++ {
-			// O(1) free index retrieval
-			if len(particleComponent.FreeIndices) == 0 {
-				break // No free particles available
-			}
-
-			// Pop from free indices stack
-			freeIdx := particleComponent.FreeIndices[len(particleComponent.FreeIndices)-1]
-			particleComponent.FreeIndices = particleComponent.FreeIndices[:len(particleComponent.FreeIndices)-1]
-
-			particle := &particleComponent.ParticlePool[freeIdx]
-
-			// Initialize particle
-			particle.Position.X = particleComponent.EmitterPosition.X
-			particle.Position.Y = particleComponent.EmitterPosition.Y
-			particle.Alpha = 1
-			particle.Rotation = 0.0
-			particle.Scale = 1.0
-			particle.Active = true
-
-			// Create movement sequences based on type
-			if particleComponent.MovementType == "polar" {
-				particle.SequenceAngle = particleComponent.SequenceFactoryAngle()
-				particle.SequenceDist = particleComponent.SequenceFactoryDist()
-			} else {
-				particle.SequenceX = particleComponent.SequenceFactoryX()
-				particle.SequenceY = particleComponent.SequenceFactoryY()
-			}
-
-			// Create appearance sequences
-			if particleComponent.SequenceFactoryAlpha != nil {
-				particle.SequenceAlpha = particleComponent.SequenceFactoryAlpha()
-			}
-			if particleComponent.SequenceFactoryR != nil {
-				particle.SequenceRotate = particleComponent.SequenceFactoryR()
-			}
-			if particleComponent.SequenceFactoryS != nil {
-				particle.SequenceScale = particleComponent.SequenceFactoryS()
-			}
-
-			// Add to active indices
-			particleComponent.ActiveIndices = append(particleComponent.ActiveIndices, freeIdx)
-			particleComponent.ActiveCount++
-			particleComponent.Metrics.SpawnCount++
-		}
-	}
-}
-
-// Draw renders all particles directly to the screen
+// Draw renders all particles using GPU batch rendering
 func (sys *System) Draw(ecs *ecs.ECS, screen *ebiten.Image) {
 	for entry := range sys.query.Iter(ecs.World) {
-		particleComponent := Component.Get(entry)
+		data := Component.Get(entry)
 
-		if particleComponent.SourceImage == nil {
+		if data.SourceImage == nil || data.Shader == nil {
 			continue
 		}
 
-		// Track draw time
-		startTime := time.Now()
-
-		// Use cached image dimensions
-		baseWidth := particleComponent.ImageWidth
-		baseHeight := particleComponent.ImageHeight
-
-		// Draw only active particles
-		for _, particleIdx := range particleComponent.ActiveIndices {
-			particle := &particleComponent.ParticlePool[particleIdx]
-
-			// Get DrawImageOptions from pool
-			opts := drawOptsPool.Get().(*ebiten.DrawImageOptions)
-
-			// Reset to default state
-			opts.GeoM.Reset()
-			opts.ColorScale.Reset()
-
-			width := baseWidth
-			height := baseHeight
-
-			// Apply scale
-			if particle.Scale > 0 {
-				opts.GeoM.Scale(particle.Scale, particle.Scale)
-				width *= particle.Scale
-				height *= particle.Scale
-			}
-
-			// Apply rotation around center
-			if particle.Rotation != 0 {
-				centerX := width / 2
-				centerY := height / 2
-				opts.GeoM.Translate(-centerX, -centerY)
-				opts.GeoM.Rotate(particle.Rotation)
-				opts.GeoM.Translate(centerX, centerY)
-			}
-
-			// Apply position (center-anchored)
-			opts.GeoM.Translate(particle.Position.X-width/2, particle.Position.Y-height/2)
-
-			// Apply alpha
-			if particle.Alpha >= 0 && particle.Alpha <= 1.0 {
-				opts.ColorScale.Scale(
-					float32(particle.Alpha),
-					float32(particle.Alpha),
-					float32(particle.Alpha),
-					float32(particle.Alpha),
-				)
-			}
-
-			// Use additive blending for particles
-			opts.CompositeMode = ebiten.CompositeModeSourceOver
-
-			screen.DrawImage(particleComponent.SourceImage, opts)
-
-			// Return to pool
-			drawOptsPool.Put(opts)
+		if len(data.ActiveIndices) == 0 {
+			continue
 		}
 
-		// Update draw metrics
-		particleComponent.Metrics.DrawTimeUs = time.Since(startTime).Microseconds()
+		startTime := time.Now()
+
+		// Build vertex/index buffers
+		data.Vertices = data.Vertices[:0]
+		data.Indices = data.Indices[:0]
+
+		currentTime := data.CurrentTime
+		imgW := data.ImageWidth
+		imgH := data.ImageHeight
+		halfW := imgW / 2
+		halfH := imgH / 2
+
+		for _, particleIdx := range data.ActiveIndices {
+			p := &data.ParticlePool[particleIdx]
+
+			// Calculate normalized time
+			elapsed := currentTime - p.SpawnTime
+			normalizedT := elapsed / p.Duration
+			if normalizedT > 1 {
+				normalizedT = 1
+			}
+
+			// Calculate position, scale, rotation
+			var x, y, scale, rotation float32
+			if p.MultiStep {
+				// Multi-step sequence evaluation
+				if data.PosXSeq != nil {
+					x = EvaluateSequence(data.PosXSeq, &p.PosXSnap, elapsed)
+				} else {
+					posT := ApplyEasing(normalizedT, p.PositionEasing)
+					x = lerp(p.StartX, p.EndX, posT)
+				}
+				if data.PosYSeq != nil {
+					y = EvaluateSequence(data.PosYSeq, &p.PosYSnap, elapsed)
+				} else {
+					posT := ApplyEasing(normalizedT, p.PositionEasing)
+					y = lerp(p.StartY, p.EndY, posT)
+				}
+				if data.ScaleSeq != nil {
+					scale = EvaluateSequence(data.ScaleSeq, &p.ScaleSnap, elapsed)
+				} else {
+					scaleT := ApplyEasing(normalizedT, p.ScaleEasing)
+					scale = lerp(p.StartScale, p.EndScale, scaleT)
+				}
+				if data.RotSeq != nil {
+					rotation = EvaluateSequence(data.RotSeq, &p.RotSnap, elapsed)
+				} else {
+					rotT := ApplyEasing(normalizedT, p.RotationEasing)
+					rotation = lerp(p.StartRotation, p.EndRotation, rotT)
+				}
+			} else {
+				// Simple lerp fast path (existing behavior)
+				posT := ApplyEasing(normalizedT, p.PositionEasing)
+				scaleT := ApplyEasing(normalizedT, p.ScaleEasing)
+				rotT := ApplyEasing(normalizedT, p.RotationEasing)
+				x = lerp(p.StartX, p.EndX, posT)
+				y = lerp(p.StartY, p.EndY, posT)
+				scale = lerp(p.StartScale, p.EndScale, scaleT)
+				rotation = lerp(p.StartRotation, p.EndRotation, rotT)
+			}
+
+			// Calculate scaled dimensions
+			scaledHalfW := halfW * scale
+			scaledHalfH := halfH * scale
+
+			// Calculate rotated corner positions
+			cos := float32(1.0)
+			sin := float32(0.0)
+			if rotation != 0 {
+				cos = cosf(rotation)
+				sin = sinf(rotation)
+			}
+
+			// 4 corners relative to center, then rotated and translated
+			// Top-left, Top-right, Bottom-left, Bottom-right
+			corners := [4][2]float32{
+				{-scaledHalfW, -scaledHalfH},
+				{scaledHalfW, -scaledHalfH},
+				{-scaledHalfW, scaledHalfH},
+				{scaledHalfW, scaledHalfH},
+			}
+
+			// Prepare vertex custom data for GPU interpolation
+			// color.r = startAlpha, color.g = endAlpha
+			// color.b = alphaEasing (normalized), color.a = colorEasing (normalized)
+			// custom.x = spawnTime, custom.y = duration
+			// custom.z = startColor (packed RGB), custom.w = endColor (packed RGB)
+			var startAlpha, endAlpha float32
+			var alphaEasingNorm float32
+			if p.MultiStep && data.AlphaSeq != nil {
+				// CPU-evaluated alpha: pass same value as both start and end
+				cpuAlpha := EvaluateSequence(data.AlphaSeq, &p.AlphaSnap, elapsed)
+				startAlpha = cpuAlpha
+				endAlpha = cpuAlpha
+				alphaEasingNorm = 0 // Linear (no-op since start==end)
+			} else {
+				startAlpha = p.StartAlpha
+				endAlpha = p.EndAlpha
+				alphaEasingNorm = float32(p.AlphaEasing) / 25.0
+			}
+			colorEasingNorm := float32(p.ColorEasing) / 25.0
+			startColorPacked := packRGB(p.StartR, p.StartG, p.StartB)
+			endColorPacked := packRGB(p.EndR, p.EndG, p.EndB)
+
+			vertexBase := uint16(len(data.Vertices))
+
+			for i, corner := range corners {
+				// Rotate
+				rx := corner[0]*cos - corner[1]*sin
+				ry := corner[0]*sin + corner[1]*cos
+
+				// Translate
+				vx := x + rx
+				vy := y + ry
+
+				// UV coordinates
+				var u, v float32
+				switch i {
+				case 0: // Top-left
+					u, v = 0, 0
+				case 1: // Top-right
+					u, v = imgW, 0
+				case 2: // Bottom-left
+					u, v = 0, imgH
+				case 3: // Bottom-right
+					u, v = imgW, imgH
+				}
+
+				data.Vertices = append(data.Vertices, ebiten.Vertex{
+					DstX:    vx,
+					DstY:    vy,
+					SrcX:    u,
+					SrcY:    v,
+					ColorR:  startAlpha,
+					ColorG:  endAlpha,
+					ColorB:  alphaEasingNorm,
+					ColorA:  colorEasingNorm,
+					Custom0: p.SpawnTime,
+					Custom1: p.Duration,
+					Custom2: startColorPacked,
+					Custom3: endColorPacked,
+				})
+			}
+
+			// Add indices for two triangles (0,1,2), (1,3,2)
+			data.Indices = append(data.Indices,
+				vertexBase+0, vertexBase+1, vertexBase+2,
+				vertexBase+1, vertexBase+3, vertexBase+2,
+			)
+		}
+
+		// Draw all particles in a single batch
+		opts := &ebiten.DrawTrianglesShaderOptions{
+			Uniforms: map[string]interface{}{
+				"Time": currentTime,
+			},
+			Images: [4]*ebiten.Image{data.SourceImage},
+		}
+
+		screen.DrawTrianglesShader(data.Vertices, data.Indices, data.Shader, opts)
+
+		data.Metrics.DrawTimeUs = time.Since(startTime).Microseconds()
 	}
+}
+
+// Helper functions
+func rangeFloat32(min, max float32) float32 {
+	if min == max {
+		return min
+	}
+	return min + rand.Float32()*(max-min)
+}
+
+// packRGB packs RGB (0-1) into a single float for shader transfer
+func packRGB(r, g, b float32) float32 {
+	ri := uint32(clampf(r, 0, 1) * 255)
+	gi := uint32(clampf(g, 0, 1) * 255)
+	bi := uint32(clampf(b, 0, 1) * 255)
+	return float32(ri<<16 | gi<<8 | bi)
+}
+
+func clampf(v, min, max float32) float32 {
+	if v < min {
+		return min
+	}
+	if v > max {
+		return max
+	}
+	return v
+}
+
+func lerp(a, b, t float32) float32 {
+	return a + (b-a)*t
+}
+
+func cosf(radians float32) float32 {
+	// Fast cosine approximation using Taylor series
+	// For better accuracy, use math.Cos
+	x := radians
+	for x > 3.14159265 {
+		x -= 6.28318530
+	}
+	for x < -3.14159265 {
+		x += 6.28318530
+	}
+	x2 := x * x
+	return 1 - x2/2 + x2*x2/24 - x2*x2*x2/720
+}
+
+func sinf(radians float32) float32 {
+	// Fast sine approximation using Taylor series
+	x := radians
+	for x > 3.14159265 {
+		x -= 6.28318530
+	}
+	for x < -3.14159265 {
+		x += 6.28318530
+	}
+	x2 := x * x
+	return x - x*x2/6 + x*x2*x2/120 - x*x2*x2*x2/5040
 }

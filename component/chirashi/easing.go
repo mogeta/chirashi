@@ -1,4 +1,4 @@
-package aburi
+package chirashi
 
 import (
 	"math"
