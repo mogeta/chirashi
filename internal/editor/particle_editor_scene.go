@@ -24,10 +24,13 @@ type ParticleEditorScene struct {
 	config          *chirashi.ParticleConfig
 	img             *ebiten.Image
 	debugui         debugui.DebugUI
+	defaultShader   *ebiten.Shader
 	shader          *ebiten.Shader
+	blurShader      *ebiten.Shader
 	bloomShader     *ebiten.Shader
 	offscreen       *ebiten.Image
 	glitchIntensity float64
+	useBlurShader   bool
 	time            float64
 	fileList        []string
 }
@@ -56,6 +59,12 @@ func NewParticleEditorScene() *ParticleEditorScene {
 		log.Fatalf("Failed to load bloom shader: %v\n", err)
 	}
 
+	// Load blur particle shader
+	blurShader, err := ebiten.NewShader(assets.ParticleShaderBlur)
+	if err != nil {
+		log.Fatalf("Failed to load blur particle shader: %v\n", err)
+	}
+
 	// Load configuration from file
 	log.Println("Loading particle configuration...")
 	config, err := chirashi.GetConfigLoader().LoadConfigFromBytes(assets.SampleParticleConfig, "sample.yaml")
@@ -70,12 +79,14 @@ func NewParticleEditorScene() *ParticleEditorScene {
 	}
 
 	return &ParticleEditorScene{
-		world:       world,
-		container:   container,
-		config:      config,
-		img:         img,
-		shader:      shader,
-		bloomShader: bloomShader,
+		world:         world,
+		container:     container,
+		config:        config,
+		img:           img,
+		defaultShader: shader,
+		shader:        shader,
+		blurShader:    blurShader,
+		bloomShader:   bloomShader,
 	}
 }
 
@@ -210,6 +221,21 @@ func (s *ParticleEditorScene) drawGeneralSettingsWindow(ctx *debugui.Context) {
 
 		// Glitch Intensity
 		s.sliderControl(ctx, "Glitch Intensity", &s.glitchIntensity, 0.0, 1.0, 0.01)
+
+		mode := "Default"
+		if s.useBlurShader {
+			mode = "Blur"
+		}
+		ctx.Text("Particle Shader: " + mode)
+		ctx.Button("Toggle Blur Shader").On(func() {
+			s.useBlurShader = !s.useBlurShader
+			if s.useBlurShader {
+				s.shader = s.blurShader
+			} else {
+				s.shader = s.defaultShader
+			}
+			s.recreateParticles()
+		})
 	})
 }
 

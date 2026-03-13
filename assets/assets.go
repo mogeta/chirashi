@@ -10,5 +10,8 @@ var BloomShader []byte
 //go:embed shaders/particle.kage
 var ParticleShader []byte
 
+//go:embed shaders/particle_blur.kage
+var ParticleShaderBlur []byte
+
 //go:embed particles/sample.yaml
 var SampleParticleConfig []byte
