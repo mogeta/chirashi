@@ -466,7 +466,7 @@ func (s *ParticleEditorScene) drawAnimationWindow(ctx *debugui.Context) {
 }
 
 func (s *ParticleEditorScene) drawDebugWindow(ctx *debugui.Context) {
-	ctx.Window("Debug Info", image.Rect(420, 10, 720, 200), func(layout debugui.ContainerLayout) {
+	ctx.Window("Debug Info", image.Rect(870, 10, 1270, 200), func(layout debugui.ContainerLayout) {
 		fps := ebiten.ActualFPS()
 		ctx.Text(fmt.Sprintf("FPS: %.2f", fps))
 
@@ -494,7 +494,7 @@ func (s *ParticleEditorScene) drawDebugWindow(ctx *debugui.Context) {
 }
 
 func (s *ParticleEditorScene) drawFileWindow(ctx *debugui.Context) {
-	ctx.Window("File Operations", image.Rect(420, 210, 720, 450), func(layout debugui.ContainerLayout) {
+	ctx.Window("File Operations", image.Rect(870, 210, 1270, 500), func(layout debugui.ContainerLayout) {
 		// Save
 		ctx.Button("Save " + s.config.Name + ".yaml").On(func() {
 			path := filepath.Join("assets", "particles", s.config.Name+".yaml")
