@@ -15,6 +15,14 @@ image:
 emitter:
   x: float
   y: float
+  shape: # optional
+    type: "point" | "circle" | "box" | "line"
+    radius: { min: float, max: float } # circle only
+    width: float   # box only
+    height: float  # box only
+    length: float  # line only
+    rotation: float # box/line only, radians
+    from_edge: bool # circle only
 
 animation:
   duration:
@@ -91,6 +99,7 @@ If validation fails, loading returns an error.
 - `animation.position.type`:
   - `"polar"` uses `angle` + `distance`.
   - any other value (including empty) is treated as cartesian mode.
+- `emitter.shape.type` defaults to `"point"`.
 - If cartesian ranges are omitted, values default to `0`, so particles can stay at emitter position.
 - If both `scale.start` and `scale.end` are `0`, runtime forces both to `1.0`.
 - `animation.color` omitted means no color shift (white -> white).
@@ -130,6 +139,36 @@ animation:
 spawn:
   interval: 2
   particles_per_spawn: 8
+  max_particles: 1200
+  is_loop: true
+```
+
+## Example: Circle emitter shape
+
+```yaml
+name: "rune_ring"
+description: "ring emitter"
+image: { image_from: "ef1", image_id: 5 }
+emitter:
+  x: 0
+  y: 0
+  shape:
+    type: "circle"
+    radius: { min: 90, max: 120 }
+    from_edge: true
+animation:
+  duration: { value: 1.1 }
+  position:
+    type: "cartesian"
+    end_x: { min: -20, max: 20 }
+    end_y: { min: -30, max: 30 }
+    easing: "OutQuad"
+  alpha: { start: 1.0, end: 0.0, easing: "Linear" }
+  scale: { start: 0.8, end: 0.2, easing: "InOutSine" }
+  rotation: { start: 0.0, end: 3.14, easing: "Linear" }
+spawn:
+  interval: 2
+  particles_per_spawn: 12
   max_particles: 1200
   is_loop: true
 ```

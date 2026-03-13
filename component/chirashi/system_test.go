@@ -1,6 +1,7 @@
 package chirashi
 
 import (
+	"math"
 	"testing"
 
 	"github.com/yohamta/donburi"
@@ -98,5 +99,105 @@ func TestUpdateRemovesExpiredOneShotEntity(t *testing.T) {
 
 	if world.Valid(entity) {
 		t.Fatalf("expected entity to be removed when one-shot lifetime expires")
+	}
+}
+
+func TestSpawnCircleEmitterSamplesInsideRadius(t *testing.T) {
+	sys := &System{cnt: 0}
+	data := &SystemData{
+		ParticlePool:      make([]Instance, 32),
+		ActiveIndices:     make([]int, 0, 32),
+		FreeIndices:       make([]int, 32),
+		SpawnInterval:     1,
+		ParticlesPerSpawn: 32,
+		MaxParticles:      32,
+		EmitterX:          100,
+		EmitterY:          200,
+		EmitterShape: EmitterShapeParams{
+			Type:      EmitterShapeCircle,
+			RadiusMin: 10,
+			RadiusMax: 20,
+		},
+		AnimParams: AnimationParams{
+			Duration: DurationParams{Base: 1.0},
+			Appearance: AppearanceParams{
+				StartScale:     1.0,
+				EndScale:       1.0,
+				AlphaEasing:    EasingLinear,
+				ScaleEasing:    EasingLinear,
+				RotationEasing: EasingLinear,
+			},
+			Color: ColorParams{
+				StartR: 1, StartG: 1, StartB: 1,
+				EndR: 1, EndG: 1, EndB: 1,
+				Easing: EasingLinear,
+			},
+			Position: PositionParams{Easing: EasingLinear},
+		},
+	}
+	for i := range data.FreeIndices {
+		data.FreeIndices[i] = len(data.FreeIndices) - 1 - i
+	}
+
+	sys.spawn(data)
+
+	for _, idx := range data.ActiveIndices {
+		p := data.ParticlePool[idx]
+		dx := p.StartX - data.EmitterX
+		dy := p.StartY - data.EmitterY
+		dist := float32(math.Hypot(float64(dx), float64(dy)))
+		if dist < 10 || dist > 20 {
+			t.Fatalf("particle spawned at distance %v, want within [10,20]", dist)
+		}
+	}
+}
+
+func TestSpawnLineEmitterRespectsRotation(t *testing.T) {
+	sys := &System{cnt: 0}
+	data := &SystemData{
+		ParticlePool:      make([]Instance, 16),
+		ActiveIndices:     make([]int, 0, 16),
+		FreeIndices:       make([]int, 16),
+		SpawnInterval:     1,
+		ParticlesPerSpawn: 16,
+		MaxParticles:      16,
+		EmitterX:          50,
+		EmitterY:          80,
+		EmitterShape: EmitterShapeParams{
+			Type:     EmitterShapeLine,
+			Length:   60,
+			Rotation: math.Pi / 2,
+		},
+		AnimParams: AnimationParams{
+			Duration: DurationParams{Base: 1.0},
+			Appearance: AppearanceParams{
+				StartScale:     1.0,
+				EndScale:       1.0,
+				AlphaEasing:    EasingLinear,
+				ScaleEasing:    EasingLinear,
+				RotationEasing: EasingLinear,
+			},
+			Color: ColorParams{
+				StartR: 1, StartG: 1, StartB: 1,
+				EndR: 1, EndG: 1, EndB: 1,
+				Easing: EasingLinear,
+			},
+			Position: PositionParams{Easing: EasingLinear},
+		},
+	}
+	for i := range data.FreeIndices {
+		data.FreeIndices[i] = len(data.FreeIndices) - 1 - i
+	}
+
+	sys.spawn(data)
+
+	for _, idx := range data.ActiveIndices {
+		p := data.ParticlePool[idx]
+		if math.Abs(float64(p.StartX-data.EmitterX)) > 0.001 {
+			t.Fatalf("line emitter with vertical rotation should keep x constant, got startX=%v emitterX=%v", p.StartX, data.EmitterX)
+		}
+		if p.StartY < data.EmitterY-30 || p.StartY > data.EmitterY+30 {
+			t.Fatalf("line emitter startY=%v out of range", p.StartY)
+		}
 	}
 }

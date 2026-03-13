@@ -66,6 +66,7 @@ func createParticlesFromConfig(w donburi.World, shader *ebiten.Shader, image *eb
 		CurrentTime:       0,
 		EmitterX:          emitterX,
 		EmitterY:          emitterY,
+		EmitterShape:      buildEmitterShapeParams(config.Emitter.Shape),
 		SpawnInterval:     config.Spawn.Interval,
 		ParticlesPerSpawn: config.Spawn.ParticlesPerSpawn,
 		MaxParticles:      config.Spawn.MaxParticles,
@@ -83,6 +84,37 @@ func createParticlesFromConfig(w donburi.World, shader *ebiten.Shader, image *eb
 
 	donburi.SetValue(particles, Component, systemData)
 	return nil
+}
+
+func buildEmitterShapeParams(config EmitterShapeConfig) EmitterShapeParams {
+	shape := EmitterShapeParams{
+		Type:     parseEmitterShapeType(config.Type),
+		Width:    config.Width,
+		Height:   config.Height,
+		Length:   config.Length,
+		Rotation: config.Rotation,
+		FromEdge: config.FromEdge,
+	}
+	if config.Radius != nil {
+		shape.RadiusMin = config.Radius.Min
+		shape.RadiusMax = config.Radius.Max
+	}
+	return shape
+}
+
+func parseEmitterShapeType(shapeType string) EmitterShapeType {
+	switch shapeType {
+	case "", "point":
+		return EmitterShapePoint
+	case "circle":
+		return EmitterShapeCircle
+	case "box":
+		return EmitterShapeBox
+	case "line":
+		return EmitterShapeLine
+	default:
+		return EmitterShapePoint
+	}
 }
 
 // buildAnimationParams converts config to runtime animation parameters

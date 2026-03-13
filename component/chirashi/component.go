@@ -73,6 +73,7 @@ type SystemData struct {
 
 	// Emitter configuration
 	EmitterX, EmitterY float32
+	EmitterShape       EmitterShapeParams
 
 	// Spawn configuration
 	SpawnInterval     int
@@ -106,6 +107,28 @@ type SystemData struct {
 	// Performance metrics
 	Metrics Metrics
 }
+
+// EmitterShapeParams holds runtime emitter shape configuration.
+type EmitterShapeParams struct {
+	Type      EmitterShapeType
+	RadiusMin float32
+	RadiusMax float32
+	Width     float32
+	Height    float32
+	Length    float32
+	Rotation  float32
+	FromEdge  bool
+}
+
+// EmitterShapeType identifies how particles are spawned around the emitter.
+type EmitterShapeType int
+
+const (
+	EmitterShapePoint EmitterShapeType = iota
+	EmitterShapeCircle
+	EmitterShapeBox
+	EmitterShapeLine
+)
 
 // AnimationParams holds the configuration for particle animations, grouped by concern.
 type AnimationParams struct {

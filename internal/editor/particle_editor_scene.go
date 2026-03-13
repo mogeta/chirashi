@@ -173,7 +173,7 @@ func (s *ParticleEditorScene) Layout(outsideWidth, outsideHeight int) (int, int)
 }
 
 func (s *ParticleEditorScene) drawGeneralSettingsWindow(ctx *debugui.Context) {
-	ctx.Window("General Settings", image.Rect(10, 10, 410, 350), func(layout debugui.ContainerLayout) {
+	ctx.Window("General Settings", image.Rect(10, 10, 410, 470), func(layout debugui.ContainerLayout) {
 		ctx.Text("Spawn Config")
 
 		ctx.Text(fmt.Sprintf("Interval: %d", s.config.Spawn.Interval))
@@ -225,6 +225,8 @@ func (s *ParticleEditorScene) drawGeneralSettingsWindow(ctx *debugui.Context) {
 		ctx.SetGridLayout([]int{-1}, nil)
 
 		ctx.Text("----------------")
+		s.drawEmitterShapeControls(ctx)
+		ctx.Text("----------------")
 
 		// Glitch Intensity
 		s.sliderControl(ctx, "Glitch Intensity", &s.glitchIntensity, 0.0, 1.0, 0.01)
@@ -244,6 +246,66 @@ func (s *ParticleEditorScene) drawGeneralSettingsWindow(ctx *debugui.Context) {
 			s.recreateParticles()
 		})
 	})
+}
+
+func (s *ParticleEditorScene) drawEmitterShapeControls(ctx *debugui.Context) {
+	shape := &s.config.Emitter.Shape
+	shapeType := shape.Type
+	if shapeType == "" {
+		shapeType = "point"
+	}
+
+	ctx.Text("Emitter Shape: " + shapeType)
+	ctx.Button("Toggle Shape").On(func() {
+		switch shape.Type {
+		case "circle":
+			shape.Type = "box"
+			if shape.Width == 0 {
+				shape.Width = 160
+			}
+			if shape.Height == 0 {
+				shape.Height = 80
+			}
+		case "box":
+			shape.Type = "line"
+			if shape.Length == 0 {
+				shape.Length = 200
+			}
+		case "line":
+			shape.Type = "point"
+		default:
+			shape.Type = "circle"
+			if shape.Radius == nil {
+				shape.Radius = &chirashi.RangeFloat{Min: 0, Max: 100}
+			}
+		}
+		s.recreateParticles()
+	})
+
+	switch shapeType {
+	case "circle":
+		if shape.Radius == nil {
+			shape.Radius = &chirashi.RangeFloat{Min: 0, Max: 100}
+		}
+		s.rangeControl(ctx, "Radius", shape.Radius, 0, 300, 5)
+		edgeLabel := "Area"
+		if shape.FromEdge {
+			edgeLabel = "Edge"
+		}
+		ctx.Button("Sample: " + edgeLabel).On(func() {
+			shape.FromEdge = !shape.FromEdge
+			s.recreateParticles()
+		})
+	case "box":
+		s.sliderControl32(ctx, "Width", &shape.Width, 0, 400, 5)
+		s.sliderControl32(ctx, "Height", &shape.Height, 0, 400, 5)
+		s.sliderControl32(ctx, "Rotation##shape", &shape.Rotation, -3.14, 3.14, 0.1)
+	case "line":
+		s.sliderControl32(ctx, "Length", &shape.Length, 0, 400, 5)
+		s.sliderControl32(ctx, "Rotation##line", &shape.Rotation, -3.14, 3.14, 0.1)
+	default:
+		ctx.Text("Single point emission")
+	}
 }
 
 func (s *ParticleEditorScene) drawAnimationWindow(ctx *debugui.Context) {
@@ -594,6 +656,38 @@ func (s *ParticleEditorScene) sliderControl(ctx *debugui.Context, label string, 
 			*value += step
 			if *value > max {
 				*value = max
+			}
+			s.recreateParticles()
+		})
+
+		ctx.SetGridLayout([]int{-1}, nil)
+	})
+}
+
+func (s *ParticleEditorScene) sliderControl32(ctx *debugui.Context, label string, value *float32, min, max, step float64) {
+	ctx.IDScope(label, func() {
+		floatVal := float64(*value)
+		ctx.Text(fmt.Sprintf("  %s: %.2f", label, floatVal))
+
+		ctx.SetGridLayout([]int{30, -1, 30}, nil)
+
+		ctx.Button("-").On(func() {
+			*value -= float32(step)
+			if float64(*value) < min {
+				*value = float32(min)
+			}
+			s.recreateParticles()
+		})
+
+		ctx.SliderF(&floatVal, min, max, step, 2).On(func() {
+			*value = float32(floatVal)
+			s.recreateParticles()
+		})
+
+		ctx.Button("+").On(func() {
+			*value += float32(step)
+			if float64(*value) > max {
+				*value = float32(max)
 			}
 			s.recreateParticles()
 		})

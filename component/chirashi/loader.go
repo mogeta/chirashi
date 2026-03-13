@@ -147,5 +147,15 @@ func (l *ConfigLoader) validateConfig(config *ParticleConfig) error {
 		return fmt.Errorf("animation.duration.value must be greater than 0")
 	}
 
+	switch config.Emitter.Shape.Type {
+	case "", "point", "circle", "box", "line":
+	default:
+		return fmt.Errorf("emitter.shape.type must be point, circle, box, or line")
+	}
+
+	if config.Emitter.Shape.Radius != nil && config.Emitter.Shape.Radius.Min > config.Emitter.Shape.Radius.Max {
+		return fmt.Errorf("emitter.shape.radius.min must be less than or equal to max")
+	}
+
 	return nil
 }

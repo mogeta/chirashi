@@ -138,6 +138,28 @@ func TestCopyConfigDeepCopiesColor(t *testing.T) {
 	}
 }
 
+func TestCopyConfigDeepCopiesEmitterShape(t *testing.T) {
+	src := &ParticleConfig{
+		Emitter: EmitterConfig{
+			Shape: EmitterShapeConfig{
+				Type:   "circle",
+				Radius: &RangeFloat{Min: 10, Max: 20},
+			},
+		},
+	}
+
+	dst := copyConfig(src)
+	dst.Emitter.Shape.Type = "line"
+	dst.Emitter.Shape.Radius.Min = 99
+
+	if src.Emitter.Shape.Type != "circle" {
+		t.Error("Emitter.Shape.Type: src was modified by dst change")
+	}
+	if src.Emitter.Shape.Radius.Min == 99 {
+		t.Error("Emitter.Shape.Radius: src was modified by dst change")
+	}
+}
+
 func TestParticleManagerPreloadFromBytesAndSpawn(t *testing.T) {
 	// Use YAML bytes equivalent to minConfig
 	yaml := []byte(`

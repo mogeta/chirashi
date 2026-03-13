@@ -1,0 +1,51 @@
+name: "rune_ring"
+description: "Particles emitted from a circular ring, similar to Unity's circle shape."
+image:
+  image_from: "ef1"
+  image_id: 5
+emitter:
+  x: 0
+  y: 0
+  shape:
+    type: "circle"
+    radius:
+      min: 90
+      max: 120
+    from_edge: true
+animation:
+  duration:
+    value: 1.1
+  position:
+    type: "cartesian"
+    end_x:
+      min: -20
+      max: 20
+    end_y:
+      min: -30
+      max: 30
+    easing: "OutQuad"
+  alpha:
+    start: 1.0
+    end: 0.0
+    easing: "Linear"
+  scale:
+    start: 0.8
+    end: 0.2
+    easing: "InOutSine"
+  rotation:
+    start: 0.0
+    end: 3.14
+    easing: "Linear"
+  color:
+    start_r: 0.6
+    start_g: 0.9
+    start_b: 1.0
+    end_r: 0.2
+    end_g: 0.4
+    end_b: 1.0
+    easing: "InOutSine"
+spawn:
+  interval: 2
+  particles_per_spawn: 12
+  max_particles: 1200
+  is_loop: true

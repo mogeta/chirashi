@@ -123,6 +123,7 @@ func (m *ParticleManager) SpawnLoop(world donburi.World, name string, x, y float
 		CurrentTime:       0,
 		EmitterX:          emitterX,
 		EmitterY:          emitterY,
+		EmitterShape:      buildEmitterShapeParams(config.Emitter.Shape),
 		SpawnInterval:     config.Spawn.Interval,
 		ParticlesPerSpawn: config.Spawn.ParticlesPerSpawn,
 		MaxParticles:      config.Spawn.MaxParticles,
@@ -184,7 +185,18 @@ func copyConfig(src *ParticleConfig) *ParticleConfig {
 		dst.Animation.Color = &c
 	}
 
+	dst.Emitter = copyEmitterConfig(src.Emitter)
+
 	return &dst
+}
+
+func copyEmitterConfig(src EmitterConfig) EmitterConfig {
+	dst := src
+	if src.Shape.Radius != nil {
+		r := *src.Shape.Radius
+		dst.Shape.Radius = &r
+	}
+	return dst
 }
 
 func copyPositionConfig(src PositionConfig) PositionConfig {

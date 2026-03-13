@@ -81,6 +81,8 @@ func (sys *System) spawn(data *SystemData) {
 
 		particle := &data.ParticlePool[freeIdx]
 
+		spawnX, spawnY := sampleEmitterPosition(data.EmitterX, data.EmitterY, data.EmitterShape)
+
 		// Initialize particle with randomized values
 		particle.SpawnTime = currentTime
 		particle.Duration = dur.Base
@@ -93,27 +95,27 @@ func (sys *System) spawn(data *SystemData) {
 		case pos.UseAttractor:
 			// Attractor mode: quadratic bezier P0=emitter, P1=random control, P2=AttractorX/Y
 			// EndX/Y are unused; attractor coords are read from SystemData each frame.
-			particle.StartX = data.EmitterX
-			particle.StartY = data.EmitterY
-			particle.ControlX = data.EmitterX + rangeFloat32(pos.ControlXMin, pos.ControlXMax)
-			particle.ControlY = data.EmitterY + rangeFloat32(pos.ControlYMin, pos.ControlYMax)
+			particle.StartX = spawnX
+			particle.StartY = spawnY
+			particle.ControlX = spawnX + rangeFloat32(pos.ControlXMin, pos.ControlXMax)
+			particle.ControlY = spawnY + rangeFloat32(pos.ControlYMin, pos.ControlYMax)
 			particle.HasAttractor = true
 		case pos.UsePolar:
 			// Polar mode: convert to cartesian at spawn time (no per-frame cost)
 			angle := rangeFloat32(pos.AngleMin, pos.AngleMax)
 			dist := rangeFloat32(pos.DistMin, pos.DistMax)
 			cos, sin := float32(math.Cos(float64(angle))), float32(math.Sin(float64(angle)))
-			particle.StartX = data.EmitterX
-			particle.StartY = data.EmitterY
-			particle.EndX = data.EmitterX + dist*cos
-			particle.EndY = data.EmitterY + dist*sin
+			particle.StartX = spawnX
+			particle.StartY = spawnY
+			particle.EndX = spawnX + dist*cos
+			particle.EndY = spawnY + dist*sin
 			particle.HasAttractor = false
 		default:
 			// Cartesian mode
-			particle.StartX = data.EmitterX + rangeFloat32(pos.StartXMin, pos.StartXMax)
-			particle.EndX = data.EmitterX + rangeFloat32(pos.EndXMin, pos.EndXMax)
-			particle.StartY = data.EmitterY + rangeFloat32(pos.StartYMin, pos.StartYMax)
-			particle.EndY = data.EmitterY + rangeFloat32(pos.EndYMin, pos.EndYMax)
+			particle.StartX = spawnX + rangeFloat32(pos.StartXMin, pos.StartXMax)
+			particle.EndX = spawnX + rangeFloat32(pos.EndXMin, pos.EndXMax)
+			particle.StartY = spawnY + rangeFloat32(pos.StartYMin, pos.StartYMax)
+			particle.EndY = spawnY + rangeFloat32(pos.EndYMin, pos.EndYMax)
 			particle.HasAttractor = false
 		}
 		particle.PositionEasing = pos.Easing
@@ -143,11 +145,11 @@ func (sys *System) spawn(data *SystemData) {
 		// Initialize per-property sequence snapshots
 		particle.HasPosXSeq = data.PosXSeq != nil
 		if particle.HasPosXSeq {
-			particle.PosXSnap = GenerateSnapshot(data.PosXSeq, data.EmitterX)
+			particle.PosXSnap = GenerateSnapshot(data.PosXSeq, spawnX)
 		}
 		particle.HasPosYSeq = data.PosYSeq != nil
 		if particle.HasPosYSeq {
-			particle.PosYSnap = GenerateSnapshot(data.PosYSeq, data.EmitterY)
+			particle.PosYSnap = GenerateSnapshot(data.PosYSeq, spawnY)
 		}
 		particle.HasScaleSeq = data.ScaleSeq != nil
 		if particle.HasScaleSeq {
@@ -167,6 +169,50 @@ func (sys *System) spawn(data *SystemData) {
 		data.ActiveCount++
 		data.Metrics.SpawnCount++
 	}
+}
+
+func sampleEmitterPosition(emitterX, emitterY float32, shape EmitterShapeParams) (float32, float32) {
+	switch shape.Type {
+	case EmitterShapeCircle:
+		angle := rand.Float32() * 2 * math.Pi
+		radius := rangeFloat32(shape.RadiusMin, shape.RadiusMax)
+		if !shape.FromEdge {
+			minRadiusSq := shape.RadiusMin * shape.RadiusMin
+			maxRadiusSq := shape.RadiusMax * shape.RadiusMax
+			radius = float32(math.Sqrt(float64(minRadiusSq + rand.Float32()*(maxRadiusSq-minRadiusSq))))
+		}
+		return emitterX + radius*float32(math.Cos(float64(angle))), emitterY + radius*float32(math.Sin(float64(angle)))
+	case EmitterShapeBox:
+		halfW := shape.Width / 2
+		halfH := shape.Height / 2
+		return rotateOffset(
+			emitterX,
+			emitterY,
+			rangeFloat32(-halfW, halfW),
+			rangeFloat32(-halfH, halfH),
+			shape.Rotation,
+		)
+	case EmitterShapeLine:
+		halfLen := shape.Length / 2
+		return rotateOffset(
+			emitterX,
+			emitterY,
+			rangeFloat32(-halfLen, halfLen),
+			0,
+			shape.Rotation,
+		)
+	default:
+		return emitterX, emitterY
+	}
+}
+
+func rotateOffset(originX, originY, offsetX, offsetY, rotation float32) (float32, float32) {
+	if rotation == 0 {
+		return originX + offsetX, originY + offsetY
+	}
+	cos := float32(math.Cos(float64(rotation)))
+	sin := float32(math.Sin(float64(rotation)))
+	return originX + offsetX*cos - offsetY*sin, originY + offsetX*sin + offsetY*cos
 }
 
 func (sys *System) updateParticles(data *SystemData) {

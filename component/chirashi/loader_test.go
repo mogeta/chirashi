@@ -95,6 +95,21 @@ func TestValidateConfigRejectsInvalidValues(t *testing.T) {
 			},
 			wantErr: "animation.duration.range.min",
 		},
+		{
+			name: "invalid emitter shape type",
+			mutate: func(c *ParticleConfig) {
+				c.Emitter.Shape.Type = "mesh"
+			},
+			wantErr: "emitter.shape.type",
+		},
+		{
+			name: "invalid emitter radius range",
+			mutate: func(c *ParticleConfig) {
+				c.Emitter.Shape.Type = "circle"
+				c.Emitter.Shape.Radius = &RangeFloat{Min: 10, Max: 5}
+			},
+			wantErr: "emitter.shape.radius.min",
+		},
 	}
 
 	loader := NewConfigLoader()

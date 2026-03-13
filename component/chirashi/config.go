@@ -18,8 +18,20 @@ type ImageConfig struct {
 
 // EmitterConfig defines the emitter properties
 type EmitterConfig struct {
-	X float32 `yaml:"x"`
-	Y float32 `yaml:"y"`
+	X     float32            `yaml:"x"`
+	Y     float32            `yaml:"y"`
+	Shape EmitterShapeConfig `yaml:"shape,omitempty"`
+}
+
+// EmitterShapeConfig defines where particles are spawned relative to the emitter origin.
+type EmitterShapeConfig struct {
+	Type     string      `yaml:"type,omitempty"` // point (default), circle, box, line
+	Radius   *RangeFloat `yaml:"radius,omitempty"`
+	Width    float32     `yaml:"width,omitempty"`
+	Height   float32     `yaml:"height,omitempty"`
+	Length   float32     `yaml:"length,omitempty"`
+	Rotation float32     `yaml:"rotation,omitempty"` // Radians, used by box/line
+	FromEdge bool        `yaml:"from_edge,omitempty"`
 }
 
 // AnimationConfig defines all animation parameters with simplified lerp-based approach
