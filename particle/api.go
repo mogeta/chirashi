@@ -55,10 +55,6 @@ var (
 	NewParticleManager = root.NewParticleManager
 	NewConfigLoader    = root.NewConfigLoader
 
-	// Config loader access.
-	GetConfigLoader = root.GetConfigLoader
-	ReloadConfig    = root.ReloadConfig
-
 	// Particle creation helpers.
 	NewParticlesFromConfig = root.NewParticlesFromConfig
 	NewParticlesFromFile   = root.NewParticlesFromFile

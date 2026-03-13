@@ -138,24 +138,6 @@ func TestCopyConfigDeepCopiesColor(t *testing.T) {
 	}
 }
 
-// minConfig returns a minimal valid ParticleConfig for use in ParticleManager tests.
-func minConfig(name string) *ParticleConfig {
-	return &ParticleConfig{
-		Name: name,
-		Animation: AnimationConfig{
-			Duration: DurationConfig{Value: 1.0},
-			Alpha:    PropertyConfig{Start: 1, End: 0},
-			Scale:    PropertyConfig{Start: 1, End: 1},
-		},
-		Spawn: SpawnConfig{
-			Interval:          1,
-			ParticlesPerSpawn: 1,
-			MaxParticles:      10,
-			IsLoop:            true,
-		},
-	}
-}
-
 func TestParticleManagerPreloadFromBytesAndSpawn(t *testing.T) {
 	// Use YAML bytes equivalent to minConfig
 	yaml := []byte(`

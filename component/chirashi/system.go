@@ -379,16 +379,6 @@ func rangeFloat32(min, max float32) float32 {
 	return min + rand.Float32()*(max-min)
 }
 
-func clampf(v, min, max float32) float32 {
-	if v < min {
-		return min
-	}
-	if v > max {
-		return max
-	}
-	return v
-}
-
 func lerp(a, b, t float32) float32 {
 	return a + (b-a)*t
 }
