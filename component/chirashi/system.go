@@ -63,7 +63,10 @@ func (sys *System) spawn(data *SystemData) {
 		return
 	}
 
-	params := &data.AnimParams
+	dur := &data.AnimParams.Duration
+	pos := &data.AnimParams.Position
+	app := &data.AnimParams.Appearance
+	clr := &data.AnimParams.Color
 	currentTime := data.CurrentTime
 
 	for i := 0; i < data.ParticlesPerSpawn && data.ActiveCount < data.MaxParticles; i++ {
@@ -80,16 +83,16 @@ func (sys *System) spawn(data *SystemData) {
 
 		// Initialize particle with randomized values
 		particle.SpawnTime = currentTime
-		particle.Duration = params.DurationBase
-		if params.DurationRange > 0 {
-			particle.Duration += (rand.Float32()*2 - 1) * params.DurationRange
+		particle.Duration = dur.Base
+		if dur.Range > 0 {
+			particle.Duration += (rand.Float32()*2 - 1) * dur.Range
 		}
 
 		// Position
-		if params.UsePolar {
+		if pos.UsePolar {
 			// Polar mode: convert to cartesian at spawn time (no per-frame cost)
-			angle := rangeFloat32(params.AngleMin, params.AngleMax)
-			dist := rangeFloat32(params.DistanceMin, params.DistanceMax)
+			angle := rangeFloat32(pos.AngleMin, pos.AngleMax)
+			dist := rangeFloat32(pos.DistMin, pos.DistMax)
 			cos, sin := float32(math.Cos(float64(angle))), float32(math.Sin(float64(angle)))
 
 			particle.StartX = data.EmitterX
@@ -98,36 +101,32 @@ func (sys *System) spawn(data *SystemData) {
 			particle.EndY = data.EmitterY + dist*sin
 		} else {
 			// Cartesian mode
-			particle.StartX = data.EmitterX + rangeFloat32(params.StartXMin, params.StartXMax)
-			particle.EndX = data.EmitterX + rangeFloat32(params.EndXMin, params.EndXMax)
-			particle.StartY = data.EmitterY + rangeFloat32(params.StartYMin, params.StartYMax)
-			particle.EndY = data.EmitterY + rangeFloat32(params.EndYMin, params.EndYMax)
+			particle.StartX = data.EmitterX + rangeFloat32(pos.StartXMin, pos.StartXMax)
+			particle.EndX = data.EmitterX + rangeFloat32(pos.EndXMin, pos.EndXMax)
+			particle.StartY = data.EmitterY + rangeFloat32(pos.StartYMin, pos.StartYMax)
+			particle.EndY = data.EmitterY + rangeFloat32(pos.EndYMin, pos.EndYMax)
 		}
-		particle.PositionEasing = params.PositionEasing
+		particle.PositionEasing = pos.Easing
 
-		// Alpha
-		particle.StartAlpha = params.StartAlpha
-		particle.EndAlpha = params.EndAlpha
-		particle.AlphaEasing = params.AlphaEasing
-
-		// Scale
-		particle.StartScale = params.StartScale
-		particle.EndScale = params.EndScale
-		particle.ScaleEasing = params.ScaleEasing
-
-		// Rotation
-		particle.StartRotation = params.StartRotation
-		particle.EndRotation = params.EndRotation
-		particle.RotationEasing = params.RotationEasing
+		// Appearance
+		particle.StartAlpha = app.StartAlpha
+		particle.EndAlpha = app.EndAlpha
+		particle.AlphaEasing = app.AlphaEasing
+		particle.StartScale = app.StartScale
+		particle.EndScale = app.EndScale
+		particle.ScaleEasing = app.ScaleEasing
+		particle.StartRotation = app.StartRotation
+		particle.EndRotation = app.EndRotation
+		particle.RotationEasing = app.RotationEasing
 
 		// Color
-		particle.StartR = params.StartR
-		particle.StartG = params.StartG
-		particle.StartB = params.StartB
-		particle.EndR = params.EndR
-		particle.EndG = params.EndG
-		particle.EndB = params.EndB
-		particle.ColorEasing = params.ColorEasing
+		particle.StartR = clr.StartR
+		particle.StartG = clr.StartG
+		particle.StartB = clr.StartB
+		particle.EndR = clr.EndR
+		particle.EndG = clr.EndG
+		particle.EndB = clr.EndB
+		particle.ColorEasing = clr.Easing
 
 		particle.Active = true
 
@@ -284,13 +283,11 @@ func (sys *System) Draw(ecs *ecs.ECS, screen *ebiten.Image) {
 				{scaledHalfW, scaledHalfH},
 			}
 
-			// Prepare vertex custom data for GPU interpolation
-			// color.r = startAlpha, color.g = endAlpha
-			// color.b = alphaEasing (normalized), color.a = colorEasing (normalized)
+			// Vertex custom data layout:
+			// color.r = startAlpha, color.g = endAlpha, color.b = alphaEasing (normalized)
 			// custom.x = spawnTime, custom.y = duration
-			// custom.z = startColor (packed RGB), custom.w = endColor (packed RGB)
-			var startAlpha, endAlpha float32
-			var alphaEasingNorm float32
+			// Color and colorEasing are passed as shader uniforms (same for all particles in system)
+			var startAlpha, endAlpha, alphaEasingNorm float32
 			if p.MultiStep && data.AlphaSeq != nil {
 				// CPU-evaluated alpha: pass same value as both start and end
 				cpuAlpha := EvaluateSequence(data.AlphaSeq, &p.AlphaSnap, elapsed)
@@ -300,11 +297,8 @@ func (sys *System) Draw(ecs *ecs.ECS, screen *ebiten.Image) {
 			} else {
 				startAlpha = p.StartAlpha
 				endAlpha = p.EndAlpha
-				alphaEasingNorm = float32(p.AlphaEasing) / 25.0
+				alphaEasingNorm = float32(p.AlphaEasing) / float32(easingTypeCount)
 			}
-			colorEasingNorm := float32(p.ColorEasing) / 25.0
-			startColorPacked := packRGB(p.StartR, p.StartG, p.StartB)
-			endColorPacked := packRGB(p.EndR, p.EndG, p.EndB)
 
 			vertexBase := uint16(len(data.Vertices))
 
@@ -338,11 +332,8 @@ func (sys *System) Draw(ecs *ecs.ECS, screen *ebiten.Image) {
 					ColorR:  startAlpha,
 					ColorG:  endAlpha,
 					ColorB:  alphaEasingNorm,
-					ColorA:  colorEasingNorm,
 					Custom0: p.SpawnTime,
 					Custom1: p.Duration,
-					Custom2: startColorPacked,
-					Custom3: endColorPacked,
 				})
 			}
 
@@ -353,10 +344,13 @@ func (sys *System) Draw(ecs *ecs.ECS, screen *ebiten.Image) {
 			)
 		}
 
-		// Draw all particles in a single batch
+		clr := &data.AnimParams.Color
 		opts := &ebiten.DrawTrianglesShaderOptions{
 			Uniforms: map[string]interface{}{
-				"Time": currentTime,
+				"Time":        currentTime,
+				"StartColor":  [3]float32{clr.StartR, clr.StartG, clr.StartB},
+				"EndColor":    [3]float32{clr.EndR, clr.EndG, clr.EndB},
+				"ColorEasing": float32(clr.Easing),
 			},
 			Images: [4]*ebiten.Image{data.SourceImage},
 		}
@@ -373,14 +367,6 @@ func rangeFloat32(min, max float32) float32 {
 		return min
 	}
 	return min + rand.Float32()*(max-min)
-}
-
-// packRGB packs RGB (0-1) into a single float for shader transfer
-func packRGB(r, g, b float32) float32 {
-	ri := uint32(clampf(r, 0, 1) * 255)
-	gi := uint32(clampf(g, 0, 1) * 255)
-	bi := uint32(clampf(b, 0, 1) * 255)
-	return float32(ri<<16 | gi<<8 | bi)
 }
 
 func clampf(v, min, max float32) float32 {

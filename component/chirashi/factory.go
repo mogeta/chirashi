@@ -87,88 +87,82 @@ func createParticlesFromConfig(w donburi.World, shader *ebiten.Shader, image *eb
 
 // buildAnimationParams converts config to runtime animation parameters
 func buildAnimationParams(config *ParticleConfig) AnimationParams {
-	params := AnimationParams{
-		DurationBase: config.Animation.Duration.Value,
-	}
-
-	// Duration range
+	dur := DurationParams{Base: config.Animation.Duration.Value}
 	if config.Animation.Duration.Range != nil {
-		params.DurationRange = (config.Animation.Duration.Range.Max - config.Animation.Duration.Range.Min) / 2
-		params.DurationBase = (config.Animation.Duration.Range.Max + config.Animation.Duration.Range.Min) / 2
+		dur.Base = (config.Animation.Duration.Range.Max + config.Animation.Duration.Range.Min) / 2
+		dur.Range = (config.Animation.Duration.Range.Max - config.Animation.Duration.Range.Min) / 2
 	}
 
-	// Position mode
-	params.UsePolar = config.Animation.Position.Type == "polar"
-
-	if params.UsePolar {
-		// Polar mode
+	pos := PositionParams{
+		UsePolar: config.Animation.Position.Type == "polar",
+		Easing:   ParseEasing(config.Animation.Position.Easing),
+	}
+	if pos.UsePolar {
 		if config.Animation.Position.Angle != nil {
-			params.AngleMin = config.Animation.Position.Angle.Min
-			params.AngleMax = config.Animation.Position.Angle.Max
+			pos.AngleMin = config.Animation.Position.Angle.Min
+			pos.AngleMax = config.Animation.Position.Angle.Max
 		}
 		if config.Animation.Position.Distance != nil {
-			params.DistanceMin = config.Animation.Position.Distance.Min
-			params.DistanceMax = config.Animation.Position.Distance.Max
+			pos.DistMin = config.Animation.Position.Distance.Min
+			pos.DistMax = config.Animation.Position.Distance.Max
 		}
 	} else {
-		// Cartesian mode
 		if config.Animation.Position.StartX != nil {
-			params.StartXMin = config.Animation.Position.StartX.Min
-			params.StartXMax = config.Animation.Position.StartX.Max
+			pos.StartXMin = config.Animation.Position.StartX.Min
+			pos.StartXMax = config.Animation.Position.StartX.Max
 		}
 		if config.Animation.Position.EndX != nil {
-			params.EndXMin = config.Animation.Position.EndX.Min
-			params.EndXMax = config.Animation.Position.EndX.Max
+			pos.EndXMin = config.Animation.Position.EndX.Min
+			pos.EndXMax = config.Animation.Position.EndX.Max
 		}
 		if config.Animation.Position.StartY != nil {
-			params.StartYMin = config.Animation.Position.StartY.Min
-			params.StartYMax = config.Animation.Position.StartY.Max
+			pos.StartYMin = config.Animation.Position.StartY.Min
+			pos.StartYMax = config.Animation.Position.StartY.Max
 		}
 		if config.Animation.Position.EndY != nil {
-			params.EndYMin = config.Animation.Position.EndY.Min
-			params.EndYMax = config.Animation.Position.EndY.Max
+			pos.EndYMin = config.Animation.Position.EndY.Min
+			pos.EndYMax = config.Animation.Position.EndY.Max
 		}
 	}
 
-	// Position easing
-	params.PositionEasing = ParseEasing(config.Animation.Position.Easing)
-
-	// Alpha
-	params.StartAlpha = config.Animation.Alpha.Start
-	params.EndAlpha = config.Animation.Alpha.End
-	params.AlphaEasing = ParseEasing(config.Animation.Alpha.Easing)
-
-	// Scale
-	params.StartScale = config.Animation.Scale.Start
-	params.EndScale = config.Animation.Scale.End
-	if params.StartScale == 0 && params.EndScale == 0 {
-		params.StartScale = 1.0
-		params.EndScale = 1.0
+	app := AppearanceParams{
+		StartAlpha:     config.Animation.Alpha.Start,
+		EndAlpha:       config.Animation.Alpha.End,
+		AlphaEasing:    ParseEasing(config.Animation.Alpha.Easing),
+		StartScale:     config.Animation.Scale.Start,
+		EndScale:       config.Animation.Scale.End,
+		ScaleEasing:    ParseEasing(config.Animation.Scale.Easing),
+		StartRotation:  config.Animation.Rotation.Start,
+		EndRotation:    config.Animation.Rotation.End,
+		RotationEasing: ParseEasing(config.Animation.Rotation.Easing),
 	}
-	params.ScaleEasing = ParseEasing(config.Animation.Scale.Easing)
+	if app.StartScale == 0 && app.EndScale == 0 {
+		app.StartScale = 1.0
+		app.EndScale = 1.0
+	}
 
-	// Rotation
-	params.StartRotation = config.Animation.Rotation.Start
-	params.EndRotation = config.Animation.Rotation.End
-	params.RotationEasing = ParseEasing(config.Animation.Rotation.Easing)
-
-	// Color
+	var clr ColorParams
 	if config.Animation.Color != nil {
-		params.UseColor = true
-		params.StartR = config.Animation.Color.StartR
-		params.StartG = config.Animation.Color.StartG
-		params.StartB = config.Animation.Color.StartB
-		params.EndR = config.Animation.Color.EndR
-		params.EndG = config.Animation.Color.EndG
-		params.EndB = config.Animation.Color.EndB
-		params.ColorEasing = ParseEasing(config.Animation.Color.Easing)
+		clr = ColorParams{
+			Enabled: true,
+			StartR:  config.Animation.Color.StartR,
+			StartG:  config.Animation.Color.StartG,
+			StartB:  config.Animation.Color.StartB,
+			EndR:    config.Animation.Color.EndR,
+			EndG:    config.Animation.Color.EndG,
+			EndB:    config.Animation.Color.EndB,
+			Easing:  ParseEasing(config.Animation.Color.Easing),
+		}
 	} else {
-		// Default: white (no color tinting)
-		params.StartR, params.StartG, params.StartB = 1, 1, 1
-		params.EndR, params.EndG, params.EndB = 1, 1, 1
+		clr = ColorParams{StartR: 1, StartG: 1, StartB: 1, EndR: 1, EndG: 1, EndB: 1}
 	}
 
-	return params
+	return AnimationParams{
+		Duration:   dur,
+		Position:   pos,
+		Appearance: app,
+		Color:      clr,
+	}
 }
 
 // buildSequenceConfig converts a PropertyConfig with steps to a SequenceConfig

@@ -19,16 +19,20 @@ func TestSpawnRespectsMaxParticles(t *testing.T) {
 		EmitterX:          100,
 		EmitterY:          200,
 		AnimParams: AnimationParams{
-			DurationBase: 1.0,
-			StartScale:   1.0,
-			EndScale:     1.0,
-			StartR:       1, StartG: 1, StartB: 1,
-			EndR: 1, EndG: 1, EndB: 1,
-			PositionEasing: EasingLinear,
-			AlphaEasing:    EasingLinear,
-			ScaleEasing:    EasingLinear,
-			RotationEasing: EasingLinear,
-			ColorEasing:    EasingLinear,
+			Duration: DurationParams{Base: 1.0},
+			Appearance: AppearanceParams{
+				StartScale:     1.0,
+				EndScale:       1.0,
+				AlphaEasing:    EasingLinear,
+				ScaleEasing:    EasingLinear,
+				RotationEasing: EasingLinear,
+			},
+			Color: ColorParams{
+				StartR: 1, StartG: 1, StartB: 1,
+				EndR: 1, EndG: 1, EndB: 1,
+				Easing: EasingLinear,
+			},
+			Position: PositionParams{Easing: EasingLinear},
 		},
 	}
 

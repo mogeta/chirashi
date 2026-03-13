@@ -34,6 +34,11 @@ const (
 	EasingInBack
 	EasingOutBack
 	EasingInOutBack
+
+	// easingTypeCount is a sentinel that equals the total number of easing types.
+	// It must stay last. Shaders encode easing type as float32(type)/float32(easingTypeCount),
+	// and multiply by float32(easingTypeCount) to decode. Keep in sync with shader constants.
+	easingTypeCount
 )
 
 // ParseEasing converts a string to EasingType

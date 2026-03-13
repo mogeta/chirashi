@@ -94,44 +94,53 @@ type SystemData struct {
 	Metrics Metrics
 }
 
-// AnimationParams holds the configuration for particle animations
+// AnimationParams holds the configuration for particle animations, grouped by concern.
 type AnimationParams struct {
-	// Duration
-	DurationBase  float32
-	DurationRange float32 // Random range: DurationBase +/- DurationRange
+	Duration   DurationParams
+	Position   PositionParams
+	Appearance AppearanceParams
+	Color      ColorParams
+}
 
-	// Position mode
+// DurationParams holds lifetime randomization for particles.
+type DurationParams struct {
+	Base  float32 // Base duration in seconds
+	Range float32 // +/- randomization range
+}
+
+// PositionParams holds spawn position configuration (cartesian or polar).
+type PositionParams struct {
 	UsePolar bool // true = polar, false = cartesian
 
-	// Cartesian position
+	// Cartesian
 	StartXMin, StartXMax float32
 	EndXMin, EndXMax     float32
 	StartYMin, StartYMax float32
 	EndYMin, EndYMax     float32
 
-	// Polar position
-	AngleMin, AngleMax       float32 // Radians
-	DistanceMin, DistanceMax float32
+	// Polar
+	AngleMin, AngleMax float32 // Radians
+	DistMin, DistMax   float32
 
-	PositionEasing EasingType
+	Easing EasingType
+}
 
-	// Alpha
-	StartAlpha, EndAlpha float32
-	AlphaEasing          EasingType
-
-	// Scale
-	StartScale, EndScale float32
-	ScaleEasing          EasingType
-
-	// Rotation
+// AppearanceParams holds alpha, scale, and rotation animation configuration.
+type AppearanceParams struct {
+	StartAlpha, EndAlpha       float32
+	AlphaEasing                EasingType
+	StartScale, EndScale       float32
+	ScaleEasing                EasingType
 	StartRotation, EndRotation float32
 	RotationEasing             EasingType
+}
 
-	// Color
-	UseColor                   bool
-	StartR, StartG, StartB     float32
-	EndR, EndG, EndB           float32
-	ColorEasing                EasingType
+// ColorParams holds color animation configuration.
+type ColorParams struct {
+	Enabled                bool
+	StartR, StartG, StartB float32
+	EndR, EndG, EndB       float32
+	Easing                 EasingType
 }
 
 // Metrics tracks performance data for a particle system
