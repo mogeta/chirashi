@@ -12,7 +12,10 @@ func main() {
 	ebiten.SetWindowSize(1280, 960)
 	ebiten.SetWindowTitle("Chirashi Particle Editor")
 
-	game := editor.NewParticleEditorScene()
+	game, err := editor.NewParticleEditorScene()
+	if err != nil {
+		log.Fatalf("Failed to initialize editor: %v", err)
+	}
 
 	if err := ebiten.RunGame(game); err != nil {
 		log.Fatal(err)

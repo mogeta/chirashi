@@ -82,13 +82,12 @@ type PropertyConfig struct {
 
 // StepConfig defines one step in a multi-step animation sequence
 type StepConfig struct {
-	From       float32     `yaml:"from"`
-	FromRange  *RangeFloat `yaml:"from_range,omitempty"`
-	To         float32     `yaml:"to"`
-	ToRange    *RangeFloat `yaml:"to_range,omitempty"`
-	IsRelative bool        `yaml:"is_relative,omitempty"`
-	Duration   float32     `yaml:"duration"`
-	Easing     string      `yaml:"easing"`
+	From      float32     `yaml:"from"`
+	FromRange *RangeFloat `yaml:"from_range,omitempty"`
+	To        float32     `yaml:"to"`
+	ToRange   *RangeFloat `yaml:"to_range,omitempty"`
+	Duration  float32     `yaml:"duration"`
+	Easing    string      `yaml:"easing"`
 }
 
 // IsSequence returns true if this config uses multi-step sequence mode

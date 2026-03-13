@@ -130,26 +130,26 @@ func (sys *System) spawn(data *SystemData) {
 
 		particle.Active = true
 
-		// Initialize multi-step sequences if configured
-		if data.PosXSeq != nil || data.PosYSeq != nil || data.ScaleSeq != nil || data.RotSeq != nil || data.AlphaSeq != nil {
-			particle.MultiStep = true
-			if data.PosXSeq != nil {
-				particle.PosXSnap = GenerateSnapshot(data.PosXSeq, data.EmitterX)
-			}
-			if data.PosYSeq != nil {
-				particle.PosYSnap = GenerateSnapshot(data.PosYSeq, data.EmitterY)
-			}
-			if data.ScaleSeq != nil {
-				particle.ScaleSnap = GenerateSnapshot(data.ScaleSeq, 0)
-			}
-			if data.RotSeq != nil {
-				particle.RotSnap = GenerateSnapshot(data.RotSeq, 0)
-			}
-			if data.AlphaSeq != nil {
-				particle.AlphaSnap = GenerateSnapshot(data.AlphaSeq, 0)
-			}
-		} else {
-			particle.MultiStep = false
+		// Initialize per-property sequence snapshots
+		particle.HasPosXSeq = data.PosXSeq != nil
+		if particle.HasPosXSeq {
+			particle.PosXSnap = GenerateSnapshot(data.PosXSeq, data.EmitterX)
+		}
+		particle.HasPosYSeq = data.PosYSeq != nil
+		if particle.HasPosYSeq {
+			particle.PosYSnap = GenerateSnapshot(data.PosYSeq, data.EmitterY)
+		}
+		particle.HasScaleSeq = data.ScaleSeq != nil
+		if particle.HasScaleSeq {
+			particle.ScaleSnap = GenerateSnapshot(data.ScaleSeq, 0)
+		}
+		particle.HasRotSeq = data.RotSeq != nil
+		if particle.HasRotSeq {
+			particle.RotSnap = GenerateSnapshot(data.RotSeq, 0)
+		}
+		particle.HasAlphaSeq = data.AlphaSeq != nil
+		if particle.HasAlphaSeq {
+			particle.AlphaSnap = GenerateSnapshot(data.AlphaSeq, 0)
 		}
 
 		// Add to active indices
@@ -223,43 +223,32 @@ func (sys *System) Draw(ecs *ecs.ECS, screen *ebiten.Image) {
 				normalizedT = 1
 			}
 
-			// Calculate position, scale, rotation
-			var x, y, scale, rotation float32
-			if p.MultiStep {
-				// Multi-step sequence evaluation
-				if data.PosXSeq != nil {
-					x = EvaluateSequence(data.PosXSeq, &p.PosXSnap, elapsed)
-				} else {
-					posT := ApplyEasing(normalizedT, p.PositionEasing)
-					x = lerp(p.StartX, p.EndX, posT)
-				}
-				if data.PosYSeq != nil {
-					y = EvaluateSequence(data.PosYSeq, &p.PosYSnap, elapsed)
-				} else {
-					posT := ApplyEasing(normalizedT, p.PositionEasing)
-					y = lerp(p.StartY, p.EndY, posT)
-				}
-				if data.ScaleSeq != nil {
-					scale = EvaluateSequence(data.ScaleSeq, &p.ScaleSnap, elapsed)
-				} else {
-					scaleT := ApplyEasing(normalizedT, p.ScaleEasing)
-					scale = lerp(p.StartScale, p.EndScale, scaleT)
-				}
-				if data.RotSeq != nil {
-					rotation = EvaluateSequence(data.RotSeq, &p.RotSnap, elapsed)
-				} else {
-					rotT := ApplyEasing(normalizedT, p.RotationEasing)
-					rotation = lerp(p.StartRotation, p.EndRotation, rotT)
-				}
+			// Calculate position, scale, rotation (per-property sequence or lerp)
+			posT := ApplyEasing(normalizedT, p.PositionEasing)
+			var x, y float32
+			if p.HasPosXSeq {
+				x = EvaluateSequence(data.PosXSeq, &p.PosXSnap, elapsed)
 			} else {
-				// Simple lerp fast path (existing behavior)
-				posT := ApplyEasing(normalizedT, p.PositionEasing)
-				scaleT := ApplyEasing(normalizedT, p.ScaleEasing)
-				rotT := ApplyEasing(normalizedT, p.RotationEasing)
 				x = lerp(p.StartX, p.EndX, posT)
+			}
+			if p.HasPosYSeq {
+				y = EvaluateSequence(data.PosYSeq, &p.PosYSnap, elapsed)
+			} else {
 				y = lerp(p.StartY, p.EndY, posT)
-				scale = lerp(p.StartScale, p.EndScale, scaleT)
-				rotation = lerp(p.StartRotation, p.EndRotation, rotT)
+			}
+
+			var scale float32
+			if p.HasScaleSeq {
+				scale = EvaluateSequence(data.ScaleSeq, &p.ScaleSnap, elapsed)
+			} else {
+				scale = lerp(p.StartScale, p.EndScale, ApplyEasing(normalizedT, p.ScaleEasing))
+			}
+
+			var rotation float32
+			if p.HasRotSeq {
+				rotation = EvaluateSequence(data.RotSeq, &p.RotSnap, elapsed)
+			} else {
+				rotation = lerp(p.StartRotation, p.EndRotation, ApplyEasing(normalizedT, p.RotationEasing))
 			}
 
 			// Calculate scaled dimensions
@@ -288,7 +277,7 @@ func (sys *System) Draw(ecs *ecs.ECS, screen *ebiten.Image) {
 			// custom.x = spawnTime, custom.y = duration
 			// Color and colorEasing are passed as shader uniforms (same for all particles in system)
 			var startAlpha, endAlpha, alphaEasingNorm float32
-			if p.MultiStep && data.AlphaSeq != nil {
+			if p.HasAlphaSeq {
 				// CPU-evaluated alpha: pass same value as both start and end
 				cpuAlpha := EvaluateSequence(data.AlphaSeq, &p.AlphaSnap, elapsed)
 				startAlpha = cpuAlpha

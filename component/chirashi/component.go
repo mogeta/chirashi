@@ -31,16 +31,21 @@ type Instance struct {
 	RotationEasing EasingType
 	ColorEasing    EasingType
 
-	// Multi-step sequence snapshots (used when MultiStep=true)
-	PosXSnap  SequenceSnapshot
-	PosYSnap  SequenceSnapshot
-	ScaleSnap SequenceSnapshot
-	RotSnap   SequenceSnapshot
-	AlphaSnap SequenceSnapshot
+	// Per-property sequence snapshots and flags
+	// Each flag is true when the corresponding sequence was configured at spawn time.
+	HasPosXSeq  bool
+	PosXSnap    SequenceSnapshot
+	HasPosYSeq  bool
+	PosYSnap    SequenceSnapshot
+	HasScaleSeq bool
+	ScaleSnap   SequenceSnapshot
+	HasRotSeq   bool
+	RotSnap     SequenceSnapshot
+	HasAlphaSeq bool
+	AlphaSnap   SequenceSnapshot
 
 	// State
-	Active    bool
-	MultiStep bool // true=use sequence evaluation, false=simple lerp
+	Active bool
 }
 
 // SystemData represents the GPU-based particle system component data

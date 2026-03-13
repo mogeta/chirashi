@@ -69,7 +69,6 @@ steps:
     from_range: { min: float, max: float } # optional
     to: float
     to_range: { min: float, max: float }   # optional
-    is_relative: bool                       # accepted, currently unused
     duration: float
     easing: string
 ```

@@ -36,7 +36,7 @@ type ParticleEditorScene struct {
 	fileList        []string
 }
 
-func NewParticleEditorScene() *ParticleEditorScene {
+func NewParticleEditorScene() (*ParticleEditorScene, error) {
 	world := donburi.NewWorld()
 	container := ecs.NewECS(world)
 
@@ -44,41 +44,33 @@ func NewParticleEditorScene() *ParticleEditorScene {
 	container.AddSystem(particleSys.Update)
 	container.AddRenderer(0, particleSys.Draw)
 
-	// Create debug particle image
 	img := ebiten.NewImage(8, 8)
 	img.Fill(color.White)
 
-	// Load particle shader
 	shader, err := ebiten.NewShader(assets.ParticleShader)
 	if err != nil {
-		log.Fatalf("Failed to load particle shader: %v\n", err)
+		return nil, fmt.Errorf("load particle shader: %w", err)
 	}
 
-	// Load bloom shader
 	bloomShader, err := ebiten.NewShader(assets.BloomShader)
 	if err != nil {
-		log.Fatalf("Failed to load bloom shader: %v\n", err)
+		return nil, fmt.Errorf("load bloom shader: %w", err)
 	}
 
-	// Load blur particle shader
 	blurShader, err := ebiten.NewShader(assets.ParticleShaderBlur)
 	if err != nil {
-		log.Fatalf("Failed to load blur particle shader: %v\n", err)
+		return nil, fmt.Errorf("load blur shader: %w", err)
 	}
 
 	loader := chirashi.NewConfigLoader()
 
-	// Load configuration from file
-	log.Println("Loading particle configuration...")
 	config, err := loader.LoadConfigFromBytes(assets.SampleParticleConfig, "sample.yaml")
 	if err != nil {
-		log.Fatalf("Failed to load config: %v\n", err)
+		return nil, fmt.Errorf("load config: %w", err)
 	}
-	log.Println("Particle configuration loaded successfully")
 
-	// Create particles from config
 	if err := chirashi.NewParticlesFromConfig(world, shader, img, config, 640, 480); err != nil {
-		log.Fatal(err)
+		return nil, fmt.Errorf("create particles: %w", err)
 	}
 
 	return &ParticleEditorScene{
@@ -91,7 +83,7 @@ func NewParticleEditorScene() *ParticleEditorScene {
 		shader:        shader,
 		blurShader:    blurShader,
 		bloomShader:   bloomShader,
-	}
+	}, nil
 }
 
 func (s *ParticleEditorScene) Update() error {
