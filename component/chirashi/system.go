@@ -89,22 +89,32 @@ func (sys *System) spawn(data *SystemData) {
 		}
 
 		// Position
-		if pos.UsePolar {
+		switch {
+		case pos.UseAttractor:
+			// Attractor mode: quadratic bezier P0=emitter, P1=random control, P2=AttractorX/Y
+			// EndX/Y are unused; attractor coords are read from SystemData each frame.
+			particle.StartX = data.EmitterX
+			particle.StartY = data.EmitterY
+			particle.ControlX = data.EmitterX + rangeFloat32(pos.ControlXMin, pos.ControlXMax)
+			particle.ControlY = data.EmitterY + rangeFloat32(pos.ControlYMin, pos.ControlYMax)
+			particle.HasAttractor = true
+		case pos.UsePolar:
 			// Polar mode: convert to cartesian at spawn time (no per-frame cost)
 			angle := rangeFloat32(pos.AngleMin, pos.AngleMax)
 			dist := rangeFloat32(pos.DistMin, pos.DistMax)
 			cos, sin := float32(math.Cos(float64(angle))), float32(math.Sin(float64(angle)))
-
 			particle.StartX = data.EmitterX
 			particle.StartY = data.EmitterY
 			particle.EndX = data.EmitterX + dist*cos
 			particle.EndY = data.EmitterY + dist*sin
-		} else {
+			particle.HasAttractor = false
+		default:
 			// Cartesian mode
 			particle.StartX = data.EmitterX + rangeFloat32(pos.StartXMin, pos.StartXMax)
 			particle.EndX = data.EmitterX + rangeFloat32(pos.EndXMin, pos.EndXMax)
 			particle.StartY = data.EmitterY + rangeFloat32(pos.StartYMin, pos.StartYMax)
 			particle.EndY = data.EmitterY + rangeFloat32(pos.EndYMin, pos.EndYMax)
+			particle.HasAttractor = false
 		}
 		particle.PositionEasing = pos.Easing
 
@@ -226,15 +236,26 @@ func (sys *System) Draw(ecs *ecs.ECS, screen *ebiten.Image) {
 			// Calculate position, scale, rotation (per-property sequence or lerp)
 			posT := ApplyEasing(normalizedT, p.PositionEasing)
 			var x, y float32
-			if p.HasPosXSeq {
+			switch {
+			case p.HasAttractor:
+				// Quadratic bezier: B(t) = (1-t)²·P0 + 2(1-t)t·P1 + t²·P2
+				u := 1 - posT
+				x = u*u*p.StartX + 2*u*posT*p.ControlX + posT*posT*data.AttractorX
+				y = u*u*p.StartY + 2*u*posT*p.ControlY + posT*posT*data.AttractorY
+			case p.HasPosXSeq:
 				x = EvaluateSequence(data.PosXSeq, &p.PosXSnap, elapsed)
-			} else {
+				if p.HasPosYSeq {
+					y = EvaluateSequence(data.PosYSeq, &p.PosYSnap, elapsed)
+				} else {
+					y = lerp(p.StartY, p.EndY, posT)
+				}
+			default:
 				x = lerp(p.StartX, p.EndX, posT)
-			}
-			if p.HasPosYSeq {
-				y = EvaluateSequence(data.PosYSeq, &p.PosYSnap, elapsed)
-			} else {
-				y = lerp(p.StartY, p.EndY, posT)
+				if p.HasPosYSeq {
+					y = EvaluateSequence(data.PosYSeq, &p.PosYSnap, elapsed)
+				} else {
+					y = lerp(p.StartY, p.EndY, posT)
+				}
 			}
 
 			var scale float32

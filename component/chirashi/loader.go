@@ -138,7 +138,12 @@ func (l *ConfigLoader) validateConfig(config *ParticleConfig) error {
 		return fmt.Errorf("interval must be greater than 0")
 	}
 
-	if config.Animation.Duration.Value <= 0 {
+	dur := config.Animation.Duration
+	if dur.Range != nil {
+		if dur.Range.Min <= 0 {
+			return fmt.Errorf("animation.duration.range.min must be greater than 0")
+		}
+	} else if dur.Value <= 0 {
 		return fmt.Errorf("animation.duration.value must be greater than 0")
 	}
 

@@ -46,7 +46,12 @@ type RangeFloat struct {
 
 // PositionConfig defines position animation parameters
 type PositionConfig struct {
-	Type string `yaml:"type,omitempty"` // "cartesian" (default) or "polar"
+	// Type controls the motion model:
+	//   "cartesian" (default) - linear lerp between start and end
+	//   "polar"               - radial burst from emitter
+	//   "attractor"           - quadratic bezier from emitter through a random
+	//                           control point toward AttractorX/Y on SystemData
+	Type string `yaml:"type,omitempty"`
 
 	// Cartesian mode (simple)
 	StartX *RangeFloat `yaml:"start_x,omitempty"`
@@ -61,6 +66,10 @@ type PositionConfig struct {
 	// Polar mode
 	Angle    *RangeFloat `yaml:"angle,omitempty"`    // Radians (0 to 2π for full circle)
 	Distance *RangeFloat `yaml:"distance,omitempty"` // Distance from emitter
+
+	// Attractor mode - random bezier control point offset from the emitter
+	ControlX *RangeFloat `yaml:"control_x,omitempty"` // X offset range for bezier control point
+	ControlY *RangeFloat `yaml:"control_y,omitempty"` // Y offset range for bezier control point
 
 	Easing string `yaml:"easing"`
 }

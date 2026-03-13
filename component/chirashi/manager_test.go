@@ -254,3 +254,103 @@ spawn:
 		t.Fatalf("expected 2 particle entities, got %d", count)
 	}
 }
+
+func TestAttractorSpawnSetsControlPoint(t *testing.T) {
+	yaml := []byte(`
+name: attractor_test
+animation:
+  duration:
+    value: 1.0
+  position:
+    type: "attractor"
+    control_x: { min: -100, max: 100 }
+    control_y: { min: -200, max: -50 }
+    easing: "inquad"
+  alpha:
+    start: 1.0
+    end: 0.0
+  scale:
+    start: 1.0
+    end: 1.0
+spawn:
+  interval: 1
+  particles_per_spawn: 5
+  max_particles: 20
+  is_loop: true
+`)
+
+	m := NewParticleManager(nil, nil)
+	if err := m.PreloadFromBytes("attractor_test", yaml); err != nil {
+		t.Fatalf("PreloadFromBytes: %v", err)
+	}
+
+	world := donburi.NewWorld()
+	entity, err := m.SpawnLoop(world, "attractor_test", 100, 200)
+	if err != nil {
+		t.Fatalf("SpawnLoop: %v", err)
+	}
+
+	// Set attractor target
+	SetAttractor(world, entity, 500, 50)
+
+	entry := world.Entry(entity)
+	data := Component.Get(entry)
+
+	if data.AttractorX != 500 || data.AttractorY != 50 {
+		t.Errorf("attractor not set: got (%v, %v), want (500, 50)", data.AttractorX, data.AttractorY)
+	}
+	if !data.AnimParams.Position.UseAttractor {
+		t.Error("UseAttractor should be true for attractor position type")
+	}
+}
+
+func TestAttractorParticleHasControlPoint(t *testing.T) {
+	// Build system data directly to test spawn sets HasAttractor and ControlX/Y
+	data := &SystemData{
+		ParticlePool:      make([]Instance, 5),
+		ActiveIndices:     make([]int, 0, 5),
+		FreeIndices:       []int{4, 3, 2, 1, 0},
+		SpawnInterval:     1,
+		ParticlesPerSpawn: 5,
+		MaxParticles:      5,
+		EmitterX:          100,
+		EmitterY:          200,
+		AttractorX:        600,
+		AttractorY:        100,
+		AnimParams: AnimationParams{
+			Duration: DurationParams{Base: 1.0},
+			Position: PositionParams{
+				UseAttractor: true,
+				ControlXMin:  -50, ControlXMax: 50,
+				ControlYMin: -100, ControlYMax: -10,
+				Easing: EasingLinear,
+			},
+			Appearance: AppearanceParams{StartAlpha: 1, EndAlpha: 0, StartScale: 1, EndScale: 1},
+			Color:      ColorParams{StartR: 1, StartG: 1, StartB: 1, EndR: 1, EndG: 1, EndB: 1},
+		},
+	}
+
+	sys := &System{cnt: 0}
+	sys.spawn(data)
+
+	if data.ActiveCount == 0 {
+		t.Fatal("no particles spawned")
+	}
+
+	for _, idx := range data.ActiveIndices {
+		p := &data.ParticlePool[idx]
+		if !p.HasAttractor {
+			t.Errorf("particle[%d]: HasAttractor should be true", idx)
+		}
+		if p.StartX != 100 || p.StartY != 200 {
+			t.Errorf("particle[%d]: start should be emitter pos, got (%v, %v)", idx, p.StartX, p.StartY)
+		}
+		// Control point must be within emitter + configured range
+		if p.ControlX < 100-50 || p.ControlX > 100+50 {
+			t.Errorf("particle[%d]: ControlX %v outside emitter±50", idx, p.ControlX)
+		}
+		if p.ControlY < 200-100 || p.ControlY > 200-10 {
+			t.Errorf("particle[%d]: ControlY %v outside expected range", idx, p.ControlY)
+		}
+	}
+}

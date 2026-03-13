@@ -93,11 +93,23 @@ func buildAnimationParams(config *ParticleConfig) AnimationParams {
 		dur.Range = (config.Animation.Duration.Range.Max - config.Animation.Duration.Range.Min) / 2
 	}
 
+	posType := config.Animation.Position.Type
 	pos := PositionParams{
-		UsePolar: config.Animation.Position.Type == "polar",
-		Easing:   ParseEasing(config.Animation.Position.Easing),
+		UsePolar:     posType == "polar",
+		UseAttractor: posType == "attractor",
+		Easing:       ParseEasing(config.Animation.Position.Easing),
 	}
-	if pos.UsePolar {
+	switch {
+	case pos.UseAttractor:
+		if config.Animation.Position.ControlX != nil {
+			pos.ControlXMin = config.Animation.Position.ControlX.Min
+			pos.ControlXMax = config.Animation.Position.ControlX.Max
+		}
+		if config.Animation.Position.ControlY != nil {
+			pos.ControlYMin = config.Animation.Position.ControlY.Min
+			pos.ControlYMax = config.Animation.Position.ControlY.Max
+		}
+	case pos.UsePolar:
 		if config.Animation.Position.Angle != nil {
 			pos.AngleMin = config.Animation.Position.Angle.Min
 			pos.AngleMax = config.Animation.Position.Angle.Max
@@ -106,7 +118,7 @@ func buildAnimationParams(config *ParticleConfig) AnimationParams {
 			pos.DistMin = config.Animation.Position.Distance.Min
 			pos.DistMax = config.Animation.Position.Distance.Max
 		}
-	} else {
+	default: // cartesian
 		if config.Animation.Position.StartX != nil {
 			pos.StartXMin = config.Animation.Position.StartX.Min
 			pos.StartXMax = config.Animation.Position.StartX.Max

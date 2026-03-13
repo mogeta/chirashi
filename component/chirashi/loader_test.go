@@ -34,6 +34,18 @@ func TestValidateConfigAcceptsValidConfig(t *testing.T) {
 	}
 }
 
+func TestValidateConfigAcceptsDurationRangeWithoutValue(t *testing.T) {
+	loader := NewConfigLoader()
+	cfg := validParticleConfigForTest()
+	// value=0 is fine when range provides valid min/max
+	cfg.Animation.Duration.Value = 0
+	cfg.Animation.Duration.Range = &RangeFloat{Min: 0.5, Max: 1.5}
+
+	if err := loader.validateConfig(cfg); err != nil {
+		t.Fatalf("expected range-only duration to be valid, got: %v", err)
+	}
+}
+
 func TestValidateConfigRejectsInvalidValues(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -74,6 +86,14 @@ func TestValidateConfigRejectsInvalidValues(t *testing.T) {
 				c.Animation.Duration.Value = 0
 			},
 			wantErr: "animation.duration.value",
+		},
+		{
+			name: "duration range with non-positive min",
+			mutate: func(c *ParticleConfig) {
+				c.Animation.Duration.Value = 0
+				c.Animation.Duration.Range = &RangeFloat{Min: 0, Max: 1.0}
+			},
+			wantErr: "animation.duration.range.min",
 		},
 	}
 

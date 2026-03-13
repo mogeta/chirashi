@@ -34,6 +34,8 @@ type ParticleEditorScene struct {
 	useBlurShader   bool
 	time            float64
 	fileList        []string
+	attractorX      float32
+	attractorY      float32
 }
 
 func NewParticleEditorScene() (*ParticleEditorScene, error) {
@@ -83,6 +85,8 @@ func NewParticleEditorScene() (*ParticleEditorScene, error) {
 		shader:        shader,
 		blurShader:    blurShader,
 		bloomShader:   bloomShader,
+		attractorX:    640,
+		attractorY:    480,
 	}, nil
 }
 
@@ -142,14 +146,21 @@ func (s *ParticleEditorScene) recreateParticles() {
 	}
 
 	// Create new particles
-	log.Printf("Creating particles with config: %s, PosType=%s, UsePolar=%v",
-		s.config.Name,
-		s.config.Animation.Position.Type,
-		s.config.Animation.Position.Type == "polar")
+	log.Printf("Creating particles with config: %s, PosType=%s", s.config.Name, s.config.Animation.Position.Type)
 	if err := chirashi.NewParticlesFromConfig(s.world, s.shader, s.img, s.config, 640, 480); err != nil {
 		log.Println("Failed to recreate particles:", err)
-	} else {
-		log.Println("Particles recreated successfully")
+		return
+	}
+	log.Println("Particles recreated successfully")
+
+	// Re-apply attractor target when in attractor mode
+	if s.config.Animation.Position.Type == "attractor" {
+		query2 := donburi.NewQuery(filter.Contains(chirashi.Component))
+		query2.Each(s.world, func(entry *donburi.Entry) {
+			data := chirashi.Component.Get(entry)
+			data.AttractorX = s.attractorX
+			data.AttractorY = s.attractorY
+		})
 	}
 }
 
@@ -239,31 +250,61 @@ func (s *ParticleEditorScene) drawAnimationWindow(ctx *debugui.Context) {
 	ctx.Window("Animation", image.Rect(10, 360, 410, 950), func(layout debugui.ContainerLayout) {
 		// Duration
 		ctx.Text("Duration")
-		dv := float64(s.config.Animation.Duration.Value)
-		s.sliderControl(ctx, "Value", &dv, 0.1, 10.0, 0.1)
-		s.config.Animation.Duration.Value = float32(dv)
+		if s.config.Animation.Duration.Range != nil {
+			ctx.Button("Mode: Range").On(func() {
+				s.config.Animation.Duration.Range = nil
+				if s.config.Animation.Duration.Value <= 0 {
+					s.config.Animation.Duration.Value = 1.0
+				}
+				s.recreateParticles()
+			})
+			s.rangeControl(ctx, "Duration", s.config.Animation.Duration.Range, 0.1, 10.0, 0.1)
+		} else {
+			ctx.Button("Mode: Fixed").On(func() {
+				base := s.config.Animation.Duration.Value
+				if base <= 0 {
+					base = 1.0
+				}
+				minVal := base * 0.5
+				if minVal < 0.1 {
+					minVal = 0.1
+				}
+				s.config.Animation.Duration.Range = &chirashi.RangeFloat{Min: minVal, Max: base * 1.5}
+				s.recreateParticles()
+			})
+			dv := float64(s.config.Animation.Duration.Value)
+			s.sliderControl(ctx, "Value", &dv, 0.1, 10.0, 0.1)
+			s.config.Animation.Duration.Value = float32(dv)
+		}
 
 		ctx.Text("----------------")
 
-		// Position mode toggle
+		// Position mode toggle: cartesian → polar → attractor → cartesian
 		posType := s.config.Animation.Position.Type
 		if posType == "" {
 			posType = "cartesian"
 		}
 		ctx.Text("Position Mode: " + posType)
 		ctx.Button("Toggle Mode").On(func() {
-			if s.config.Animation.Position.Type == "polar" {
+			switch s.config.Animation.Position.Type {
+			case "polar":
+				s.config.Animation.Position.Type = "attractor"
+				if s.config.Animation.Position.ControlX == nil {
+					s.config.Animation.Position.ControlX = &chirashi.RangeFloat{Min: -100, Max: 100}
+				}
+				if s.config.Animation.Position.ControlY == nil {
+					s.config.Animation.Position.ControlY = &chirashi.RangeFloat{Min: -200, Max: -50}
+				}
+			case "attractor":
 				s.config.Animation.Position.Type = "cartesian"
-				// Initialize cartesian defaults
 				if s.config.Animation.Position.EndX == nil {
 					s.config.Animation.Position.EndX = &chirashi.RangeFloat{Min: -100, Max: 100}
 				}
 				if s.config.Animation.Position.EndY == nil {
 					s.config.Animation.Position.EndY = &chirashi.RangeFloat{Min: -100, Max: 100}
 				}
-			} else {
+			default: // cartesian or ""
 				s.config.Animation.Position.Type = "polar"
-				// Initialize polar defaults
 				if s.config.Animation.Position.Angle == nil {
 					s.config.Animation.Position.Angle = &chirashi.RangeFloat{Min: 0, Max: 6.283185}
 				}
@@ -274,12 +315,37 @@ func (s *ParticleEditorScene) drawAnimationWindow(ctx *debugui.Context) {
 			s.recreateParticles()
 		})
 
-		if s.config.Animation.Position.Type == "polar" {
-			// Polar mode controls
+		switch s.config.Animation.Position.Type {
+		case "polar":
 			s.rangeControl(ctx, "Angle", s.config.Animation.Position.Angle, 0, 6.283185, 0.1)
 			s.rangeControl(ctx, "Distance", s.config.Animation.Position.Distance, 0, 500, 10)
-		} else {
-			// Cartesian mode controls
+		case "attractor":
+			s.rangeControl(ctx, "Control X", s.config.Animation.Position.ControlX, -500, 500, 10)
+			s.rangeControl(ctx, "Control Y", s.config.Animation.Position.ControlY, -500, 500, 10)
+			ctx.Text("  Attractor Target")
+			ctx.Text(fmt.Sprintf("  Target X: %.0f", s.attractorX))
+			ctx.SetGridLayout([]int{60, 60}, nil)
+			ctx.Button("TX+").On(func() {
+				s.attractorX += 10
+				s.applyAttractorTarget()
+			})
+			ctx.Button("TX-").On(func() {
+				s.attractorX -= 10
+				s.applyAttractorTarget()
+			})
+			ctx.SetGridLayout([]int{-1}, nil)
+			ctx.Text(fmt.Sprintf("  Target Y: %.0f", s.attractorY))
+			ctx.SetGridLayout([]int{60, 60}, nil)
+			ctx.Button("TY+").On(func() {
+				s.attractorY += 10
+				s.applyAttractorTarget()
+			})
+			ctx.Button("TY-").On(func() {
+				s.attractorY -= 10
+				s.applyAttractorTarget()
+			})
+			ctx.SetGridLayout([]int{-1}, nil)
+		default:
 			s.rangeControl(ctx, "End X", s.config.Animation.Position.EndX, -500, 500, 10)
 			s.rangeControl(ctx, "End Y", s.config.Animation.Position.EndY, -500, 500, 10)
 		}
@@ -476,12 +542,24 @@ func (s *ParticleEditorScene) drawFileWindow(ctx *debugui.Context) {
 						log.Println("Load error:", err)
 					} else {
 						s.config = cfg
+						// Reset attractor target to screen center for new configs
+						s.attractorX = 640
+						s.attractorY = 480
 						s.recreateParticles()
 						log.Printf("Loaded %s", name)
 					}
 				})
 			})
 		}
+	})
+}
+
+func (s *ParticleEditorScene) applyAttractorTarget() {
+	query := donburi.NewQuery(filter.Contains(chirashi.Component))
+	query.Each(s.world, func(entry *donburi.Entry) {
+		data := chirashi.Component.Get(entry)
+		data.AttractorX = s.attractorX
+		data.AttractorY = s.attractorY
 	})
 }
 

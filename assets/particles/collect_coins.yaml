@@ -1,0 +1,58 @@
+name: collect_coins
+description: >
+  Sparkles burst outward from the emitter then curve toward the score display.
+  Set AttractorX/Y on the SystemData entity to the score counter position.
+  Use position type "attractor" — quadratic bezier from emitter through a random
+  control point to the runtime-specified target.
+
+emitter:
+  x: 0.0
+  y: 0.0
+
+animation:
+  duration:
+    range:
+      min: 0.6
+      max: 1.1
+
+  position:
+    type: "attractor"
+    # Control point: scatter up and sideways before curving toward target.
+    control_x:
+      min: -160.0
+      max: 160.0
+    control_y:
+      min: -220.0
+      max: -40.0
+    easing: "inquad"   # accelerate toward the target
+
+  alpha:
+    start: 1.0
+    end: 0.0
+    easing: "inExpo"   # hold bright, snap out near the target
+
+  scale:
+    start: 1.2
+    end: 0.3
+    easing: "inQuad"
+
+  rotation:
+    start: 0.0
+    end: 6.2832   # one full spin (2π)
+    easing: "linear"
+
+  color:
+    start_r: 1.0
+    start_g: 0.95
+    start_b: 0.3
+    end_r: 1.0
+    end_g: 0.6
+    end_b: 0.1
+    easing: "linear"
+
+spawn:
+  interval: 2
+  particles_per_spawn: 3
+  max_particles: 120
+  is_loop: false
+  life_time: 180

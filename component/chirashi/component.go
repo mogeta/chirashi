@@ -15,6 +15,10 @@ type Instance struct {
 	StartX, EndX float32
 	StartY, EndY float32
 
+	// Attractor mode: quadratic bezier control point (randomized at spawn)
+	ControlX, ControlY float32
+	HasAttractor       bool
+
 	// Appearance animation
 	StartAlpha, EndAlpha       float32
 	StartScale, EndScale       float32
@@ -88,6 +92,10 @@ type SystemData struct {
 	// Animation parameters (from config, used for spawning)
 	AnimParams AnimationParams
 
+	// Attractor target — set at runtime to define where particles converge.
+	// Only used when position type is "attractor".
+	AttractorX, AttractorY float32
+
 	// Multi-step sequence configurations (nil = simple mode)
 	PosXSeq  *SequenceConfig
 	PosYSeq  *SequenceConfig
@@ -113,9 +121,10 @@ type DurationParams struct {
 	Range float32 // +/- randomization range
 }
 
-// PositionParams holds spawn position configuration (cartesian or polar).
+// PositionParams holds spawn position configuration.
 type PositionParams struct {
-	UsePolar bool // true = polar, false = cartesian
+	UsePolar     bool // true = polar
+	UseAttractor bool // true = quadratic bezier toward AttractorX/Y
 
 	// Cartesian
 	StartXMin, StartXMax float32
@@ -126,6 +135,10 @@ type PositionParams struct {
 	// Polar
 	AngleMin, AngleMax float32 // Radians
 	DistMin, DistMax   float32
+
+	// Attractor: bezier control point offset from emitter
+	ControlXMin, ControlXMax float32
+	ControlYMin, ControlYMax float32
 
 	Easing EasingType
 }

@@ -1,0 +1,57 @@
+name: homing_rocket
+description: >
+  Rocket exhaust sparks that trail behind the launch point and curve toward a
+  target (e.g. an enemy). Each spark arcs through a random control offset, giving
+  the impression of swirling exhaust converging on the destination.
+  Set AttractorX/Y on the entity to the rocket's current target position.
+
+emitter:
+  x: 0.0
+  y: 0.0
+
+animation:
+  duration:
+    range:
+      min: 0.4
+      max: 0.9
+
+  position:
+    type: "attractor"
+    # Tight scatter behind the launch — trail spreads slightly to the sides.
+    control_x:
+      min: -60.0
+      max: 60.0
+    control_y:
+      min: 20.0
+      max: 120.0
+    easing: "outQuad"   # fast initial burst, ease into target
+
+  alpha:
+    start: 0.9
+    end: 0.0
+    easing: "outCubic"
+
+  scale:
+    start: 1.4
+    end: 0.1
+    easing: "inQuad"
+
+  rotation:
+    start: 0.0
+    end: 3.14159
+    easing: "linear"
+
+  color:
+    start_r: 1.0
+    start_g: 0.8
+    start_b: 0.2
+    end_r: 0.8
+    end_g: 0.15
+    end_b: 0.0
+    easing: "outQuad"   # yellow → orange → red
+
+spawn:
+  interval: 1
+  particles_per_spawn: 2
+  max_particles: 80
+  is_loop: true

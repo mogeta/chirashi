@@ -60,6 +60,9 @@ var (
 	NewParticlesFromConfig = core.NewParticlesFromConfig
 	NewParticlesFromFile   = core.NewParticlesFromFile
 
+	// Attractor helpers.
+	SetAttractor = core.SetAttractor
+
 	// Easing and sequence helpers.
 	ParseEasing       = core.ParseEasing
 	ApplyEasing       = core.ApplyEasing

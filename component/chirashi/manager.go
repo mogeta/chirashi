@@ -152,6 +152,19 @@ func (m *ParticleManager) SetImage(image *ebiten.Image) {
 	m.image = image
 }
 
+// SetAttractor updates the attractor target for a particle entity.
+// Call each frame when the target moves (e.g. a score counter that slides around).
+// Has no effect on particles that do not use position type "attractor".
+func SetAttractor(world donburi.World, entity donburi.Entity, x, y float32) {
+	entry := world.Entry(entity)
+	if !world.Valid(entity) {
+		return
+	}
+	data := Component.Get(entry)
+	data.AttractorX = x
+	data.AttractorY = y
+}
+
 // copyConfig creates a deep copy of ParticleConfig
 func copyConfig(src *ParticleConfig) *ParticleConfig {
 	dst := *src
@@ -189,6 +202,8 @@ func copyPositionConfig(src PositionConfig) PositionConfig {
 	dst.EndY = copyRangePtr(src.EndY)
 	dst.Angle = copyRangePtr(src.Angle)
 	dst.Distance = copyRangePtr(src.Distance)
+	dst.ControlX = copyRangePtr(src.ControlX)
+	dst.ControlY = copyRangePtr(src.ControlY)
 	if src.X != nil {
 		x := copyPropertyConfig(*src.X)
 		dst.X = &x
