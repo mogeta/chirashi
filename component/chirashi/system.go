@@ -1,6 +1,7 @@
 package chirashi
 
 import (
+	"math"
 	"math/rand"
 	"time"
 
@@ -89,7 +90,7 @@ func (sys *System) spawn(data *SystemData) {
 			// Polar mode: convert to cartesian at spawn time (no per-frame cost)
 			angle := rangeFloat32(params.AngleMin, params.AngleMax)
 			dist := rangeFloat32(params.DistanceMin, params.DistanceMax)
-			cos, sin := cosf(angle), sinf(angle)
+			cos, sin := float32(math.Cos(float64(angle))), float32(math.Sin(float64(angle)))
 
 			particle.StartX = data.EmitterX
 			particle.StartY = data.EmitterY
@@ -270,8 +271,8 @@ func (sys *System) Draw(ecs *ecs.ECS, screen *ebiten.Image) {
 			cos := float32(1.0)
 			sin := float32(0.0)
 			if rotation != 0 {
-				cos = cosf(rotation)
-				sin = sinf(rotation)
+				cos = float32(math.Cos(float64(rotation)))
+				sin = float32(math.Sin(float64(rotation)))
 			}
 
 			// 4 corners relative to center, then rotated and translated
@@ -394,31 +395,4 @@ func clampf(v, min, max float32) float32 {
 
 func lerp(a, b, t float32) float32 {
 	return a + (b-a)*t
-}
-
-func cosf(radians float32) float32 {
-	// Fast cosine approximation using Taylor series
-	// For better accuracy, use math.Cos
-	x := radians
-	for x > 3.14159265 {
-		x -= 6.28318530
-	}
-	for x < -3.14159265 {
-		x += 6.28318530
-	}
-	x2 := x * x
-	return 1 - x2/2 + x2*x2/24 - x2*x2*x2/720
-}
-
-func sinf(radians float32) float32 {
-	// Fast sine approximation using Taylor series
-	x := radians
-	for x > 3.14159265 {
-		x -= 6.28318530
-	}
-	for x < -3.14159265 {
-		x += 6.28318530
-	}
-	x2 := x * x
-	return x - x*x2/6 + x*x2*x2/120 - x*x2*x2*x2/5040
 }

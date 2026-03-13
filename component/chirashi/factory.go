@@ -225,12 +225,18 @@ func buildSequenceConfigs(config *ParticleConfig, data *SystemData) {
 	}
 }
 
-// ReloadConfig reloads all cached configurations (useful for development)
+// ReloadConfig reloads all cached configurations.
+//
+// Deprecated: Use NewConfigLoader() and pass it explicitly. This function
+// operates on a package-level singleton and will be removed in a future version.
 func ReloadConfig() {
 	configLoader.ClearCache()
 }
 
-// GetConfigLoader returns the global config loader for advanced usage
+// GetConfigLoader returns the package-level config loader.
+//
+// Deprecated: Use NewConfigLoader() and pass it explicitly. This function
+// exposes a package-level singleton and will be removed in a future version.
 func GetConfigLoader() *ConfigLoader {
 	return configLoader
 }

@@ -22,6 +22,7 @@ type ParticleEditorScene struct {
 	world           donburi.World
 	container       *ecs.ECS
 	config          *chirashi.ParticleConfig
+	loader          *chirashi.ConfigLoader
 	img             *ebiten.Image
 	debugui         debugui.DebugUI
 	defaultShader   *ebiten.Shader
@@ -65,9 +66,11 @@ func NewParticleEditorScene() *ParticleEditorScene {
 		log.Fatalf("Failed to load blur particle shader: %v\n", err)
 	}
 
+	loader := chirashi.NewConfigLoader()
+
 	// Load configuration from file
 	log.Println("Loading particle configuration...")
-	config, err := chirashi.GetConfigLoader().LoadConfigFromBytes(assets.SampleParticleConfig, "sample.yaml")
+	config, err := loader.LoadConfigFromBytes(assets.SampleParticleConfig, "sample.yaml")
 	if err != nil {
 		log.Fatalf("Failed to load config: %v\n", err)
 	}
@@ -82,6 +85,7 @@ func NewParticleEditorScene() *ParticleEditorScene {
 		world:         world,
 		container:     container,
 		config:        config,
+		loader:        loader,
 		img:           img,
 		defaultShader: shader,
 		shader:        shader,
@@ -436,7 +440,7 @@ func (s *ParticleEditorScene) drawFileWindow(ctx *debugui.Context) {
 		// Save
 		ctx.Button("Save " + s.config.Name + ".yaml").On(func() {
 			path := filepath.Join("assets", "particles", s.config.Name+".yaml")
-			err := chirashi.GetConfigLoader().SaveConfig(path, s.config)
+			err := s.loader.SaveConfig(path, s.config)
 			if err != nil {
 				log.Println("Save error:", err)
 			} else {
@@ -451,7 +455,7 @@ func (s *ParticleEditorScene) drawFileWindow(ctx *debugui.Context) {
 			newName := "particle_" + timestamp
 			s.config.Name = newName
 			path := filepath.Join("assets", "particles", newName+".yaml")
-			err := chirashi.GetConfigLoader().SaveConfig(path, s.config)
+			err := s.loader.SaveConfig(path, s.config)
 			if err != nil {
 				log.Println("Save error:", err)
 			} else {
@@ -473,9 +477,9 @@ func (s *ParticleEditorScene) drawFileWindow(ctx *debugui.Context) {
 			ctx.IDScope(fmt.Sprintf("file_%d", idx), func() {
 				ctx.Button(name).On(func() {
 					log.Printf("Button clicked: file=%s", name)
-					chirashi.GetConfigLoader().ClearCache()
+					s.loader.ClearCache()
 
-					cfg, err := chirashi.GetConfigLoader().LoadConfig(filePath)
+					cfg, err := s.loader.LoadConfig(filePath)
 					if err != nil {
 						log.Println("Load error:", err)
 					} else {
@@ -490,7 +494,7 @@ func (s *ParticleEditorScene) drawFileWindow(ctx *debugui.Context) {
 }
 
 func (s *ParticleEditorScene) refreshFileList() {
-	files, err := chirashi.GetConfigLoader().ListConfigs("assets/particles/*.yaml")
+	files, err := s.loader.ListConfigs("assets/particles/*.yaml")
 	if err != nil {
 		log.Println("Failed to list files:", err)
 		return

@@ -13,6 +13,7 @@ type ParticleManager struct {
 	shader  *ebiten.Shader
 	image   *ebiten.Image
 	configs map[string]*ParticleConfig
+	loader  *ConfigLoader
 	mutex   sync.RWMutex
 }
 
@@ -22,12 +23,13 @@ func NewParticleManager(shader *ebiten.Shader, image *ebiten.Image) *ParticleMan
 		shader:  shader,
 		image:   image,
 		configs: make(map[string]*ParticleConfig),
+		loader:  NewConfigLoader(),
 	}
 }
 
 // Preload loads and caches a particle configuration
 func (m *ParticleManager) Preload(name string, path string) error {
-	config, err := GetConfigLoader().LoadConfig(path)
+	config, err := m.loader.LoadConfig(path)
 	if err != nil {
 		return fmt.Errorf("failed to preload %s: %w", name, err)
 	}
@@ -41,7 +43,7 @@ func (m *ParticleManager) Preload(name string, path string) error {
 
 // PreloadFromBytes loads and caches a particle configuration from embedded bytes
 func (m *ParticleManager) PreloadFromBytes(name string, data []byte) error {
-	config, err := GetConfigLoader().LoadConfigFromBytes(data, name)
+	config, err := m.loader.LoadConfigFromBytes(data, name)
 	if err != nil {
 		return fmt.Errorf("failed to preload %s: %w", name, err)
 	}
@@ -152,49 +154,17 @@ func (m *ParticleManager) SetImage(image *ebiten.Image) {
 
 // copyConfig creates a deep copy of ParticleConfig
 func copyConfig(src *ParticleConfig) *ParticleConfig {
-	dst := *src // Shallow copy
+	dst := *src
 
-	// Deep copy nested pointers
 	if src.Animation.Duration.Range != nil {
 		r := *src.Animation.Duration.Range
 		dst.Animation.Duration.Range = &r
 	}
 
-	if src.Animation.Position.StartX != nil {
-		r := *src.Animation.Position.StartX
-		dst.Animation.Position.StartX = &r
-	}
-	if src.Animation.Position.EndX != nil {
-		r := *src.Animation.Position.EndX
-		dst.Animation.Position.EndX = &r
-	}
-	if src.Animation.Position.StartY != nil {
-		r := *src.Animation.Position.StartY
-		dst.Animation.Position.StartY = &r
-	}
-	if src.Animation.Position.EndY != nil {
-		r := *src.Animation.Position.EndY
-		dst.Animation.Position.EndY = &r
-	}
-	if src.Animation.Position.Angle != nil {
-		r := *src.Animation.Position.Angle
-		dst.Animation.Position.Angle = &r
-	}
-	if src.Animation.Position.Distance != nil {
-		r := *src.Animation.Position.Distance
-		dst.Animation.Position.Distance = &r
-	}
-
-	if src.Animation.Position.X != nil {
-		x := *src.Animation.Position.X
-		x.Steps = append([]StepConfig(nil), src.Animation.Position.X.Steps...)
-		dst.Animation.Position.X = &x
-	}
-	if src.Animation.Position.Y != nil {
-		y := *src.Animation.Position.Y
-		y.Steps = append([]StepConfig(nil), src.Animation.Position.Y.Steps...)
-		dst.Animation.Position.Y = &y
-	}
+	dst.Animation.Position = copyPositionConfig(src.Animation.Position)
+	dst.Animation.Alpha = copyPropertyConfig(src.Animation.Alpha)
+	dst.Animation.Scale = copyPropertyConfig(src.Animation.Scale)
+	dst.Animation.Rotation = copyPropertyConfig(src.Animation.Rotation)
 
 	if src.Animation.Color != nil {
 		c := *src.Animation.Color
@@ -202,4 +172,55 @@ func copyConfig(src *ParticleConfig) *ParticleConfig {
 	}
 
 	return &dst
+}
+
+func copyPositionConfig(src PositionConfig) PositionConfig {
+	dst := src
+	copyRangePtr := func(r *RangeFloat) *RangeFloat {
+		if r == nil {
+			return nil
+		}
+		c := *r
+		return &c
+	}
+	dst.StartX = copyRangePtr(src.StartX)
+	dst.EndX = copyRangePtr(src.EndX)
+	dst.StartY = copyRangePtr(src.StartY)
+	dst.EndY = copyRangePtr(src.EndY)
+	dst.Angle = copyRangePtr(src.Angle)
+	dst.Distance = copyRangePtr(src.Distance)
+	if src.X != nil {
+		x := copyPropertyConfig(*src.X)
+		dst.X = &x
+	}
+	if src.Y != nil {
+		y := copyPropertyConfig(*src.Y)
+		dst.Y = &y
+	}
+	return dst
+}
+
+func copyPropertyConfig(src PropertyConfig) PropertyConfig {
+	dst := src
+	if len(src.Steps) == 0 {
+		return dst
+	}
+	dst.Steps = make([]StepConfig, len(src.Steps))
+	for i, step := range src.Steps {
+		dst.Steps[i] = copyStepConfig(step)
+	}
+	return dst
+}
+
+func copyStepConfig(src StepConfig) StepConfig {
+	dst := src
+	if src.FromRange != nil {
+		r := *src.FromRange
+		dst.FromRange = &r
+	}
+	if src.ToRange != nil {
+		r := *src.ToRange
+		dst.ToRange = &r
+	}
+	return dst
 }
