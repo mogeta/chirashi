@@ -10,6 +10,7 @@ import (
 
 	"github.com/ebitengine/debugui"
 	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/inpututil"
 	"github.com/yohamta/donburi"
 	"github.com/yohamta/donburi/ecs"
 	"github.com/yohamta/donburi/filter"
@@ -111,6 +112,13 @@ func (s *ParticleEditorScene) Update() error {
 		return nil
 	}); err != nil {
 		return err
+	}
+
+	if s.config.Animation.Position.Type == "attractor" && inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
+		x, y := ebiten.CursorPosition()
+		s.attractorX = float32(x)
+		s.attractorY = float32(y)
+		s.applyAttractorTarget()
 	}
 
 	s.container.Update()
