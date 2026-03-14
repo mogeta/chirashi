@@ -174,7 +174,7 @@ func (sys *System) spawn(data *SystemData) {
 func sampleEmitterPosition(emitterX, emitterY float32, shape EmitterShapeParams) (float32, float32) {
 	switch shape.Type {
 	case EmitterShapeCircle:
-		angle := rangeFloat32(shape.StartAngle, shape.EndAngle)
+		angle := sampleCircleAngle(shape.StartAngle, shape.EndAngle)
 		radius := rangeFloat32(shape.RadiusMin, shape.RadiusMax)
 		if !shape.FromEdge {
 			minRadiusSq := shape.RadiusMin * shape.RadiusMin
@@ -221,6 +221,40 @@ func sampleEmitterPosition(emitterX, emitterY float32, shape EmitterShapeParams)
 	default:
 		return emitterX, emitterY
 	}
+}
+
+func sampleCircleAngle(startAngle, endAngle float32) float32 {
+	tau := float32(2 * math.Pi)
+
+	rawSpan := endAngle - startAngle
+	if rawSpan >= tau-fullCircleEpsilon || rawSpan <= -tau+fullCircleEpsilon {
+		return rand.Float32() * tau
+	}
+
+	start := normalizeAngle(startAngle)
+	end := normalizeAngle(endAngle)
+	span := end - start
+	if span < 0 {
+		span += tau
+	}
+
+	if span <= fullCircleEpsilon {
+		if math.Abs(float64(rawSpan)) > float64(fullCircleEpsilon) {
+			return rand.Float32() * tau
+		}
+		return start
+	}
+
+	return normalizeAngle(start + rand.Float32()*span)
+}
+
+func normalizeAngle(angle float32) float32 {
+	tau := float32(2 * math.Pi)
+	normalized := float32(math.Mod(float64(angle), float64(tau)))
+	if normalized < 0 {
+		normalized += tau
+	}
+	return normalized
 }
 
 func rotateOffset(originX, originY, offsetX, offsetY, rotation float32) (float32, float32) {

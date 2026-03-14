@@ -301,3 +301,174 @@ func TestSpawnBoxEmitterFromEdgeStaysOnPerimeter(t *testing.T) {
 		}
 	}
 }
+
+func TestSpawnCircleEmitterFullCircleWithTwoPiEndAngle(t *testing.T) {
+	sys := &System{cnt: 0}
+	data := &SystemData{
+		ParticlePool:      make([]Instance, 128),
+		ActiveIndices:     make([]int, 0, 128),
+		FreeIndices:       make([]int, 128),
+		SpawnInterval:     1,
+		ParticlesPerSpawn: 128,
+		MaxParticles:      128,
+		EmitterShape: EmitterShapeParams{
+			Type:       EmitterShapeCircle,
+			RadiusMin:  10,
+			RadiusMax:  10,
+			StartAngle: 0,
+			EndAngle:   float32(2 * math.Pi),
+			FromEdge:   true,
+		},
+		AnimParams: AnimationParams{
+			Duration: DurationParams{Base: 1.0},
+			Appearance: AppearanceParams{
+				StartScale:     1.0,
+				EndScale:       1.0,
+				AlphaEasing:    EasingLinear,
+				ScaleEasing:    EasingLinear,
+				RotationEasing: EasingLinear,
+			},
+			Color: ColorParams{
+				StartR: 1, StartG: 1, StartB: 1,
+				EndR: 1, EndG: 1, EndB: 1,
+				Easing: EasingLinear,
+			},
+			Position: PositionParams{Easing: EasingLinear},
+		},
+	}
+	for i := range data.FreeIndices {
+		data.FreeIndices[i] = len(data.FreeIndices) - 1 - i
+	}
+
+	sys.spawn(data)
+
+	var hasNegX, hasPosX, hasNegY, hasPosY bool
+	for _, idx := range data.ActiveIndices {
+		p := data.ParticlePool[idx]
+		if p.StartX < 0 {
+			hasNegX = true
+		}
+		if p.StartX > 0 {
+			hasPosX = true
+		}
+		if p.StartY < 0 {
+			hasNegY = true
+		}
+		if p.StartY > 0 {
+			hasPosY = true
+		}
+	}
+	if !(hasNegX && hasPosX && hasNegY && hasPosY) {
+		t.Fatalf("full circle sampling did not cover all quadrants: negX=%v posX=%v negY=%v posY=%v", hasNegX, hasPosX, hasNegY, hasPosY)
+	}
+}
+
+func TestSpawnCircleEmitterTreatsSixPointTwoEightAsFullCircle(t *testing.T) {
+	sys := &System{cnt: 0}
+	data := &SystemData{
+		ParticlePool:      make([]Instance, 128),
+		ActiveIndices:     make([]int, 0, 128),
+		FreeIndices:       make([]int, 128),
+		SpawnInterval:     1,
+		ParticlesPerSpawn: 128,
+		MaxParticles:      128,
+		EmitterShape: EmitterShapeParams{
+			Type:       EmitterShapeCircle,
+			RadiusMin:  10,
+			RadiusMax:  10,
+			StartAngle: 0,
+			EndAngle:   6.28,
+			FromEdge:   true,
+		},
+		AnimParams: AnimationParams{
+			Duration: DurationParams{Base: 1.0},
+			Appearance: AppearanceParams{
+				StartScale:     1.0,
+				EndScale:       1.0,
+				AlphaEasing:    EasingLinear,
+				ScaleEasing:    EasingLinear,
+				RotationEasing: EasingLinear,
+			},
+			Color: ColorParams{
+				StartR: 1, StartG: 1, StartB: 1,
+				EndR: 1, EndG: 1, EndB: 1,
+				Easing: EasingLinear,
+			},
+			Position: PositionParams{Easing: EasingLinear},
+		},
+	}
+	for i := range data.FreeIndices {
+		data.FreeIndices[i] = len(data.FreeIndices) - 1 - i
+	}
+
+	sys.spawn(data)
+
+	var hasNegX, hasPosX, hasNegY, hasPosY bool
+	for _, idx := range data.ActiveIndices {
+		p := data.ParticlePool[idx]
+		if p.StartX < 0 {
+			hasNegX = true
+		}
+		if p.StartX > 0 {
+			hasPosX = true
+		}
+		if p.StartY < 0 {
+			hasNegY = true
+		}
+		if p.StartY > 0 {
+			hasPosY = true
+		}
+	}
+	if !(hasNegX && hasPosX && hasNegY && hasPosY) {
+		t.Fatalf("6.28 full circle sampling did not cover all quadrants: negX=%v posX=%v negY=%v posY=%v", hasNegX, hasPosX, hasNegY, hasPosY)
+	}
+}
+
+func TestSpawnCircleEmitterWrapArc(t *testing.T) {
+	sys := &System{cnt: 0}
+	data := &SystemData{
+		ParticlePool:      make([]Instance, 64),
+		ActiveIndices:     make([]int, 0, 64),
+		FreeIndices:       make([]int, 64),
+		SpawnInterval:     1,
+		ParticlesPerSpawn: 64,
+		MaxParticles:      64,
+		EmitterShape: EmitterShapeParams{
+			Type:       EmitterShapeCircle,
+			RadiusMin:  10,
+			RadiusMax:  10,
+			StartAngle: 5.5,
+			EndAngle:   0.5,
+			FromEdge:   true,
+		},
+		AnimParams: AnimationParams{
+			Duration: DurationParams{Base: 1.0},
+			Appearance: AppearanceParams{
+				StartScale:     1.0,
+				EndScale:       1.0,
+				AlphaEasing:    EasingLinear,
+				ScaleEasing:    EasingLinear,
+				RotationEasing: EasingLinear,
+			},
+			Color: ColorParams{
+				StartR: 1, StartG: 1, StartB: 1,
+				EndR: 1, EndG: 1, EndB: 1,
+				Easing: EasingLinear,
+			},
+			Position: PositionParams{Easing: EasingLinear},
+		},
+	}
+	for i := range data.FreeIndices {
+		data.FreeIndices[i] = len(data.FreeIndices) - 1 - i
+	}
+
+	sys.spawn(data)
+
+	for _, idx := range data.ActiveIndices {
+		p := data.ParticlePool[idx]
+		angle := normalizeAngle(float32(math.Atan2(float64(p.StartY), float64(p.StartX))))
+		if angle > 0.5 && angle < 5.5 {
+			t.Fatalf("wrap arc sampled outside expected range: angle=%v", angle)
+		}
+	}
+}

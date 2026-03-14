@@ -7,6 +7,8 @@ import (
 	"github.com/yohamta/donburi"
 )
 
+const fullCircleEpsilon = float32(0.01)
+
 var (
 	// Global configuration loader instance
 	configLoader = NewConfigLoader()
@@ -95,8 +97,20 @@ func normalizeParticleConfig(config *ParticleConfig) {
 }
 
 func normalizeEmitterShapeConfig(shape *EmitterShapeConfig) {
-	if shape.Type == "circle" && shape.StartAngle == 0 && shape.EndAngle == 0 {
-		shape.EndAngle = float32(2 * math.Pi)
+	if shape.Type != "circle" {
+		return
+	}
+
+	tau := float32(2 * math.Pi)
+	if shape.StartAngle == 0 && shape.EndAngle == 0 {
+		shape.EndAngle = tau
+		return
+	}
+
+	diff := shape.EndAngle - shape.StartAngle
+	if math.Abs(float64(diff-tau)) <= float64(fullCircleEpsilon) ||
+		math.Abs(float64(diff+tau)) <= float64(fullCircleEpsilon) {
+		shape.EndAngle = shape.StartAngle + tau
 	}
 }
 

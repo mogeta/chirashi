@@ -274,8 +274,8 @@ func (s *ParticleEditorScene) drawEmitterShapeControls(ctx *debugui.Context) {
 			shape.Radius = &chirashi.RangeFloat{Min: 0, Max: 100}
 		}
 		s.rangeControl(ctx, "Radius", shape.Radius, 0, 300, 5)
-		s.sliderControl32(ctx, "Start Angle", &shape.StartAngle, -6.28, 6.28, 0.1)
-		s.sliderControl32(ctx, "End Angle", &shape.EndAngle, -6.28, 6.28, 0.1)
+		s.sliderControl32(ctx, "Start Angle", &shape.StartAngle, -6.2831855, 6.2831855, 0.1)
+		s.sliderControl32(ctx, "End Angle", &shape.EndAngle, -6.2831855, 6.2831855, 0.1)
 		ctx.Button("Full Arc").On(func() {
 			shape.StartAngle = 0
 			shape.EndAngle = 6.2831855
