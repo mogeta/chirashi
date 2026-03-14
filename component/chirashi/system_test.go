@@ -17,6 +17,7 @@ func TestSpawnRespectsMaxParticles(t *testing.T) {
 		SpawnInterval:     1,
 		ParticlesPerSpawn: 10,
 		MaxParticles:      3,
+		IsLoop:            true,
 		EmitterX:          100,
 		EmitterY:          200,
 		AnimParams: AnimationParams{
@@ -111,6 +112,7 @@ func TestSpawnCircleEmitterSamplesInsideRadius(t *testing.T) {
 		SpawnInterval:     1,
 		ParticlesPerSpawn: 32,
 		MaxParticles:      32,
+		IsLoop:            true,
 		EmitterX:          100,
 		EmitterY:          200,
 		EmitterShape: EmitterShapeParams{
@@ -161,6 +163,7 @@ func TestSpawnLineEmitterRespectsRotation(t *testing.T) {
 		SpawnInterval:     1,
 		ParticlesPerSpawn: 16,
 		MaxParticles:      16,
+		IsLoop:            true,
 		EmitterX:          50,
 		EmitterY:          80,
 		EmitterShape: EmitterShapeParams{
@@ -211,6 +214,7 @@ func TestSpawnCircleEmitterArcLimitsAngle(t *testing.T) {
 		SpawnInterval:     1,
 		ParticlesPerSpawn: 16,
 		MaxParticles:      16,
+		IsLoop:            true,
 		EmitterShape: EmitterShapeParams{
 			Type:       EmitterShapeCircle,
 			RadiusMin:  10,
@@ -259,6 +263,7 @@ func TestSpawnBoxEmitterFromEdgeStaysOnPerimeter(t *testing.T) {
 		SpawnInterval:     1,
 		ParticlesPerSpawn: 16,
 		MaxParticles:      16,
+		IsLoop:            true,
 		EmitterX:          10,
 		EmitterY:          20,
 		EmitterShape: EmitterShapeParams{
@@ -311,6 +316,7 @@ func TestSpawnCircleEmitterFullCircleWithTwoPiEndAngle(t *testing.T) {
 		SpawnInterval:     1,
 		ParticlesPerSpawn: 128,
 		MaxParticles:      128,
+		IsLoop:            true,
 		EmitterShape: EmitterShapeParams{
 			Type:       EmitterShapeCircle,
 			RadiusMin:  10,
@@ -372,6 +378,7 @@ func TestSpawnCircleEmitterTreatsSixPointTwoEightAsFullCircle(t *testing.T) {
 		SpawnInterval:     1,
 		ParticlesPerSpawn: 128,
 		MaxParticles:      128,
+		IsLoop:            true,
 		EmitterShape: EmitterShapeParams{
 			Type:       EmitterShapeCircle,
 			RadiusMin:  10,
@@ -433,6 +440,7 @@ func TestSpawnCircleEmitterWrapArc(t *testing.T) {
 		SpawnInterval:     1,
 		ParticlesPerSpawn: 64,
 		MaxParticles:      64,
+		IsLoop:            true,
 		EmitterShape: EmitterShapeParams{
 			Type:       EmitterShapeCircle,
 			RadiusMin:  10,

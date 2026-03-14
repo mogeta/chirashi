@@ -8,7 +8,7 @@ emitter:
     x: 0
     "y": 0
     shape:
-        type: point
+        type: circle
         radius:
             min: 0
             max: 100
@@ -22,8 +22,8 @@ animation:
     position:
         type: attractor
         control_x:
-            min: -60
-            max: 90
+            min: -260
+            max: 330
         control_y:
             min: -60
             max: 80
@@ -31,14 +31,14 @@ animation:
     alpha:
         start: 0.9
         end: 0
-        easing: outCubic
+        easing: InCubic
     scale:
-        start: 1.4
-        end: 0.1
+        start: 1
+        end: 1
         easing: inQuad
     rotation:
         start: 0
-        end: 3.14159
+        end: -0.1
         easing: linear
     color:
         start_r: 1
@@ -53,3 +53,4 @@ spawn:
     particles_per_spawn: 12
     max_particles: 6080
     is_loop: false
+    life_time: 60
