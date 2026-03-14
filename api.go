@@ -44,22 +44,22 @@ type (
 )
 
 var (
-	// ECS component registration.
+	// Component ECS component registration.
 	Component = core.Component
 
-	// Runtime constructors.
+	// NewSystem Runtime constructors.
 	NewSystem          = core.NewSystem
 	NewParticleManager = core.NewParticleManager
 	NewConfigLoader    = core.NewConfigLoader
 
-	// Particle creation helpers.
+	// NewParticlesFromConfig Particle creation helpers.
 	NewParticlesFromConfig = core.NewParticlesFromConfig
 	NewParticlesFromFile   = core.NewParticlesFromFile
 
-	// Attractor helpers.
+	// SetAttractor Attractor helpers.
 	SetAttractor = core.SetAttractor
 
-	// Easing and sequence helpers.
+	// ParseEasing Easing and sequence helpers.
 	ParseEasing       = core.ParseEasing
 	ApplyEasing       = core.ApplyEasing
 	NewSequenceConfig = core.NewSequenceConfig
