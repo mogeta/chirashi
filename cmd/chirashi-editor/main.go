@@ -9,7 +9,7 @@ import (
 )
 
 func main() {
-	ebiten.SetWindowSize(1280, 960)
+	ebiten.SetWindowSize(1920, 1080)
 	ebiten.SetWindowTitle("Chirashi Particle Editor")
 
 	game, err := editor.NewParticleEditorScene()
