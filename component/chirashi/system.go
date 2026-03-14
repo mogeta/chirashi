@@ -50,8 +50,10 @@ func (sys *System) Update(ecs *ecs.ECS) {
 
 		// Handle lifetime
 		if !data.IsLoop {
-			data.LifeTime--
-			if data.LifeTime <= 0 {
+			if data.LifeTime > 0 {
+				data.LifeTime--
+			}
+			if data.LifeTime <= 0 && data.ActiveCount == 0 {
 				ecs.World.Remove(entry.Entity())
 			}
 		}
@@ -59,6 +61,9 @@ func (sys *System) Update(ecs *ecs.ECS) {
 }
 
 func (sys *System) spawn(data *SystemData) {
+	if !data.IsLoop && data.LifeTime <= 0 {
+		return
+	}
 	if data.SpawnInterval <= 0 || sys.cnt%data.SpawnInterval != 0 {
 		return
 	}

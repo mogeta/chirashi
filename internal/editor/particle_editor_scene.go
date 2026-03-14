@@ -190,7 +190,7 @@ func (s *ParticleEditorScene) Layout(outsideWidth, outsideHeight int) (int, int)
 }
 
 func (s *ParticleEditorScene) drawGeneralSettingsWindow(ctx *debugui.Context) {
-	ctx.Window("General Settings", image.Rect(20, 20, 560, 340), func(layout debugui.ContainerLayout) {
+	ctx.Window("General Settings", image.Rect(20, 20, 560, 420), func(layout debugui.ContainerLayout) {
 		ctx.Text("Spawn Config")
 
 		ctx.SetGridLayout([]int{140, 60, 60}, nil)
@@ -221,6 +221,28 @@ func (s *ParticleEditorScene) drawGeneralSettingsWindow(ctx *debugui.Context) {
 			s.recreateParticles()
 		})
 		ctx.SetGridLayout([]int{-1}, nil)
+
+		loopLabel := "Loop: ON"
+		if !s.config.Spawn.IsLoop {
+			loopLabel = "Loop: OFF"
+		}
+		ctx.Button(loopLabel).On(func() {
+			s.config.Spawn.IsLoop = !s.config.Spawn.IsLoop
+			s.recreateParticles()
+		})
+
+		if !s.config.Spawn.IsLoop {
+			ctx.SetGridLayout([]int{140, 60, 60}, nil)
+			ctx.Text(fmt.Sprintf("LifeTime: %d", s.config.Spawn.LifeTime))
+			ctx.Button("L+").On(func() { s.config.Spawn.LifeTime += 60; s.recreateParticles() })
+			ctx.Button("L-").On(func() {
+				if s.config.Spawn.LifeTime > 60 {
+					s.config.Spawn.LifeTime -= 60
+				}
+				s.recreateParticles()
+			})
+			ctx.SetGridLayout([]int{-1}, nil)
+		}
 
 		ctx.Text("----------------")
 		ctx.Text("Emitter")
