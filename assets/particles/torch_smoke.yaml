@@ -1,0 +1,61 @@
+name: "torch_smoke"
+description: "Soft drifting smoke for torches, braziers, and damaged machinery."
+
+image:
+  image_from: "ef1"
+  image_id: 1
+
+emitter:
+  x: 0
+  y: 0
+  shape:
+    type: "box"
+    width: 18
+    height: 10
+
+animation:
+  duration:
+    value: 1.6
+    range:
+      min: 1.2
+      max: 2.0
+
+  position:
+    type: "cartesian"
+    end_x:
+      min: -40
+      max: 40
+    end_y:
+      min: -180
+      max: -110
+    easing: "OutSine"
+
+  alpha:
+    start: 0.35
+    end: 0.0
+    easing: "Linear"
+
+  scale:
+    start: 0.8
+    end: 1.9
+    easing: "OutQuad"
+
+  rotation:
+    start: -0.6
+    end: 0.6
+    easing: "Linear"
+
+  color:
+    start_r: 0.5
+    start_g: 0.5
+    start_b: 0.5
+    end_r: 0.18
+    end_g: 0.18
+    end_b: 0.2
+    easing: "Linear"
+
+spawn:
+  interval: 3
+  particles_per_spawn: 5
+  max_particles: 220
+  is_loop: true

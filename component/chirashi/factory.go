@@ -1,6 +1,8 @@
 package chirashi
 
 import (
+	"math"
+
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/yohamta/donburi"
 )
@@ -27,6 +29,8 @@ func NewParticlesFromFile(w donburi.World, shader *ebiten.Shader, image *ebiten.
 
 // createParticlesFromConfig creates particles from a loaded configuration
 func createParticlesFromConfig(w donburi.World, shader *ebiten.Shader, image *ebiten.Image, config *ParticleConfig, x, y float32) error {
+	normalizeParticleConfig(config)
+
 	particles := w.Entry(w.Create(Component))
 
 	// Calculate emitter position (base position + config offset)
@@ -86,14 +90,26 @@ func createParticlesFromConfig(w donburi.World, shader *ebiten.Shader, image *eb
 	return nil
 }
 
+func normalizeParticleConfig(config *ParticleConfig) {
+	normalizeEmitterShapeConfig(&config.Emitter.Shape)
+}
+
+func normalizeEmitterShapeConfig(shape *EmitterShapeConfig) {
+	if shape.Type == "circle" && shape.StartAngle == 0 && shape.EndAngle == 0 {
+		shape.EndAngle = float32(2 * math.Pi)
+	}
+}
+
 func buildEmitterShapeParams(config EmitterShapeConfig) EmitterShapeParams {
 	shape := EmitterShapeParams{
-		Type:     parseEmitterShapeType(config.Type),
-		Width:    config.Width,
-		Height:   config.Height,
-		Length:   config.Length,
-		Rotation: config.Rotation,
-		FromEdge: config.FromEdge,
+		Type:       parseEmitterShapeType(config.Type),
+		StartAngle: config.StartAngle,
+		EndAngle:   config.EndAngle,
+		Width:      config.Width,
+		Height:     config.Height,
+		Length:     config.Length,
+		Rotation:   config.Rotation,
+		FromEdge:   config.FromEdge,
 	}
 	if config.Radius != nil {
 		shape.RadiusMin = config.Radius.Min

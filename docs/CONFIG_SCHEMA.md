@@ -18,11 +18,13 @@ emitter:
   shape: # optional
     type: "point" | "circle" | "box" | "line"
     radius: { min: float, max: float } # circle only
+    start_angle: float # circle only, radians
+    end_angle: float   # circle only, radians
     width: float   # box only
     height: float  # box only
     length: float  # line only
     rotation: float # box/line only, radians
-    from_edge: bool # circle only
+    from_edge: bool # circle/box only
 
 animation:
   duration:
@@ -100,6 +102,7 @@ If validation fails, loading returns an error.
   - `"polar"` uses `angle` + `distance`.
   - any other value (including empty) is treated as cartesian mode.
 - `emitter.shape.type` defaults to `"point"`.
+- `circle` shape defaults to a full 0..2π arc when `start_angle`/`end_angle` are omitted.
 - If cartesian ranges are omitted, values default to `0`, so particles can stay at emitter position.
 - If both `scale.start` and `scale.end` are `0`, runtime forces both to `1.0`.
 - `animation.color` omitted means no color shift (white -> white).
@@ -170,6 +173,37 @@ spawn:
   interval: 2
   particles_per_spawn: 12
   max_particles: 1200
+  is_loop: true
+```
+
+## Example: Arc emitter shape
+
+```yaml
+name: "fountain_arc"
+description: "arc emitter"
+image: { image_from: "ef1", image_id: 3 }
+emitter:
+  x: 0
+  y: 0
+  shape:
+    type: "circle"
+    radius: { min: 0, max: 40 }
+    start_angle: -2.2
+    end_angle: -0.9
+animation:
+  duration: { value: 0.9 }
+  position:
+    type: "polar"
+    angle: { min: -2.0, max: -1.1 }
+    distance: { min: 80, max: 180 }
+    easing: "OutQuad"
+  alpha: { start: 0.9, end: 0.0, easing: "Linear" }
+  scale: { start: 0.5, end: 0.1, easing: "OutSine" }
+  rotation: { start: 0.0, end: 0.8, easing: "Linear" }
+spawn:
+  interval: 2
+  particles_per_spawn: 10
+  max_particles: 800
   is_loop: true
 ```
 

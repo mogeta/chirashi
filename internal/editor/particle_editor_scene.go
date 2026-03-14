@@ -75,7 +75,7 @@ func NewParticleEditorScene() (*ParticleEditorScene, error) {
 		return nil, fmt.Errorf("create particles: %w", err)
 	}
 
-	return &ParticleEditorScene{
+	scene := &ParticleEditorScene{
 		world:         world,
 		container:     container,
 		config:        config,
@@ -87,7 +87,9 @@ func NewParticleEditorScene() (*ParticleEditorScene, error) {
 		bloomShader:   bloomShader,
 		attractorX:    640,
 		attractorY:    480,
-	}, nil
+	}
+	scene.refreshFileList()
+	return scene, nil
 }
 
 func (s *ParticleEditorScene) Update() error {
@@ -256,31 +258,12 @@ func (s *ParticleEditorScene) drawEmitterShapeControls(ctx *debugui.Context) {
 	}
 
 	ctx.Text("Emitter Shape: " + shapeType)
-	ctx.Button("Toggle Shape").On(func() {
-		switch shape.Type {
-		case "circle":
-			shape.Type = "box"
-			if shape.Width == 0 {
-				shape.Width = 160
-			}
-			if shape.Height == 0 {
-				shape.Height = 80
-			}
-		case "box":
-			shape.Type = "line"
-			if shape.Length == 0 {
-				shape.Length = 200
-			}
-		case "line":
-			shape.Type = "point"
-		default:
-			shape.Type = "circle"
-			if shape.Radius == nil {
-				shape.Radius = &chirashi.RangeFloat{Min: 0, Max: 100}
-			}
-		}
-		s.recreateParticles()
-	})
+	ctx.SetGridLayout([]int{90, 90, 90, 90}, nil)
+	ctx.Button("Point").On(func() { s.setEmitterShapeType("point") })
+	ctx.Button("Circle").On(func() { s.setEmitterShapeType("circle") })
+	ctx.Button("Box").On(func() { s.setEmitterShapeType("box") })
+	ctx.Button("Line").On(func() { s.setEmitterShapeType("line") })
+	ctx.SetGridLayout([]int{-1}, nil)
 
 	switch shapeType {
 	case "circle":
@@ -288,6 +271,13 @@ func (s *ParticleEditorScene) drawEmitterShapeControls(ctx *debugui.Context) {
 			shape.Radius = &chirashi.RangeFloat{Min: 0, Max: 100}
 		}
 		s.rangeControl(ctx, "Radius", shape.Radius, 0, 300, 5)
+		s.sliderControl32(ctx, "Start Angle", &shape.StartAngle, -6.28, 6.28, 0.1)
+		s.sliderControl32(ctx, "End Angle", &shape.EndAngle, -6.28, 6.28, 0.1)
+		ctx.Button("Full Arc").On(func() {
+			shape.StartAngle = 0
+			shape.EndAngle = 6.2831855
+			s.recreateParticles()
+		})
 		edgeLabel := "Area"
 		if shape.FromEdge {
 			edgeLabel = "Edge"
@@ -300,12 +290,48 @@ func (s *ParticleEditorScene) drawEmitterShapeControls(ctx *debugui.Context) {
 		s.sliderControl32(ctx, "Width", &shape.Width, 0, 400, 5)
 		s.sliderControl32(ctx, "Height", &shape.Height, 0, 400, 5)
 		s.sliderControl32(ctx, "Rotation##shape", &shape.Rotation, -3.14, 3.14, 0.1)
+		boxSample := "Area"
+		if shape.FromEdge {
+			boxSample = "Edge"
+		}
+		ctx.Button("Sample: " + boxSample).On(func() {
+			shape.FromEdge = !shape.FromEdge
+			s.recreateParticles()
+		})
 	case "line":
 		s.sliderControl32(ctx, "Length", &shape.Length, 0, 400, 5)
 		s.sliderControl32(ctx, "Rotation##line", &shape.Rotation, -3.14, 3.14, 0.1)
 	default:
 		ctx.Text("Single point emission")
 	}
+}
+
+func (s *ParticleEditorScene) setEmitterShapeType(shapeType string) {
+	shape := &s.config.Emitter.Shape
+	shape.Type = shapeType
+	switch shapeType {
+	case "circle":
+		if shape.Radius == nil {
+			shape.Radius = &chirashi.RangeFloat{Min: 0, Max: 100}
+		}
+		if shape.EndAngle == 0 {
+			shape.EndAngle = 6.2831855
+		}
+	case "box":
+		if shape.Width == 0 {
+			shape.Width = 160
+		}
+		if shape.Height == 0 {
+			shape.Height = 80
+		}
+	case "line":
+		if shape.Length == 0 {
+			shape.Length = 200
+		}
+	default:
+		shape.Type = "point"
+	}
+	s.recreateParticles()
 }
 
 func (s *ParticleEditorScene) drawAnimationWindow(ctx *debugui.Context) {

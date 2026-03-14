@@ -157,5 +157,9 @@ func (l *ConfigLoader) validateConfig(config *ParticleConfig) error {
 		return fmt.Errorf("emitter.shape.radius.min must be less than or equal to max")
 	}
 
+	if config.Emitter.Shape.Type == "circle" && config.Emitter.Shape.StartAngle == 0 && config.Emitter.Shape.EndAngle == 0 {
+		config.Emitter.Shape.EndAngle = 6.2831855
+	}
+
 	return nil
 }

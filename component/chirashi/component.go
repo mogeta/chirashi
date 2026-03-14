@@ -110,14 +110,16 @@ type SystemData struct {
 
 // EmitterShapeParams holds runtime emitter shape configuration.
 type EmitterShapeParams struct {
-	Type      EmitterShapeType
-	RadiusMin float32
-	RadiusMax float32
-	Width     float32
-	Height    float32
-	Length    float32
-	Rotation  float32
-	FromEdge  bool
+	Type       EmitterShapeType
+	RadiusMin  float32
+	RadiusMax  float32
+	StartAngle float32
+	EndAngle   float32
+	Width      float32
+	Height     float32
+	Length     float32
+	Rotation   float32
+	FromEdge   bool
 }
 
 // EmitterShapeType identifies how particles are spawned around the emitter.

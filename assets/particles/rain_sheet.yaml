@@ -1,0 +1,61 @@
+name: "rain_sheet"
+description: "Top-line rain emitter for weather scenes and storm overlays."
+
+image:
+  image_from: "ef1"
+  image_id: 2
+
+emitter:
+  x: 0
+  y: 0
+  shape:
+    type: "line"
+    length: 360
+    rotation: 0
+
+animation:
+  duration:
+    value: 0.55
+    range:
+      min: 0.4
+      max: 0.7
+
+  position:
+    type: "cartesian"
+    end_x:
+      min: -24
+      max: -8
+    end_y:
+      min: 180
+      max: 260
+    easing: "Linear"
+
+  alpha:
+    start: 0.5
+    end: 0.0
+    easing: "Linear"
+
+  scale:
+    start: 0.25
+    end: 0.12
+    easing: "Linear"
+
+  rotation:
+    start: -0.18
+    end: -0.18
+    easing: "Linear"
+
+  color:
+    start_r: 0.8
+    start_g: 0.9
+    start_b: 1.0
+    end_r: 0.55
+    end_g: 0.7
+    end_b: 0.9
+    easing: "Linear"
+
+spawn:
+  interval: 1
+  particles_per_spawn: 28
+  max_particles: 1200
+  is_loop: true

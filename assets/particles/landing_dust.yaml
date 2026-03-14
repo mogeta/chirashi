@@ -1,0 +1,65 @@
+name: "landing_dust"
+description: "Wide low dust burst for landing, dash stop, and heavy footsteps."
+
+image:
+  image_from: "ef1"
+  image_id: 6
+
+emitter:
+  x: 0
+  y: 0
+  shape:
+    type: "line"
+    length: 120
+    rotation: 0
+
+animation:
+  duration:
+    value: 0.65
+    range:
+      min: 0.45
+      max: 0.85
+
+  position:
+    type: "cartesian"
+    start_y:
+      min: -6
+      max: 6
+    end_x:
+      min: -80
+      max: 80
+    end_y:
+      min: -70
+      max: -20
+    easing: "OutQuad"
+
+  alpha:
+    start: 0.55
+    end: 0.0
+    easing: "Linear"
+
+  scale:
+    start: 0.9
+    end: 2.0
+    easing: "OutSine"
+
+  rotation:
+    start: -0.4
+    end: 0.4
+    easing: "Linear"
+
+  color:
+    start_r: 0.82
+    start_g: 0.74
+    start_b: 0.62
+    end_r: 0.55
+    end_g: 0.5
+    end_b: 0.45
+    easing: "Linear"
+
+spawn:
+  interval: 1
+  particles_per_spawn: 22
+  max_particles: 240
+  is_loop: false
+  life_time: 45

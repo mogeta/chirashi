@@ -25,13 +25,15 @@ type EmitterConfig struct {
 
 // EmitterShapeConfig defines where particles are spawned relative to the emitter origin.
 type EmitterShapeConfig struct {
-	Type     string      `yaml:"type,omitempty"` // point (default), circle, box, line
-	Radius   *RangeFloat `yaml:"radius,omitempty"`
-	Width    float32     `yaml:"width,omitempty"`
-	Height   float32     `yaml:"height,omitempty"`
-	Length   float32     `yaml:"length,omitempty"`
-	Rotation float32     `yaml:"rotation,omitempty"` // Radians, used by box/line
-	FromEdge bool        `yaml:"from_edge,omitempty"`
+	Type       string      `yaml:"type,omitempty"` // point (default), circle, box, line
+	Radius     *RangeFloat `yaml:"radius,omitempty"`
+	StartAngle float32     `yaml:"start_angle,omitempty"` // Radians, circle only
+	EndAngle   float32     `yaml:"end_angle,omitempty"`   // Radians, circle only
+	Width      float32     `yaml:"width,omitempty"`
+	Height     float32     `yaml:"height,omitempty"`
+	Length     float32     `yaml:"length,omitempty"`
+	Rotation   float32     `yaml:"rotation,omitempty"` // Radians, used by box/line
+	FromEdge   bool        `yaml:"from_edge,omitempty"`
 }
 
 // AnimationConfig defines all animation parameters with simplified lerp-based approach

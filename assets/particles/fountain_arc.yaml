@@ -1,0 +1,52 @@
+name: "fountain_arc"
+description: "Arc emitter for fountain or directional spray effects."
+image:
+  image_from: "ef1"
+  image_id: 3
+emitter:
+  x: 0
+  y: 0
+  shape:
+    type: "circle"
+    radius:
+      min: 0
+      max: 40
+    start_angle: -2.2
+    end_angle: -0.9
+animation:
+  duration:
+    value: 0.9
+  position:
+    type: "polar"
+    angle:
+      min: -2.0
+      max: -1.1
+    distance:
+      min: 80
+      max: 180
+    easing: "OutQuad"
+  alpha:
+    start: 0.9
+    end: 0.0
+    easing: "Linear"
+  scale:
+    start: 0.5
+    end: 0.1
+    easing: "OutSine"
+  rotation:
+    start: 0.0
+    end: 0.8
+    easing: "Linear"
+  color:
+    start_r: 0.8
+    start_g: 0.95
+    start_b: 1.0
+    end_r: 0.4
+    end_g: 0.7
+    end_b: 1.0
+    easing: "Linear"
+spawn:
+  interval: 2
+  particles_per_spawn: 10
+  max_particles: 800
+  is_loop: true

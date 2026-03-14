@@ -88,6 +88,7 @@ func (m *ParticleManager) SpawnLoop(world donburi.World, name string, x, y float
 	// Copy config
 	config := copyConfig(baseConfig)
 	config.Spawn.IsLoop = true
+	normalizeParticleConfig(config)
 
 	// Create entity
 	entity := world.Create(Component)

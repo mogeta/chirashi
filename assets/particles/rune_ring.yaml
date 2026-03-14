@@ -11,6 +11,8 @@ emitter:
     radius:
       min: 90
       max: 120
+    start_angle: 0
+    end_angle: 6.1
     from_edge: true
 animation:
   duration:

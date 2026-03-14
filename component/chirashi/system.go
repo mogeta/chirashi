@@ -174,7 +174,7 @@ func (sys *System) spawn(data *SystemData) {
 func sampleEmitterPosition(emitterX, emitterY float32, shape EmitterShapeParams) (float32, float32) {
 	switch shape.Type {
 	case EmitterShapeCircle:
-		angle := rand.Float32() * 2 * math.Pi
+		angle := rangeFloat32(shape.StartAngle, shape.EndAngle)
 		radius := rangeFloat32(shape.RadiusMin, shape.RadiusMax)
 		if !shape.FromEdge {
 			minRadiusSq := shape.RadiusMin * shape.RadiusMin
@@ -185,6 +185,23 @@ func sampleEmitterPosition(emitterX, emitterY float32, shape EmitterShapeParams)
 	case EmitterShapeBox:
 		halfW := shape.Width / 2
 		halfH := shape.Height / 2
+		if shape.FromEdge {
+			perimeter := 2 * (shape.Width + shape.Height)
+			if perimeter <= 0 {
+				return emitterX, emitterY
+			}
+			d := rand.Float32() * perimeter
+			switch {
+			case d < shape.Width:
+				return rotateOffset(emitterX, emitterY, d-halfW, -halfH, shape.Rotation)
+			case d < shape.Width+shape.Height:
+				return rotateOffset(emitterX, emitterY, halfW, d-shape.Width-halfH, shape.Rotation)
+			case d < 2*shape.Width+shape.Height:
+				return rotateOffset(emitterX, emitterY, halfW-(d-shape.Width-shape.Height), halfH, shape.Rotation)
+			default:
+				return rotateOffset(emitterX, emitterY, -halfW, halfH-(d-2*shape.Width-shape.Height), shape.Rotation)
+			}
+		}
 		return rotateOffset(
 			emitterX,
 			emitterY,

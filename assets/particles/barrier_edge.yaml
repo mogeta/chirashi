@@ -1,0 +1,62 @@
+name: "barrier_edge"
+description: "Perimeter sparks for magical barriers, portals, and shields."
+
+image:
+  image_from: "ef1"
+  image_id: 5
+
+emitter:
+  x: 0
+  y: 0
+  shape:
+    type: "box"
+    width: 180
+    height: 220
+    from_edge: true
+
+animation:
+  duration:
+    value: 0.9
+    range:
+      min: 0.6
+      max: 1.2
+
+  position:
+    type: "cartesian"
+    end_x:
+      min: -12
+      max: 12
+    end_y:
+      min: -16
+      max: 16
+    easing: "InOutSine"
+
+  alpha:
+    start: 0.85
+    end: 0.0
+    easing: "InQuad"
+
+  scale:
+    start: 0.45
+    end: 0.15
+    easing: "OutQuad"
+
+  rotation:
+    start: 0.0
+    end: 2.4
+    easing: "Linear"
+
+  color:
+    start_r: 0.4
+    start_g: 0.9
+    start_b: 1.0
+    end_r: 0.15
+    end_g: 0.35
+    end_b: 1.0
+    easing: "Linear"
+
+spawn:
+  interval: 2
+  particles_per_spawn: 10
+  max_particles: 420
+  is_loop: true

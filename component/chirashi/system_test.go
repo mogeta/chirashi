@@ -201,3 +201,103 @@ func TestSpawnLineEmitterRespectsRotation(t *testing.T) {
 		}
 	}
 }
+
+func TestSpawnCircleEmitterArcLimitsAngle(t *testing.T) {
+	sys := &System{cnt: 0}
+	data := &SystemData{
+		ParticlePool:      make([]Instance, 16),
+		ActiveIndices:     make([]int, 0, 16),
+		FreeIndices:       make([]int, 16),
+		SpawnInterval:     1,
+		ParticlesPerSpawn: 16,
+		MaxParticles:      16,
+		EmitterShape: EmitterShapeParams{
+			Type:       EmitterShapeCircle,
+			RadiusMin:  10,
+			RadiusMax:  10,
+			StartAngle: 0,
+			EndAngle:   math.Pi / 2,
+			FromEdge:   true,
+		},
+		AnimParams: AnimationParams{
+			Duration: DurationParams{Base: 1.0},
+			Appearance: AppearanceParams{
+				StartScale:     1.0,
+				EndScale:       1.0,
+				AlphaEasing:    EasingLinear,
+				ScaleEasing:    EasingLinear,
+				RotationEasing: EasingLinear,
+			},
+			Color: ColorParams{
+				StartR: 1, StartG: 1, StartB: 1,
+				EndR: 1, EndG: 1, EndB: 1,
+				Easing: EasingLinear,
+			},
+			Position: PositionParams{Easing: EasingLinear},
+		},
+	}
+	for i := range data.FreeIndices {
+		data.FreeIndices[i] = len(data.FreeIndices) - 1 - i
+	}
+
+	sys.spawn(data)
+
+	for _, idx := range data.ActiveIndices {
+		p := data.ParticlePool[idx]
+		if p.StartX < -0.001 || p.StartY < -0.001 {
+			t.Fatalf("arc emitter spawned outside first quadrant: (%v, %v)", p.StartX, p.StartY)
+		}
+	}
+}
+
+func TestSpawnBoxEmitterFromEdgeStaysOnPerimeter(t *testing.T) {
+	sys := &System{cnt: 0}
+	data := &SystemData{
+		ParticlePool:      make([]Instance, 16),
+		ActiveIndices:     make([]int, 0, 16),
+		FreeIndices:       make([]int, 16),
+		SpawnInterval:     1,
+		ParticlesPerSpawn: 16,
+		MaxParticles:      16,
+		EmitterX:          10,
+		EmitterY:          20,
+		EmitterShape: EmitterShapeParams{
+			Type:     EmitterShapeBox,
+			Width:    40,
+			Height:   20,
+			FromEdge: true,
+		},
+		AnimParams: AnimationParams{
+			Duration: DurationParams{Base: 1.0},
+			Appearance: AppearanceParams{
+				StartScale:     1.0,
+				EndScale:       1.0,
+				AlphaEasing:    EasingLinear,
+				ScaleEasing:    EasingLinear,
+				RotationEasing: EasingLinear,
+			},
+			Color: ColorParams{
+				StartR: 1, StartG: 1, StartB: 1,
+				EndR: 1, EndG: 1, EndB: 1,
+				Easing: EasingLinear,
+			},
+			Position: PositionParams{Easing: EasingLinear},
+		},
+	}
+	for i := range data.FreeIndices {
+		data.FreeIndices[i] = len(data.FreeIndices) - 1 - i
+	}
+
+	sys.spawn(data)
+
+	for _, idx := range data.ActiveIndices {
+		p := data.ParticlePool[idx]
+		dx := p.StartX - data.EmitterX
+		dy := p.StartY - data.EmitterY
+		onVertical := math.Abs(math.Abs(float64(dx))-20) < 0.001 && math.Abs(float64(dy)) <= 10.001
+		onHorizontal := math.Abs(math.Abs(float64(dy))-10) < 0.001 && math.Abs(float64(dx)) <= 20.001
+		if !onVertical && !onHorizontal {
+			t.Fatalf("box edge emitter spawned inside area: (%v, %v)", dx, dy)
+		}
+	}
+}
