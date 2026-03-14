@@ -8,7 +8,7 @@
 
 [日本語はこちら](README_JP.md)
 
-`chirashi` is a GPU-oriented particle component and editor for Ebitengine.
+`chirashi` is a GPU-oriented particle library and editor for Ebitengine.
 It uses [donburi](https://github.com/yohamta/donburi) as the ECS library.
 ![chirashi editor screenshot](docs/images/editor.png)
 
@@ -20,11 +20,19 @@ You can try it in your browser:
 ## Features
 
 - GPU batch rendering with `DrawTrianglesShader`
-- Built-in editor for real-time parameter tuning
-- `polar` / `cartesian` position modes
+- Pool-based particle lifecycle with compact active/free index management
+- Built-in editor for real-time parameter tuning and YAML save/load
+- Position modes: `cartesian`, `polar`, `attractor`
+- Emitter shapes: `point`, `circle`, `box`, `line`
 - Property animation with easing and multi-step sequences
+- Runtime attractor target updates for UI/item-collection effects
 - Save/load particle configs as YAML
 - donburi (ECS) integration
+
+## Status
+
+`chirashi` is usable as a game particle library today, but it is still in `v0.x`.
+Expect iterative improvements to config validation, editor UX, and public API polish.
 
 ## Requirements
 
@@ -81,6 +89,11 @@ description: "sample particle"
 emitter:
   x: 0
   y: 0
+  shape:
+    type: "circle"
+    radius: { min: 0, max: 48 }
+    start_angle: 0
+    end_angle: 6.2831855
 
 animation:
   duration:
@@ -110,7 +123,42 @@ spawn:
   is_loop: true
 ```
 
+Config highlights:
+
+- `emitter.shape` controls where particles are spawned around the emitter origin.
+- `animation.position.type: attractor` curves particles toward a runtime target.
+- `PropertyConfig` supports both simple `start/end/easing` and multi-step `sequence` mode.
+- Example effects are available under `assets/particles/`.
+
+Notable samples:
+
+- `sample.yaml`: basic radial burst
+- `collect_coins.yaml`: attractor-based pickup flow into UI
+- `rune_ring.yaml`: circular ring emission
+- `fountain_arc.yaml`: arc-shaped directional spray
+- `muzzle_flash_cone.yaml`: short forward cone burst
+- `barrier_edge.yaml`: perimeter emission around a box
+
+## Runtime Notes
+
+- The library is optimized around spawn-time randomization and batched draw submission.
+- Shape sampling happens when particles spawn; it does not add per-frame draw cost.
+- `ParticleManager.SpawnLoop` returns an entity so the effect can be removed manually later.
+- `SetAttractor` can be called each frame for moving attractor targets.
+
+## Public API
+
+Primary import path:
+
+```go
+import "github.com/mogeta/chirashi"
+```
+
+See `docs/PUBLIC_API.md` for the intended stable surface during `v0.x`.
+
 ## Editor
+
+The editor is included as a tuning tool and sample app for authoring YAML configs.
 
 Run the editor directly:
 
@@ -139,6 +187,12 @@ mage buildWeb      # Build WASM files into build/web
 mage serve         # Build web assets and serve on localhost:8080
 mage test          # Run go test ./...
 ```
+
+## Examples
+
+- `examples/minimal`: looped particle effect
+- `examples/oneshot`: one-shot spawning on input
+- `examples/web`: WASM/browser example
 
 ## License
 
