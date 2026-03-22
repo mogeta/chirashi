@@ -44,6 +44,8 @@ type ParticleEditorScene struct {
 	fileList        []string
 	attractorX      float32
 	attractorY      float32
+	vsyncEnabled    bool
+	tpsSyncWithFPS  bool
 }
 
 func NewParticleEditorScene() (*ParticleEditorScene, error) {
@@ -84,18 +86,21 @@ func NewParticleEditorScene() (*ParticleEditorScene, error) {
 	}
 
 	scene := &ParticleEditorScene{
-		world:         world,
-		container:     container,
-		config:        config,
-		loader:        loader,
-		img:           img,
-		defaultShader: shader,
-		shader:        shader,
-		blurShader:    blurShader,
-		bloomShader:   bloomShader,
-		attractorX:    editorCenterX,
-		attractorY:    editorCenterY,
+		world:          world,
+		container:      container,
+		config:         config,
+		loader:         loader,
+		img:            img,
+		defaultShader:  shader,
+		shader:         shader,
+		blurShader:     blurShader,
+		bloomShader:    bloomShader,
+		attractorX:     editorCenterX,
+		attractorY:     editorCenterY,
+		vsyncEnabled:   ebiten.IsVsyncEnabled(),
+		tpsSyncWithFPS: ebiten.TPS() == ebiten.SyncWithFPS,
 	}
+	scene.applyPerformanceSettings()
 	scene.refreshFileList()
 	return scene, nil
 }
@@ -187,6 +192,15 @@ func (s *ParticleEditorScene) Layout(outsideWidth, outsideHeight int) (int, int)
 		s.offscreen = nil
 	}
 	return editorScreenWidth, editorScreenHeight
+}
+
+func (s *ParticleEditorScene) applyPerformanceSettings() {
+	ebiten.SetVsyncEnabled(s.vsyncEnabled)
+	if s.tpsSyncWithFPS {
+		ebiten.SetTPS(ebiten.SyncWithFPS)
+		return
+	}
+	ebiten.SetTPS(60)
 }
 
 func (s *ParticleEditorScene) drawGeneralSettingsWindow(ctx *debugui.Context) {
@@ -489,6 +503,86 @@ func (s *ParticleEditorScene) drawAnimationWindow(ctx *debugui.Context) {
 			s.recreateParticles()
 		})
 		ctx.SetGridLayout([]int{-1}, nil)
+		s.positionNoiseControls(ctx, "Position X Noise", &s.config.Animation.Position.NoiseX, 0.0, 160.0, 1.0)
+		s.positionNoiseControls(ctx, "Position Y Noise", &s.config.Animation.Position.NoiseY, 0.0, 160.0, 1.0)
+
+		ctx.Text("Turbulence")
+		ctx.SetGridLayout([]int{200, 180}, nil)
+		if s.config.Animation.Position.Turbulence == nil {
+			ctx.Text("State: Off")
+			ctx.Button("Enable Turbulence").On(func() {
+				s.config.Animation.Position.Turbulence = &chirashi.TurbulenceConfig{
+					Strength:    &chirashi.RangeFloat{Min: 8, Max: 20},
+					Scale:       96,
+					Octaves:     2,
+					Persistence: 0.5,
+					TimeScale:   0.8,
+					Space:       "local",
+					DomainMotion: &chirashi.TurbulenceDomainMotionConfig{
+						OrbitRadiusX:   18,
+						OrbitRadiusY:   10,
+						OrbitFrequency: 0.7,
+					},
+					Envelope: &chirashi.PropertyConfig{Start: 0.0, End: 1.0, Easing: "OutSine"},
+				}
+				s.recreateParticles()
+			})
+		} else {
+			ctx.Text("State: On")
+			ctx.Button("Disable Turbulence").On(func() {
+				s.config.Animation.Position.Turbulence = nil
+				s.recreateParticles()
+			})
+		}
+		ctx.SetGridLayout([]int{-1}, nil)
+		if turb := s.config.Animation.Position.Turbulence; turb != nil {
+			if turb.Strength == nil {
+				turb.Strength = &chirashi.RangeFloat{Min: 8, Max: 20}
+			}
+			if turb.DomainMotion == nil {
+				turb.DomainMotion = &chirashi.TurbulenceDomainMotionConfig{}
+			}
+			if turb.Envelope == nil {
+				turb.Envelope = &chirashi.PropertyConfig{Start: 1, End: 1, Easing: "Linear"}
+			}
+			s.rangeControl(ctx, "Strength", turb.Strength, 0, 160, 1)
+			s.sliderControl32(ctx, "Scale", &turb.Scale, 4, 512, 4)
+			octaves := float64(turb.Octaves)
+			s.sliderControl(ctx, "Octaves", &octaves, 1, 4, 1)
+			turb.Octaves = int(octaves)
+			s.sliderControl32(ctx, "Persistence", &turb.Persistence, 0, 1, 0.05)
+			s.sliderControl32(ctx, "Time Scale", &turb.TimeScale, 0, 8, 0.05)
+			ctx.SetGridLayout([]int{200, 180}, nil)
+			ctx.Text("Space: " + turb.Space)
+			ctx.Button("Toggle Space").On(func() {
+				if turb.Space == "world" {
+					turb.Space = "local"
+				} else {
+					turb.Space = "world"
+				}
+				s.recreateParticles()
+			})
+			ctx.SetGridLayout([]int{-1}, nil)
+			s.sliderControl32(ctx, "Drift X", &turb.DomainMotion.DriftX, -120, 120, 1)
+			s.sliderControl32(ctx, "Drift Y", &turb.DomainMotion.DriftY, -120, 120, 1)
+			s.sliderControl32(ctx, "Orbit RX", &turb.DomainMotion.OrbitRadiusX, 0, 160, 1)
+			s.sliderControl32(ctx, "Orbit RY", &turb.DomainMotion.OrbitRadiusY, 0, 160, 1)
+			s.sliderControl32(ctx, "Orbit Freq", &turb.DomainMotion.OrbitFrequency, 0, 8, 0.05)
+			s.sliderControl32(ctx, "Orbit Phase", &turb.DomainMotion.OrbitPhase, -6.28, 6.28, 0.1)
+			envStart := float64(turb.Envelope.Start)
+			envEnd := float64(turb.Envelope.End)
+			s.sliderControl(ctx, "Env Start", &envStart, 0, 1, 0.05)
+			s.sliderControl(ctx, "Env End", &envEnd, 0, 1, 0.05)
+			turb.Envelope.Start = float32(envStart)
+			turb.Envelope.End = float32(envEnd)
+			ctx.SetGridLayout([]int{200, 180}, nil)
+			ctx.Text("Env Easing: " + turb.Envelope.Easing)
+			ctx.Button("Cycle Env Easing").On(func() {
+				turb.Envelope.Easing = s.cycleEasing(turb.Envelope.Easing)
+				s.recreateParticles()
+			})
+			ctx.SetGridLayout([]int{-1}, nil)
+		}
 
 		ctx.Text("----------------")
 
@@ -512,6 +606,7 @@ func (s *ParticleEditorScene) drawAnimationWindow(ctx *debugui.Context) {
 			})
 			ctx.SetGridLayout([]int{-1}, nil)
 		}
+		s.noiseControls(ctx, "Alpha", &s.config.Animation.Alpha, 0.0, 1.0, 0.05)
 
 		ctx.Text("----------------")
 
@@ -535,6 +630,7 @@ func (s *ParticleEditorScene) drawAnimationWindow(ctx *debugui.Context) {
 			})
 			ctx.SetGridLayout([]int{-1}, nil)
 		}
+		s.noiseControls(ctx, "Scale", &s.config.Animation.Scale, 0.0, 6.0, 0.05)
 
 		ctx.Text("----------------")
 
@@ -558,6 +654,7 @@ func (s *ParticleEditorScene) drawAnimationWindow(ctx *debugui.Context) {
 			})
 			ctx.SetGridLayout([]int{-1}, nil)
 		}
+		s.noiseControls(ctx, "Rotation", &s.config.Animation.Rotation, 0.0, 2.5, 0.05)
 
 		ctx.Text("----------------")
 
@@ -610,7 +707,25 @@ func (s *ParticleEditorScene) drawAnimationWindow(ctx *debugui.Context) {
 func (s *ParticleEditorScene) drawDebugWindow(ctx *debugui.Context) {
 	ctx.Window("Debug Info", image.Rect(1560, 20, 1900, 220), func(layout debugui.ContainerLayout) {
 		fps := ebiten.ActualFPS()
+		tps := ebiten.ActualTPS()
 		ctx.Text(fmt.Sprintf("FPS: %.2f", fps))
+		ctx.Text(fmt.Sprintf("TPS: %.2f", tps))
+		ctx.Text(fmt.Sprintf("VSync: %t", s.vsyncEnabled))
+		tpsMode := "60"
+		if s.tpsSyncWithFPS {
+			tpsMode = "SyncWithFPS"
+		}
+		ctx.Text(fmt.Sprintf("TPS Mode: %s", tpsMode))
+		ctx.SetGridLayout([]int{160, 160}, nil)
+		ctx.Button("Toggle VSync").On(func() {
+			s.vsyncEnabled = !s.vsyncEnabled
+			s.applyPerformanceSettings()
+		})
+		ctx.Button("Toggle TPS Mode").On(func() {
+			s.tpsSyncWithFPS = !s.tpsSyncWithFPS
+			s.applyPerformanceSettings()
+		})
+		ctx.SetGridLayout([]int{-1}, nil)
 
 		// Collect metrics from all particle systems
 		var activeCount, totalSpawned, totalDeactivated int
@@ -771,6 +886,71 @@ func (s *ParticleEditorScene) sliderControl32(ctx *debugui.Context, label string
 		})
 
 		ctx.SetGridLayout([]int{-1}, nil)
+	})
+}
+
+func (s *ParticleEditorScene) noiseControls(ctx *debugui.Context, label string, prop *chirashi.PropertyConfig, amplitudeMin, amplitudeMax, amplitudeStep float64) {
+	ctx.IDScope(label+"_noise", func() {
+		ctx.SetGridLayout([]int{200, 180}, nil)
+		if prop.Noise == nil {
+			ctx.Text("Noise: Off")
+			ctx.Button("Enable Noise").On(func() {
+				prop.Noise = &chirashi.NoiseConfig{
+					Amplitude: float32(amplitudeStep * 4),
+					Frequency: 1.0,
+					Octaves:   2,
+				}
+				s.recreateParticles()
+			})
+			ctx.SetGridLayout([]int{-1}, nil)
+			return
+		}
+
+		ctx.Text("Noise: On")
+		ctx.Button("Disable Noise").On(func() {
+			prop.Noise = nil
+			s.recreateParticles()
+		})
+		ctx.SetGridLayout([]int{-1}, nil)
+
+		s.sliderControl32(ctx, "Amplitude##"+label, &prop.Noise.Amplitude, amplitudeMin, amplitudeMax, amplitudeStep)
+		s.sliderControl32(ctx, "Frequency##"+label, &prop.Noise.Frequency, 0.0, 4.0, 0.05)
+		octaves := float64(prop.Noise.Octaves)
+		s.sliderControl(ctx, "Octaves##"+label, &octaves, 1, 4, 1)
+		prop.Noise.Octaves = int(octaves)
+		s.sliderControl32(ctx, "Seed##"+label, &prop.Noise.Seed, -12.0, 12.0, 0.1)
+	})
+}
+
+func (s *ParticleEditorScene) positionNoiseControls(ctx *debugui.Context, label string, noise **chirashi.NoiseConfig, amplitudeMin, amplitudeMax, amplitudeStep float64) {
+	ctx.IDScope(label, func() {
+		ctx.SetGridLayout([]int{200, 180}, nil)
+		if *noise == nil {
+			ctx.Text(label + ": Off")
+			ctx.Button("Enable " + label).On(func() {
+				*noise = &chirashi.NoiseConfig{
+					Amplitude: float32(amplitudeStep * 6),
+					Frequency: 1.0,
+					Octaves:   2,
+				}
+				s.recreateParticles()
+			})
+			ctx.SetGridLayout([]int{-1}, nil)
+			return
+		}
+
+		ctx.Text(label + ": On")
+		ctx.Button("Disable " + label).On(func() {
+			*noise = nil
+			s.recreateParticles()
+		})
+		ctx.SetGridLayout([]int{-1}, nil)
+		s.sliderControl32(ctx, "Amplitude##"+label, &(*noise).Amplitude, amplitudeMin, amplitudeMax, amplitudeStep)
+		s.sliderControl32(ctx, "Frequency##"+label, &(*noise).Frequency, 0.0, 4.0, 0.05)
+		octaves := float64((*noise).Octaves)
+		s.sliderControl(ctx, "Octaves##"+label, &octaves, 1, 4, 1)
+		(*noise).Octaves = int(octaves)
+		s.sliderControl32(ctx, "Seed##"+label, &(*noise).Seed, -12.0, 12.0, 0.1)
 	})
 }
 
