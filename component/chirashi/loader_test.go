@@ -110,6 +110,48 @@ func TestValidateConfigRejectsInvalidValues(t *testing.T) {
 			},
 			wantErr: "emitter.shape.radius.min",
 		},
+		{
+			name: "invalid turbulence space",
+			mutate: func(c *ParticleConfig) {
+				c.Animation.Position.Turbulence = &TurbulenceConfig{Space: "screen"}
+			},
+			wantErr: "animation.position.turbulence.space",
+		},
+		{
+			name: "invalid turbulence strength range",
+			mutate: func(c *ParticleConfig) {
+				c.Animation.Position.Turbulence = &TurbulenceConfig{Strength: &RangeFloat{Min: 10, Max: 2}}
+			},
+			wantErr: "animation.position.turbulence.strength.min",
+		},
+		{
+			name: "invalid turbulence octaves",
+			mutate: func(c *ParticleConfig) {
+				c.Animation.Position.Turbulence = &TurbulenceConfig{Octaves: 5}
+			},
+			wantErr: "animation.position.turbulence.octaves",
+		},
+		{
+			name: "invalid alpha noise frequency",
+			mutate: func(c *ParticleConfig) {
+				c.Animation.Alpha.Noise = &NoiseConfig{Frequency: -1}
+			},
+			wantErr: "animation.alpha.noise.frequency",
+		},
+		{
+			name: "invalid scale noise octaves",
+			mutate: func(c *ParticleConfig) {
+				c.Animation.Scale.Noise = &NoiseConfig{Octaves: 5}
+			},
+			wantErr: "animation.scale.noise.octaves",
+		},
+		{
+			name: "invalid position noise x frequency",
+			mutate: func(c *ParticleConfig) {
+				c.Animation.Position.NoiseX = &NoiseConfig{Frequency: -1}
+			},
+			wantErr: "animation.position.noise_x.frequency",
+		},
 	}
 
 	loader := NewConfigLoader()

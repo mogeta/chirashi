@@ -157,9 +157,51 @@ func buildAnimationParams(config *ParticleConfig) AnimationParams {
 
 	posType := config.Animation.Position.Type
 	pos := PositionParams{
-		UsePolar:     posType == "polar",
-		UseAttractor: posType == "attractor",
-		Easing:       ParseEasing(config.Animation.Position.Easing),
+		UsePolar:       posType == "polar",
+		UseAttractor:   posType == "attractor",
+		PositionNoiseX: buildNoiseParams(config.Animation.Position.NoiseX),
+		PositionNoiseY: buildNoiseParams(config.Animation.Position.NoiseY),
+		Easing:         ParseEasing(config.Animation.Position.Easing),
+	}
+	if turb := config.Animation.Position.Turbulence; turb != nil {
+		pos.HasTurbulence = true
+		if turb.Strength != nil {
+			pos.TurbulenceStrengthMin = turb.Strength.Min
+			pos.TurbulenceStrengthMax = turb.Strength.Max
+		}
+		pos.TurbulenceScale = turb.Scale
+		if pos.TurbulenceScale <= 0 {
+			pos.TurbulenceScale = 96
+		}
+		pos.TurbulenceOctaves = turb.Octaves
+		if pos.TurbulenceOctaves <= 0 {
+			pos.TurbulenceOctaves = 1
+		}
+		pos.TurbulencePersistence = turb.Persistence
+		if pos.TurbulencePersistence == 0 {
+			pos.TurbulencePersistence = 0.5
+		}
+		pos.TurbulenceTimeScale = turb.TimeScale
+		if pos.TurbulenceTimeScale == 0 {
+			pos.TurbulenceTimeScale = 1
+		}
+		pos.TurbulenceLocalSpace = turb.Space != "world"
+		pos.TurbulenceEnvStart = 1
+		pos.TurbulenceEnvEnd = 1
+		pos.TurbulenceEnvEasing = EasingLinear
+		if turb.Envelope != nil {
+			pos.TurbulenceEnvStart = turb.Envelope.Start
+			pos.TurbulenceEnvEnd = turb.Envelope.End
+			pos.TurbulenceEnvEasing = ParseEasing(turb.Envelope.Easing)
+		}
+		if turb.DomainMotion != nil {
+			pos.DomainDriftX = turb.DomainMotion.DriftX
+			pos.DomainDriftY = turb.DomainMotion.DriftY
+			pos.DomainOrbitRadiusX = turb.DomainMotion.OrbitRadiusX
+			pos.DomainOrbitRadiusY = turb.DomainMotion.OrbitRadiusY
+			pos.DomainOrbitFrequency = turb.DomainMotion.OrbitFrequency
+			pos.DomainOrbitPhase = turb.DomainMotion.OrbitPhase
+		}
 	}
 	switch {
 	case pos.UseAttractor:
@@ -203,12 +245,15 @@ func buildAnimationParams(config *ParticleConfig) AnimationParams {
 		StartAlpha:     config.Animation.Alpha.Start,
 		EndAlpha:       config.Animation.Alpha.End,
 		AlphaEasing:    ParseEasing(config.Animation.Alpha.Easing),
+		AlphaNoise:     buildNoiseParams(config.Animation.Alpha.Noise),
 		StartScale:     config.Animation.Scale.Start,
 		EndScale:       config.Animation.Scale.End,
 		ScaleEasing:    ParseEasing(config.Animation.Scale.Easing),
+		ScaleNoise:     buildNoiseParams(config.Animation.Scale.Noise),
 		StartRotation:  config.Animation.Rotation.Start,
 		EndRotation:    config.Animation.Rotation.End,
 		RotationEasing: ParseEasing(config.Animation.Rotation.Easing),
+		RotationNoise:  buildNoiseParams(config.Animation.Rotation.Noise),
 	}
 	if app.StartScale == 0 && app.EndScale == 0 {
 		app.StartScale = 1.0
@@ -237,6 +282,23 @@ func buildAnimationParams(config *ParticleConfig) AnimationParams {
 		Appearance: app,
 		Color:      clr,
 	}
+}
+
+func buildNoiseParams(cfg *NoiseConfig) NoiseParams {
+	if cfg == nil {
+		return NoiseParams{}
+	}
+	params := NoiseParams{
+		Enabled:   true,
+		Amplitude: cfg.Amplitude,
+		Frequency: cfg.Frequency,
+		Octaves:   cfg.Octaves,
+		Seed:      cfg.Seed,
+	}
+	if params.Octaves <= 0 {
+		params.Octaves = 1
+	}
+	return params
 }
 
 // buildSequenceConfig converts a PropertyConfig with steps to a SequenceConfig

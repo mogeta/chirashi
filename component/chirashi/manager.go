@@ -217,6 +217,27 @@ func copyPositionConfig(src PositionConfig) PositionConfig {
 	dst.Distance = copyRangePtr(src.Distance)
 	dst.ControlX = copyRangePtr(src.ControlX)
 	dst.ControlY = copyRangePtr(src.ControlY)
+	if src.NoiseX != nil {
+		n := *src.NoiseX
+		dst.NoiseX = &n
+	}
+	if src.NoiseY != nil {
+		n := *src.NoiseY
+		dst.NoiseY = &n
+	}
+	if src.Turbulence != nil {
+		turb := *src.Turbulence
+		turb.Strength = copyRangePtr(src.Turbulence.Strength)
+		if src.Turbulence.Envelope != nil {
+			env := copyPropertyConfig(*src.Turbulence.Envelope)
+			turb.Envelope = &env
+		}
+		if src.Turbulence.DomainMotion != nil {
+			dm := *src.Turbulence.DomainMotion
+			turb.DomainMotion = &dm
+		}
+		dst.Turbulence = &turb
+	}
 	if src.X != nil {
 		x := copyPropertyConfig(*src.X)
 		dst.X = &x
@@ -230,6 +251,10 @@ func copyPositionConfig(src PositionConfig) PositionConfig {
 
 func copyPropertyConfig(src PropertyConfig) PropertyConfig {
 	dst := src
+	if src.Noise != nil {
+		n := *src.Noise
+		dst.Noise = &n
+	}
 	if len(src.Steps) == 0 {
 		return dst
 	}

@@ -1,0 +1,76 @@
+name: "noisy_firefly_swarm"
+description: "Floating firefly-like motes driven by direct X/Y continuous position noise."
+
+image:
+  image_from: "ef1"
+  image_id: 16
+
+emitter:
+  x: 0
+  y: 0
+  shape:
+    type: "box"
+    width: 240
+    height: 180
+
+animation:
+  duration:
+    value: 2.8
+    range:
+      min: 2.2
+      max: 3.4
+  position:
+    type: "cartesian"
+    end_x:
+      min: -8
+      max: 8
+    end_y:
+      min: -16
+      max: 16
+    noise_x:
+      amplitude: 26
+      frequency: 0.45
+      octaves: 2
+      seed: 1.7
+    noise_y:
+      amplitude: 18
+      frequency: 0.62
+      octaves: 2
+      seed: 4.2
+    easing: "InOutSine"
+  alpha:
+    start: 0.2
+    end: 0.05
+    easing: "Linear"
+    noise:
+      amplitude: 0.12
+      frequency: 0.9
+      octaves: 2
+      seed: 3.5
+  scale:
+    start: 0.18
+    end: 0.24
+    easing: "InOutSine"
+    noise:
+      amplitude: 0.08
+      frequency: 0.7
+      octaves: 2
+      seed: 0.8
+  rotation:
+    start: -0.2
+    end: 0.2
+    easing: "Linear"
+  color:
+    start_r: 1.0
+    start_g: 0.95
+    start_b: 0.55
+    end_r: 0.65
+    end_g: 1.0
+    end_b: 0.35
+    easing: "Linear"
+
+spawn:
+  interval: 3
+  particles_per_spawn: 7
+  max_particles: 180
+  is_loop: true

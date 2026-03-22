@@ -54,6 +54,30 @@ func TestCopyConfigDeepCopiesPropertySteps(t *testing.T) {
 	if src.Animation.Rotation.Steps[0].Duration == 99 {
 		t.Error("Rotation.Steps[0].Duration: src was modified by dst change")
 	}
+
+	dst.Animation.Scale.Noise = &NoiseConfig{Amplitude: 99}
+	if src.Animation.Scale.Noise != nil {
+		t.Error("Scale.Noise should remain nil on src")
+	}
+}
+
+func TestCopyConfigDeepCopiesPropertyNoise(t *testing.T) {
+	src := &ParticleConfig{
+		Animation: AnimationConfig{
+			Alpha:    PropertyConfig{Noise: &NoiseConfig{Amplitude: 0.2, Frequency: 1.5, Octaves: 2, Seed: 3}},
+			Scale:    PropertyConfig{Noise: &NoiseConfig{Amplitude: 0.4, Frequency: 0.8, Octaves: 3, Seed: 1}},
+			Rotation: PropertyConfig{Noise: &NoiseConfig{Amplitude: 0.6, Frequency: 1.2, Octaves: 2, Seed: 9}},
+		},
+	}
+
+	dst := copyConfig(src)
+	dst.Animation.Alpha.Noise.Amplitude = 99
+	dst.Animation.Scale.Noise.Frequency = 99
+	dst.Animation.Rotation.Noise.Seed = 99
+
+	if src.Animation.Alpha.Noise.Amplitude == 99 || src.Animation.Scale.Noise.Frequency == 99 || src.Animation.Rotation.Noise.Seed == 99 {
+		t.Error("Property noise: src was modified by dst change")
+	}
 }
 
 func TestCopyConfigDeepCopiesPositionSequences(t *testing.T) {
@@ -89,6 +113,20 @@ func TestCopyConfigDeepCopiesPositionRanges(t *testing.T) {
 				EndX:     &RangeFloat{Min: 100, Max: 200},
 				Angle:    &RangeFloat{Min: 0, Max: 6.28},
 				Distance: &RangeFloat{Min: 10, Max: 50},
+				NoiseX:   &NoiseConfig{Amplitude: 6, Frequency: 0.8, Octaves: 2, Seed: 1},
+				NoiseY:   &NoiseConfig{Amplitude: 4, Frequency: 0.5, Octaves: 1, Seed: 2},
+				Turbulence: &TurbulenceConfig{
+					Strength:    &RangeFloat{Min: 4, Max: 12},
+					Scale:       96,
+					Octaves:     2,
+					Persistence: 0.5,
+					TimeScale:   0.8,
+					Space:       "world",
+					DomainMotion: &TurbulenceDomainMotionConfig{
+						DriftX: 2, DriftY: -1,
+					},
+					Envelope: &PropertyConfig{Start: 0.2, End: 1.0, Easing: "OutSine"},
+				},
 			},
 		},
 	}
@@ -96,12 +134,29 @@ func TestCopyConfigDeepCopiesPositionRanges(t *testing.T) {
 	dst := copyConfig(src)
 	dst.Animation.Position.StartX.Min = 99
 	dst.Animation.Position.Angle.Max = 99
+	dst.Animation.Position.NoiseX.Amplitude = 99
+	dst.Animation.Position.NoiseY.Seed = 99
+	dst.Animation.Position.Turbulence.Strength.Min = 99
+	dst.Animation.Position.Turbulence.DomainMotion.DriftX = 99
+	dst.Animation.Position.Turbulence.Envelope.End = 99
 
 	if src.Animation.Position.StartX.Min == 99 {
 		t.Error("Position.StartX: src was modified by dst change")
 	}
 	if src.Animation.Position.Angle.Max == 99 {
 		t.Error("Position.Angle: src was modified by dst change")
+	}
+	if src.Animation.Position.NoiseX.Amplitude == 99 || src.Animation.Position.NoiseY.Seed == 99 {
+		t.Error("Position.Noise: src was modified by dst change")
+	}
+	if src.Animation.Position.Turbulence.Strength.Min == 99 {
+		t.Error("Position.Turbulence.Strength: src was modified by dst change")
+	}
+	if src.Animation.Position.Turbulence.DomainMotion.DriftX == 99 {
+		t.Error("Position.Turbulence.DomainMotion: src was modified by dst change")
+	}
+	if src.Animation.Position.Turbulence.Envelope.End == 99 {
+		t.Error("Position.Turbulence.Envelope: src was modified by dst change")
 	}
 }
 

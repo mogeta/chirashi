@@ -43,6 +43,23 @@ animation:
     # polar fields
     angle:    { min: float, max: float } # optional
     distance: { min: float, max: float } # optional
+    noise_x: NoiseConfig # optional
+    noise_y: NoiseConfig # optional
+    turbulence: # optional
+      strength: { min: float, max: float }
+      scale: float
+      octaves: int
+      persistence: float
+      time_scale: float
+      space: "local" | "world"
+      domain_motion:
+        drift_x: float
+        drift_y: float
+        orbit_radius_x: float
+        orbit_radius_y: float
+        orbit_frequency: float
+        orbit_phase: float
+      envelope: PropertyConfig
     easing: string
   alpha: PropertyConfig
   scale: PropertyConfig
@@ -71,6 +88,11 @@ spawn:
 start: float
 end: float
 easing: string
+noise: # optional
+  amplitude: float
+  frequency: float
+  octaves: int
+  seed: float
 
 # sequence mode
 type: "sequence"
@@ -101,6 +123,12 @@ If validation fails, loading returns an error.
 - `animation.position.type`:
   - `"polar"` uses `angle` + `distance`.
   - any other value (including empty) is treated as cartesian mode.
+- `animation.position.turbulence.space` defaults to `local`.
+- `animation.position.turbulence.scale` defaults to `96`, `octaves` to `1`, `persistence` to `0.5`, and `time_scale` to `1`.
+- `animation.position.turbulence.envelope` defaults to a constant `1 -> 1`.
+- `animation.position.noise_x` and `noise_y` are applied before turbulence.
+- `PropertyConfig.noise` is added on top of the base start/end or sequence evaluation.
+- `PropertyConfig.noise.octaves` defaults to `1`.
 - `emitter.shape.type` defaults to `"point"`.
 - `circle` shape defaults to a full 0..2π arc when `start_angle`/`end_angle` are omitted.
 - If cartesian ranges are omitted, values default to `0`, so particles can stay at emitter position.

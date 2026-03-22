@@ -153,6 +153,59 @@ func (l *ConfigLoader) validateConfig(config *ParticleConfig) error {
 		return fmt.Errorf("emitter.shape.type must be point, circle, box, or line")
 	}
 
+	if turb := config.Animation.Position.Turbulence; turb != nil {
+		switch turb.Space {
+		case "", "local", "world":
+		default:
+			return fmt.Errorf("animation.position.turbulence.space must be local or world")
+		}
+		if turb.Strength != nil && turb.Strength.Min > turb.Strength.Max {
+			return fmt.Errorf("animation.position.turbulence.strength.min must be less than or equal to max")
+		}
+		if turb.Scale < 0 {
+			return fmt.Errorf("animation.position.turbulence.scale must be greater than or equal to 0")
+		}
+		if turb.Octaves < 0 || turb.Octaves > 4 {
+			return fmt.Errorf("animation.position.turbulence.octaves must be within [0,4]")
+		}
+		if turb.Persistence < 0 {
+			return fmt.Errorf("animation.position.turbulence.persistence must be greater than or equal to 0")
+		}
+		if turb.Envelope != nil {
+			if turb.Envelope.Start < 0 || turb.Envelope.Start > 1 || turb.Envelope.End < 0 || turb.Envelope.End > 1 {
+				return fmt.Errorf("animation.position.turbulence.envelope values must be within [0,1]")
+			}
+		}
+	}
+
+	validateNoise := func(path string, noise *NoiseConfig) error {
+		if noise == nil {
+			return nil
+		}
+		if noise.Frequency < 0 {
+			return fmt.Errorf("%s.frequency must be greater than or equal to 0", path)
+		}
+		if noise.Octaves < 0 || noise.Octaves > 4 {
+			return fmt.Errorf("%s.octaves must be within [0,4]", path)
+		}
+		return nil
+	}
+	if err := validateNoise("animation.position.noise_x", config.Animation.Position.NoiseX); err != nil {
+		return err
+	}
+	if err := validateNoise("animation.position.noise_y", config.Animation.Position.NoiseY); err != nil {
+		return err
+	}
+	if err := validateNoise("animation.alpha.noise", config.Animation.Alpha.Noise); err != nil {
+		return err
+	}
+	if err := validateNoise("animation.scale.noise", config.Animation.Scale.Noise); err != nil {
+		return err
+	}
+	if err := validateNoise("animation.rotation.noise", config.Animation.Rotation.Noise); err != nil {
+		return err
+	}
+
 	if config.Emitter.Shape.Radius != nil && config.Emitter.Shape.Radius.Min > config.Emitter.Shape.Radius.Max {
 		return fmt.Errorf("emitter.shape.radius.min must be less than or equal to max")
 	}

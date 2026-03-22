@@ -124,6 +124,20 @@ func (sys *System) spawn(data *SystemData) {
 			particle.HasAttractor = false
 		}
 		particle.PositionEasing = pos.Easing
+		particle.NoisePhasePosX = rand.Float32() * 2 * math.Pi
+		particle.NoisePhasePosY = rand.Float32() * 2 * math.Pi
+		if pos.HasTurbulence {
+			particle.TurbulenceGain = rangeFloat32(pos.TurbulenceStrengthMin, pos.TurbulenceStrengthMax)
+			particle.TurbulenceOffsetX = rand.Float32()*32 - 16
+			particle.TurbulenceOffsetY = rand.Float32()*32 - 16
+		} else {
+			particle.TurbulenceGain = 0
+			particle.TurbulenceOffsetX = 0
+			particle.TurbulenceOffsetY = 0
+		}
+		particle.NoisePhaseAlpha = rand.Float32() * 2 * math.Pi
+		particle.NoisePhaseScale = rand.Float32() * 2 * math.Pi
+		particle.NoisePhaseRotation = rand.Float32() * 2 * math.Pi
 
 		// Appearance
 		particle.StartAlpha = app.StartAlpha
@@ -271,33 +285,201 @@ func rotateOffset(originX, originY, offsetX, offsetY, rotation float32) (float32
 	return originX + offsetX*cos - offsetY*sin, originY + offsetX*sin + offsetY*cos
 }
 
+func evaluateParticleBasePosition(data *SystemData, p *Instance, elapsed, normalizedT float32) (float32, float32) {
+	posT := ApplyEasing(normalizedT, p.PositionEasing)
+	switch {
+	case p.HasAttractor:
+		u := 1 - posT
+		return u*u*p.StartX + 2*u*posT*p.ControlX + posT*posT*data.AttractorX,
+			u*u*p.StartY + 2*u*posT*p.ControlY + posT*posT*data.AttractorY
+	case p.HasPosXSeq:
+		x := EvaluateSequence(data.PosXSeq, &p.PosXSnap, elapsed)
+		if p.HasPosYSeq {
+			return x, EvaluateSequence(data.PosYSeq, &p.PosYSnap, elapsed)
+		}
+		return x, lerp(p.StartY, p.EndY, posT)
+	default:
+		x := lerp(p.StartX, p.EndX, posT)
+		if p.HasPosYSeq {
+			return x, EvaluateSequence(data.PosYSeq, &p.PosYSnap, elapsed)
+		}
+		return x, lerp(p.StartY, p.EndY, posT)
+	}
+}
+
+func normalizedTimeAt(elapsed, duration float32) float32 {
+	if duration <= 0 {
+		return 1
+	}
+	t := elapsed / duration
+	if t < 0 {
+		return 0
+	}
+	if t > 1 {
+		return 1
+	}
+	return t
+}
+
+func sampleTurbulenceField(x, y, t float32, octaves int, persistence float32) (float32, float32) {
+	amp := float32(1)
+	freq := float32(1)
+	sumAmp := float32(0)
+	var vx, vy float32
+	for i := 0; i < octaves; i++ {
+		px := x * freq
+		py := y * freq
+		pt := t * (0.85 + 0.35*freq)
+		vx += (float32(math.Sin(float64(py+pt))) + 0.5*float32(math.Sin(float64(px*0.7-py*1.3-pt*1.1)))) * amp
+		vy += (float32(math.Cos(float64(px-pt))) + 0.5*float32(math.Cos(float64(py*0.6+px*1.2+pt*0.9)))) * amp
+		sumAmp += amp
+		amp *= persistence
+		freq *= 2
+	}
+	if sumAmp == 0 {
+		return 0, 0
+	}
+	return vx / sumAmp, vy / sumAmp
+}
+
+func sampleContinuousNoise(t, phase float32, octaves int) float32 {
+	amp := float32(1)
+	freq := float32(1)
+	sumAmp := float32(0)
+	value := float32(0)
+	for i := 0; i < octaves; i++ {
+		value += float32(math.Sin(float64((t+phase)*freq))) * amp
+		value += 0.5 * float32(math.Sin(float64((t*0.73+phase*1.37)*freq+0.7))) * amp
+		sumAmp += amp * 1.5
+		amp *= 0.5
+		freq *= 2
+	}
+	if sumAmp == 0 {
+		return 0
+	}
+	return value / sumAmp
+}
+
+func applyNoiseOverlay(base, elapsed float32, noise NoiseParams, phase float32) float32 {
+	if !noise.Enabled || noise.Amplitude == 0 {
+		return base
+	}
+	t := elapsed * noise.Frequency * 2 * math.Pi
+	return base + sampleContinuousNoise(t, phase+noise.Seed, noise.Octaves)*noise.Amplitude
+}
+
+func turbulenceEnvelope(pos PositionParams, normalizedT float32) float32 {
+	return lerp(pos.TurbulenceEnvStart, pos.TurbulenceEnvEnd, ApplyEasing(normalizedT, pos.TurbulenceEnvEasing))
+}
+
+func applyTurbulence(data *SystemData, p *Instance, baseX, baseY, elapsed, normalizedT float32) (float32, float32) {
+	pos := data.AnimParams.Position
+	if !pos.HasTurbulence || p.TurbulenceGain == 0 {
+		return baseX, baseY
+	}
+
+	sampleX := baseX
+	sampleY := baseY
+	if pos.TurbulenceLocalSpace {
+		sampleX -= data.EmitterX
+		sampleY -= data.EmitterY
+	}
+
+	t := elapsed * pos.TurbulenceTimeScale
+	sampleX += pos.DomainDriftX*t + pos.DomainOrbitRadiusX*float32(math.Cos(float64(pos.DomainOrbitFrequency*t+pos.DomainOrbitPhase)))
+	sampleY += pos.DomainDriftY*t + pos.DomainOrbitRadiusY*float32(math.Sin(float64(pos.DomainOrbitFrequency*t+pos.DomainOrbitPhase)))
+	sampleX = sampleX/pos.TurbulenceScale + p.TurbulenceOffsetX
+	sampleY = sampleY/pos.TurbulenceScale + p.TurbulenceOffsetY
+
+	fieldX, fieldY := sampleTurbulenceField(sampleX, sampleY, t, pos.TurbulenceOctaves, pos.TurbulencePersistence)
+	strength := p.TurbulenceGain * turbulenceEnvelope(pos, normalizedT)
+	return baseX + fieldX*strength, baseY + fieldY*strength
+}
+
+func evaluateParticlePosition(data *SystemData, p *Instance, elapsed, normalizedT float32) (float32, float32) {
+	baseX, baseY := evaluateParticleBasePosition(data, p, elapsed, normalizedT)
+	baseX = applyNoiseOverlay(baseX, elapsed, data.AnimParams.Position.PositionNoiseX, p.NoisePhasePosX)
+	baseY = applyNoiseOverlay(baseY, elapsed, data.AnimParams.Position.PositionNoiseY, p.NoisePhasePosY)
+	return applyTurbulence(data, p, baseX, baseY, elapsed, normalizedT)
+}
+
+func evaluateParticlePositionAndVelocity(data *SystemData, p *Instance, elapsed, normalizedT float32) (float32, float32, float32, float32) {
+	x, y := evaluateParticlePosition(data, p, elapsed, normalizedT)
+	vx, vy := sampleParticleVelocity(data, p, elapsed, x, y)
+	return x, y, vx, vy
+}
+
+func resolveParticleAlpha(data *SystemData, p *Instance, elapsed, normalizedT float32) float32 {
+	if p.HasAlphaSeq {
+		return applyNoiseOverlay(EvaluateSequence(data.AlphaSeq, &p.AlphaSnap, elapsed), elapsed, data.AnimParams.Appearance.AlphaNoise, p.NoisePhaseAlpha)
+	}
+	base := lerp(p.StartAlpha, p.EndAlpha, ApplyEasing(normalizedT, p.AlphaEasing))
+	return applyNoiseOverlay(base, elapsed, data.AnimParams.Appearance.AlphaNoise, p.NoisePhaseAlpha)
+}
+
+func resolveParticleScale(data *SystemData, p *Instance, elapsed, normalizedT float32) float32 {
+	base := float32(0)
+	if p.HasScaleSeq {
+		base = EvaluateSequence(data.ScaleSeq, &p.ScaleSnap, elapsed)
+	} else {
+		base = lerp(p.StartScale, p.EndScale, ApplyEasing(normalizedT, p.ScaleEasing))
+	}
+	return applyNoiseOverlay(base, elapsed, data.AnimParams.Appearance.ScaleNoise, p.NoisePhaseScale)
+}
+
+func resolveParticleRotation(data *SystemData, p *Instance, elapsed, normalizedT float32) float32 {
+	base := float32(0)
+	if p.HasRotSeq {
+		base = EvaluateSequence(data.RotSeq, &p.RotSnap, elapsed)
+	} else {
+		base = lerp(p.StartRotation, p.EndRotation, ApplyEasing(normalizedT, p.RotationEasing))
+	}
+	return applyNoiseOverlay(base, elapsed, data.AnimParams.Appearance.RotationNoise, p.NoisePhaseRotation)
+}
+
+func sampleParticleVelocity(data *SystemData, p *Instance, elapsed, x, y float32) (float32, float32) {
+	if p.Duration <= 0 {
+		return p.EndX - p.StartX, p.EndY - p.StartY
+	}
+	sample := float32(1.0 / 120.0)
+	if sample > p.Duration*0.25 {
+		sample = p.Duration * 0.25
+	}
+	if sample <= 0 {
+		return p.EndX - p.StartX, p.EndY - p.StartY
+	}
+	if elapsed+sample <= p.Duration {
+		nextElapsed := elapsed + sample
+		nextX, nextY := evaluateParticlePosition(data, p, nextElapsed, normalizedTimeAt(nextElapsed, p.Duration))
+		return (nextX - x) / sample, (nextY - y) / sample
+	}
+	if elapsed-sample >= 0 {
+		prevElapsed := elapsed - sample
+		prevX, prevY := evaluateParticlePosition(data, p, prevElapsed, normalizedTimeAt(prevElapsed, p.Duration))
+		return (x - prevX) / sample, (y - prevY) / sample
+	}
+	return p.EndX - p.StartX, p.EndY - p.StartY
+}
+
 func (sys *System) updateParticles(data *SystemData) {
 	currentTime := data.CurrentTime
-	indicesToRemove := []int{}
+	writeIdx := 0
 
-	// Check for expired particles
-	for i := 0; i < len(data.ActiveIndices); i++ {
-		particleIdx := data.ActiveIndices[i]
+	for _, particleIdx := range data.ActiveIndices {
 		particle := &data.ParticlePool[particleIdx]
 
 		elapsed := currentTime - particle.SpawnTime
 		if elapsed >= particle.Duration {
 			particle.Active = false
-			indicesToRemove = append(indicesToRemove, i)
 			data.ActiveCount--
 			data.Metrics.DeactivateCount++
-			// Return to free indices pool
 			data.FreeIndices = append(data.FreeIndices, particleIdx)
+			continue
 		}
+		data.ActiveIndices[writeIdx] = particleIdx
+		writeIdx++
 	}
-
-	// Remove finished particles from active indices (iterate backwards)
-	for i := len(indicesToRemove) - 1; i >= 0; i-- {
-		removeIdx := indicesToRemove[i]
-		lastIdx := len(data.ActiveIndices) - 1
-		data.ActiveIndices[removeIdx] = data.ActiveIndices[lastIdx]
-		data.ActiveIndices = data.ActiveIndices[:lastIdx]
-	}
+	data.ActiveIndices = data.ActiveIndices[:writeIdx]
 }
 
 // Draw renders all particles using GPU batch rendering
@@ -336,43 +518,10 @@ func (sys *System) Draw(ecs *ecs.ECS, screen *ebiten.Image) {
 			}
 
 			// Calculate position, scale, rotation (per-property sequence or lerp)
-			posT := ApplyEasing(normalizedT, p.PositionEasing)
-			var x, y float32
-			switch {
-			case p.HasAttractor:
-				// Quadratic bezier: B(t) = (1-t)²·P0 + 2(1-t)t·P1 + t²·P2
-				u := 1 - posT
-				x = u*u*p.StartX + 2*u*posT*p.ControlX + posT*posT*data.AttractorX
-				y = u*u*p.StartY + 2*u*posT*p.ControlY + posT*posT*data.AttractorY
-			case p.HasPosXSeq:
-				x = EvaluateSequence(data.PosXSeq, &p.PosXSnap, elapsed)
-				if p.HasPosYSeq {
-					y = EvaluateSequence(data.PosYSeq, &p.PosYSnap, elapsed)
-				} else {
-					y = lerp(p.StartY, p.EndY, posT)
-				}
-			default:
-				x = lerp(p.StartX, p.EndX, posT)
-				if p.HasPosYSeq {
-					y = EvaluateSequence(data.PosYSeq, &p.PosYSnap, elapsed)
-				} else {
-					y = lerp(p.StartY, p.EndY, posT)
-				}
-			}
+			x, y, _, _ := evaluateParticlePositionAndVelocity(data, p, elapsed, normalizedT)
 
-			var scale float32
-			if p.HasScaleSeq {
-				scale = EvaluateSequence(data.ScaleSeq, &p.ScaleSnap, elapsed)
-			} else {
-				scale = lerp(p.StartScale, p.EndScale, ApplyEasing(normalizedT, p.ScaleEasing))
-			}
-
-			var rotation float32
-			if p.HasRotSeq {
-				rotation = EvaluateSequence(data.RotSeq, &p.RotSnap, elapsed)
-			} else {
-				rotation = lerp(p.StartRotation, p.EndRotation, ApplyEasing(normalizedT, p.RotationEasing))
-			}
+			scale := resolveParticleScale(data, p, elapsed, normalizedT)
+			rotation := resolveParticleRotation(data, p, elapsed, normalizedT)
 
 			// Calculate scaled dimensions
 			scaledHalfW := halfW * scale
@@ -399,18 +548,8 @@ func (sys *System) Draw(ecs *ecs.ECS, screen *ebiten.Image) {
 			// color.r = startAlpha, color.g = endAlpha, color.b = alphaEasing (normalized)
 			// custom.x = spawnTime, custom.y = duration
 			// Color and colorEasing are passed as shader uniforms (same for all particles in system)
-			var startAlpha, endAlpha, alphaEasingNorm float32
-			if p.HasAlphaSeq {
-				// CPU-evaluated alpha: pass same value as both start and end
-				cpuAlpha := EvaluateSequence(data.AlphaSeq, &p.AlphaSnap, elapsed)
-				startAlpha = cpuAlpha
-				endAlpha = cpuAlpha
-				alphaEasingNorm = 0 // Linear (no-op since start==end)
-			} else {
-				startAlpha = p.StartAlpha
-				endAlpha = p.EndAlpha
-				alphaEasingNorm = float32(p.AlphaEasing) / float32(easingTypeCount)
-			}
+			alpha := resolveParticleAlpha(data, p, elapsed, normalizedT)
+			startAlpha, endAlpha, alphaEasingNorm := alpha, alpha, float32(0)
 
 			vertexBase := uint16(len(data.Vertices))
 

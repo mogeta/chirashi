@@ -480,3 +480,296 @@ func TestSpawnCircleEmitterWrapArc(t *testing.T) {
 		}
 	}
 }
+
+func TestSpawnInitializesTurbulenceState(t *testing.T) {
+	sys := &System{cnt: 0}
+	data := &SystemData{
+		ParticlePool:      make([]Instance, 8),
+		ActiveIndices:     make([]int, 0, 8),
+		FreeIndices:       []int{7, 6, 5, 4, 3, 2, 1, 0},
+		SpawnInterval:     1,
+		ParticlesPerSpawn: 8,
+		MaxParticles:      8,
+		IsLoop:            true,
+		AnimParams: AnimationParams{
+			Duration: DurationParams{Base: 1.0},
+			Appearance: AppearanceParams{
+				StartScale: 1.0, EndScale: 1.0,
+				AlphaEasing: EasingLinear, ScaleEasing: EasingLinear, RotationEasing: EasingLinear,
+			},
+			Color: ColorParams{StartR: 1, StartG: 1, StartB: 1, EndR: 1, EndG: 1, EndB: 1, Easing: EasingLinear},
+			Position: PositionParams{
+				Easing:                EasingLinear,
+				HasTurbulence:         true,
+				TurbulenceStrengthMin: 4,
+				TurbulenceStrengthMax: 8,
+			},
+		},
+	}
+
+	sys.spawn(data)
+
+	for _, idx := range data.ActiveIndices {
+		p := data.ParticlePool[idx]
+		if p.TurbulenceGain < 4 || p.TurbulenceGain > 8 {
+			t.Fatalf("turbulence gain got %v, want within [4,8]", p.TurbulenceGain)
+		}
+	}
+}
+
+func TestApplyTurbulenceLocalVsWorldSpace(t *testing.T) {
+	p := &Instance{TurbulenceGain: 10}
+	localData := &SystemData{
+		EmitterX: 100,
+		EmitterY: 200,
+		AnimParams: AnimationParams{
+			Position: PositionParams{
+				HasTurbulence:         true,
+				TurbulenceScale:       80,
+				TurbulenceOctaves:     2,
+				TurbulencePersistence: 0.5,
+				TurbulenceTimeScale:   1,
+				TurbulenceLocalSpace:  true,
+				TurbulenceEnvStart:    1,
+				TurbulenceEnvEnd:      1,
+				TurbulenceEnvEasing:   EasingLinear,
+			},
+		},
+	}
+	worldData := &SystemData{
+		EmitterX: 100,
+		EmitterY: 200,
+		AnimParams: AnimationParams{
+			Position: PositionParams{
+				HasTurbulence:         true,
+				TurbulenceScale:       80,
+				TurbulenceOctaves:     2,
+				TurbulencePersistence: 0.5,
+				TurbulenceTimeScale:   1,
+				TurbulenceLocalSpace:  false,
+				TurbulenceEnvStart:    1,
+				TurbulenceEnvEnd:      1,
+				TurbulenceEnvEasing:   EasingLinear,
+			},
+		},
+	}
+
+	localX, localY := applyTurbulence(localData, p, 120, 220, 0.3, 0.5)
+	worldX, worldY := applyTurbulence(worldData, p, 120, 220, 0.3, 0.5)
+	if almostEqualFloat32Turb(localX, worldX, 1e-4) && almostEqualFloat32Turb(localY, worldY, 1e-4) {
+		t.Fatal("expected local and world turbulence samples to differ")
+	}
+}
+
+func TestApplyTurbulenceEnvelopeZeroesOffset(t *testing.T) {
+	data := &SystemData{
+		AnimParams: AnimationParams{
+			Position: PositionParams{
+				HasTurbulence:         true,
+				TurbulenceScale:       64,
+				TurbulenceOctaves:     1,
+				TurbulencePersistence: 0.5,
+				TurbulenceTimeScale:   1,
+				TurbulenceLocalSpace:  true,
+				TurbulenceEnvStart:    0,
+				TurbulenceEnvEnd:      0,
+				TurbulenceEnvEasing:   EasingLinear,
+			},
+		},
+	}
+	p := &Instance{TurbulenceGain: 12}
+
+	x, y := applyTurbulence(data, p, 10, 20, 0.4, 0.5)
+	if !almostEqualFloat32Turb(x, 10, 1e-4) || !almostEqualFloat32Turb(y, 20, 1e-4) {
+		t.Fatalf("turbulence envelope should zero offset, got (%v, %v)", x, y)
+	}
+}
+
+func TestEvaluateParticlePositionAndVelocityIncludesTurbulence(t *testing.T) {
+	data := &SystemData{
+		AnimParams: AnimationParams{
+			Position: PositionParams{
+				Easing:                EasingLinear,
+				HasTurbulence:         true,
+				TurbulenceScale:       64,
+				TurbulenceOctaves:     2,
+				TurbulencePersistence: 0.5,
+				TurbulenceTimeScale:   1,
+				TurbulenceLocalSpace:  true,
+				TurbulenceEnvStart:    1,
+				TurbulenceEnvEnd:      1,
+				TurbulenceEnvEasing:   EasingLinear,
+			},
+		},
+	}
+	p := &Instance{
+		Duration:          1,
+		StartX:            0,
+		EndX:              100,
+		StartY:            0,
+		EndY:              0,
+		PositionEasing:    EasingLinear,
+		TurbulenceGain:    12,
+		TurbulenceOffsetX: 0.35,
+		TurbulenceOffsetY: -0.2,
+	}
+
+	x, y, vx, vy := evaluateParticlePositionAndVelocity(data, p, 0.5, 0.5)
+	if almostEqualFloat32Turb(x, 50, 1e-4) && almostEqualFloat32Turb(y, 0, 1e-4) {
+		t.Fatal("expected turbulence-adjusted position to differ from base path")
+	}
+	if almostEqualFloat32Turb(vx, 100, 1e-2) && almostEqualFloat32Turb(vy, 0, 1e-2) {
+		t.Fatal("expected turbulence-adjusted velocity to differ from base path velocity")
+	}
+}
+
+func TestBuildAnimationParamsIncludesTurbulenceDefaults(t *testing.T) {
+	cfg := &ParticleConfig{
+		Animation: AnimationConfig{
+			Duration: DurationConfig{Value: 1},
+			Position: PositionConfig{
+				Easing: "Linear",
+				Turbulence: &TurbulenceConfig{
+					Strength: &RangeFloat{Min: 2, Max: 6},
+				},
+			},
+			Alpha:    PropertyConfig{Start: 1, End: 0, Easing: "Linear"},
+			Scale:    PropertyConfig{Start: 1, End: 1, Easing: "Linear"},
+			Rotation: PropertyConfig{Start: 0, End: 0, Easing: "Linear"},
+		},
+	}
+
+	pos := buildAnimationParams(cfg).Position
+	if !pos.HasTurbulence {
+		t.Fatal("expected turbulence to be enabled")
+	}
+	if pos.TurbulenceScale != 96 || pos.TurbulenceOctaves != 1 || pos.TurbulencePersistence != 0.5 || pos.TurbulenceTimeScale != 1 {
+		t.Fatalf("unexpected turbulence defaults: %+v", pos)
+	}
+	if !pos.TurbulenceLocalSpace {
+		t.Fatal("expected default turbulence space to be local")
+	}
+}
+
+func TestBuildAnimationParamsIncludesPositionNoise(t *testing.T) {
+	cfg := &ParticleConfig{
+		Animation: AnimationConfig{
+			Duration: DurationConfig{Value: 1},
+			Position: PositionConfig{
+				Easing: "Linear",
+				NoiseX: &NoiseConfig{Amplitude: 8, Frequency: 0.6, Octaves: 2, Seed: 1},
+				NoiseY: &NoiseConfig{Amplitude: 4, Frequency: 1.1, Octaves: 1, Seed: 2},
+			},
+			Alpha:    PropertyConfig{Start: 1, End: 0, Easing: "Linear"},
+			Scale:    PropertyConfig{Start: 1, End: 1, Easing: "Linear"},
+			Rotation: PropertyConfig{Start: 0, End: 0, Easing: "Linear"},
+		},
+	}
+
+	pos := buildAnimationParams(cfg).Position
+	if !pos.PositionNoiseX.Enabled || !pos.PositionNoiseY.Enabled {
+		t.Fatal("expected position noise to be enabled")
+	}
+	if pos.PositionNoiseX.Amplitude != 8 || pos.PositionNoiseY.Frequency != 1.1 {
+		t.Fatalf("unexpected position noise params: %+v", pos)
+	}
+}
+
+func TestBuildAnimationParamsIncludesPropertyNoise(t *testing.T) {
+	cfg := &ParticleConfig{
+		Animation: AnimationConfig{
+			Duration: DurationConfig{Value: 1},
+			Position: PositionConfig{Easing: "Linear"},
+			Alpha:    PropertyConfig{Start: 1, End: 0, Easing: "Linear", Noise: &NoiseConfig{Amplitude: 0.2, Frequency: 1.5, Octaves: 2, Seed: 3}},
+			Scale:    PropertyConfig{Start: 1, End: 1, Easing: "Linear", Noise: &NoiseConfig{Amplitude: 0.5, Frequency: 0.75, Octaves: 3, Seed: 5}},
+			Rotation: PropertyConfig{Start: 0, End: 1, Easing: "Linear", Noise: &NoiseConfig{Amplitude: 0.3, Frequency: 0.9, Octaves: 2, Seed: 7}},
+		},
+	}
+
+	app := buildAnimationParams(cfg).Appearance
+	if !app.AlphaNoise.Enabled || !app.ScaleNoise.Enabled || !app.RotationNoise.Enabled {
+		t.Fatal("expected property noise to be enabled")
+	}
+	if app.ScaleNoise.Octaves != 3 || app.AlphaNoise.Seed != 3 || app.RotationNoise.Frequency != 0.9 {
+		t.Fatalf("unexpected property noise params: %+v", app)
+	}
+}
+
+func TestResolveParticleScaleAppliesContinuousNoise(t *testing.T) {
+	data := &SystemData{
+		AnimParams: AnimationParams{
+			Appearance: AppearanceParams{
+				StartScale: 1,
+				EndScale:   1,
+				ScaleNoise: NoiseParams{Enabled: true, Amplitude: 0.5, Frequency: 1, Octaves: 2},
+			},
+		},
+	}
+	p := &Instance{
+		StartScale:      1,
+		EndScale:        1,
+		ScaleEasing:     EasingLinear,
+		NoisePhaseScale: 0.3,
+	}
+
+	got0 := resolveParticleScale(data, p, 0.1, 0.1)
+	got1 := resolveParticleScale(data, p, 0.2, 0.2)
+	if almostEqualFloat32Turb(got0, 1, 1e-4) && almostEqualFloat32Turb(got1, 1, 1e-4) {
+		t.Fatal("expected noise-adjusted scale to differ from base value")
+	}
+	if almostEqualFloat32Turb(got0, got1, 1e-4) {
+		t.Fatal("expected continuous noise to vary over time")
+	}
+}
+
+func TestResolveParticleAlphaNoiseWorksWithSequence(t *testing.T) {
+	data := &SystemData{
+		AlphaSeq: NewSequenceConfig([]SequenceStep{{FromBase: 0.5, ToBase: 0.5, Duration: 1, Easing: EasingLinear}}),
+		AnimParams: AnimationParams{
+			Appearance: AppearanceParams{
+				AlphaNoise: NoiseParams{Enabled: true, Amplitude: 0.25, Frequency: 1, Octaves: 1},
+			},
+		},
+	}
+	p := &Instance{
+		HasAlphaSeq:     true,
+		AlphaSnap:       SequenceSnapshot{Values: []float32{0.5, 0.5}},
+		NoisePhaseAlpha: 1.2,
+	}
+
+	got := resolveParticleAlpha(data, p, 0.25, 0.25)
+	if almostEqualFloat32Turb(got, 0.5, 1e-4) {
+		t.Fatal("expected alpha sequence value to receive noise overlay")
+	}
+}
+
+func TestEvaluateParticlePositionAppliesPositionNoise(t *testing.T) {
+	data := &SystemData{
+		AnimParams: AnimationParams{
+			Position: PositionParams{
+				Easing:         EasingLinear,
+				PositionNoiseX: NoiseParams{Enabled: true, Amplitude: 10, Frequency: 1, Octaves: 2},
+				PositionNoiseY: NoiseParams{Enabled: true, Amplitude: 6, Frequency: 0.7, Octaves: 1},
+			},
+		},
+	}
+	p := &Instance{
+		Duration:       1,
+		StartX:         0,
+		EndX:           100,
+		StartY:         0,
+		EndY:           0,
+		PositionEasing: EasingLinear,
+		NoisePhasePosX: 0.8,
+		NoisePhasePosY: 1.4,
+	}
+
+	x, y := evaluateParticlePosition(data, p, 0.5, 0.5)
+	if almostEqualFloat32Turb(x, 50, 1e-4) && almostEqualFloat32Turb(y, 0, 1e-4) {
+		t.Fatal("expected position noise to alter base path")
+	}
+}
+
+func almostEqualFloat32Turb(a, b, epsilon float32) bool {
+	return float32(math.Abs(float64(a-b))) <= epsilon
+}

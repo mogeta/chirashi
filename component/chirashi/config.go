@@ -82,10 +82,37 @@ type PositionConfig struct {
 	Distance *RangeFloat `yaml:"distance,omitempty"` // Distance from emitter
 
 	// Attractor mode - random bezier control point offset from the emitter
-	ControlX *RangeFloat `yaml:"control_x,omitempty"` // X offset range for bezier control point
-	ControlY *RangeFloat `yaml:"control_y,omitempty"` // Y offset range for bezier control point
+	ControlX *RangeFloat  `yaml:"control_x,omitempty"` // X offset range for bezier control point
+	ControlY *RangeFloat  `yaml:"control_y,omitempty"` // Y offset range for bezier control point
+	NoiseX   *NoiseConfig `yaml:"noise_x,omitempty"`
+	NoiseY   *NoiseConfig `yaml:"noise_y,omitempty"`
+
+	// Turbulence mode - shared analytic flow field sampled per particle
+	Turbulence *TurbulenceConfig `yaml:"turbulence,omitempty"`
 
 	Easing string `yaml:"easing"`
+}
+
+// TurbulenceConfig defines a shared flow field that offsets particle positions.
+type TurbulenceConfig struct {
+	Strength     *RangeFloat                   `yaml:"strength,omitempty"`      // Per-particle offset scale in pixels
+	Scale        float32                       `yaml:"scale,omitempty"`         // Larger values produce wider eddies
+	Octaves      int                           `yaml:"octaves,omitempty"`       // Layer count, clamped to a small range
+	Persistence  float32                       `yaml:"persistence,omitempty"`   // Amplitude falloff per octave
+	TimeScale    float32                       `yaml:"time_scale,omitempty"`    // Flow evolution speed
+	Space        string                        `yaml:"space,omitempty"`         // local (default) or world
+	DomainMotion *TurbulenceDomainMotionConfig `yaml:"domain_motion,omitempty"` // Optional domain drift/orbit
+	Envelope     *PropertyConfig               `yaml:"envelope,omitempty"`      // 0..1 over lifetime
+}
+
+// TurbulenceDomainMotionConfig offsets the sampled field over time.
+type TurbulenceDomainMotionConfig struct {
+	DriftX         float32 `yaml:"drift_x,omitempty"`
+	DriftY         float32 `yaml:"drift_y,omitempty"`
+	OrbitRadiusX   float32 `yaml:"orbit_radius_x,omitempty"`
+	OrbitRadiusY   float32 `yaml:"orbit_radius_y,omitempty"`
+	OrbitFrequency float32 `yaml:"orbit_frequency,omitempty"`
+	OrbitPhase     float32 `yaml:"orbit_phase,omitempty"`
 }
 
 // PropertyConfig defines an animation with easing.
@@ -94,13 +121,22 @@ type PositionConfig struct {
 //   - Sequence mode: Type="sequence" with Steps (multi-step tween chains)
 type PropertyConfig struct {
 	// Simple mode (default)
-	Start  float32 `yaml:"start"`
-	End    float32 `yaml:"end"`
-	Easing string  `yaml:"easing"`
+	Start  float32      `yaml:"start"`
+	End    float32      `yaml:"end"`
+	Easing string       `yaml:"easing"`
+	Noise  *NoiseConfig `yaml:"noise,omitempty"`
 
 	// Multi-step mode
 	Type  string       `yaml:"type,omitempty"`  // "sequence" enables multi-step
 	Steps []StepConfig `yaml:"steps,omitempty"` // Steps for sequence mode
+}
+
+// NoiseConfig defines a continuous time-varying noise overlay for a property.
+type NoiseConfig struct {
+	Amplitude float32 `yaml:"amplitude,omitempty"` // Added to the evaluated property value
+	Frequency float32 `yaml:"frequency,omitempty"` // Cycles per second
+	Octaves   int     `yaml:"octaves,omitempty"`   // Layer count, clamped to a small range
+	Seed      float32 `yaml:"seed,omitempty"`      // Phase offset shared by the property
 }
 
 // StepConfig defines one step in a multi-step animation sequence

@@ -1,0 +1,74 @@
+name: "turbulent_smoke_plume"
+description: "Upward smoke plume with local-space turbulence and orbiting field motion."
+
+image:
+  image_from: "ef1"
+  image_id: 1
+
+emitter:
+  x: 0
+  y: 0
+  shape:
+    type: "circle"
+    radius:
+      min: 0
+      max: 18
+
+animation:
+  duration:
+    value: 1.6
+    range:
+      min: 1.2
+      max: 2.0
+  position:
+    type: "cartesian"
+    end_x:
+      min: -24
+      max: 24
+    end_y:
+      min: -180
+      max: -90
+    turbulence:
+      strength:
+        min: 10
+        max: 24
+      scale: 96
+      octaves: 2
+      persistence: 0.55
+      time_scale: 0.8
+      space: "local"
+      domain_motion:
+        orbit_radius_x: 14
+        orbit_radius_y: 8
+        orbit_frequency: 0.7
+      envelope:
+        start: 0.0
+        end: 1.0
+        easing: "OutSine"
+    easing: "OutQuad"
+  alpha:
+    start: 0.55
+    end: 0.0
+    easing: "Linear"
+  scale:
+    start: 0.5
+    end: 1.4
+    easing: "OutQuad"
+  rotation:
+    start: -0.2
+    end: 0.25
+    easing: "Linear"
+  color:
+    start_r: 0.85
+    start_g: 0.85
+    start_b: 0.85
+    end_r: 0.35
+    end_g: 0.35
+    end_b: 0.38
+    easing: "Linear"
+
+spawn:
+  interval: 2
+  particles_per_spawn: 7
+  max_particles: 320
+  is_loop: true

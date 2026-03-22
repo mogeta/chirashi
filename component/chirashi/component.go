@@ -18,6 +18,14 @@ type Instance struct {
 	// Attractor mode: quadratic bezier control point (randomized at spawn)
 	ControlX, ControlY float32
 	HasAttractor       bool
+	TurbulenceGain     float32
+	TurbulenceOffsetX  float32
+	TurbulenceOffsetY  float32
+	NoisePhasePosX     float32
+	NoisePhasePosY     float32
+	NoisePhaseAlpha    float32
+	NoisePhaseScale    float32
+	NoisePhaseRotation float32
 
 	// Appearance animation
 	StartAlpha, EndAlpha       float32
@@ -165,6 +173,26 @@ type PositionParams struct {
 	ControlXMin, ControlXMax float32
 	ControlYMin, ControlYMax float32
 
+	HasTurbulence         bool
+	PositionNoiseX        NoiseParams
+	PositionNoiseY        NoiseParams
+	TurbulenceStrengthMin float32
+	TurbulenceStrengthMax float32
+	TurbulenceScale       float32
+	TurbulenceOctaves     int
+	TurbulencePersistence float32
+	TurbulenceTimeScale   float32
+	TurbulenceLocalSpace  bool
+	TurbulenceEnvStart    float32
+	TurbulenceEnvEnd      float32
+	TurbulenceEnvEasing   EasingType
+	DomainDriftX          float32
+	DomainDriftY          float32
+	DomainOrbitRadiusX    float32
+	DomainOrbitRadiusY    float32
+	DomainOrbitFrequency  float32
+	DomainOrbitPhase      float32
+
 	Easing EasingType
 }
 
@@ -172,10 +200,22 @@ type PositionParams struct {
 type AppearanceParams struct {
 	StartAlpha, EndAlpha       float32
 	AlphaEasing                EasingType
+	AlphaNoise                 NoiseParams
 	StartScale, EndScale       float32
 	ScaleEasing                EasingType
+	ScaleNoise                 NoiseParams
 	StartRotation, EndRotation float32
 	RotationEasing             EasingType
+	RotationNoise              NoiseParams
+}
+
+// NoiseParams holds continuous noise settings for an animated property.
+type NoiseParams struct {
+	Enabled   bool
+	Amplitude float32
+	Frequency float32
+	Octaves   int
+	Seed      float32
 }
 
 // ColorParams holds color animation configuration.

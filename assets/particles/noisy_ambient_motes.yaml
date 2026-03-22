@@ -1,0 +1,90 @@
+name: "noisy_ambient_motes"
+description: "Slow ambient motes with continuous alpha and scale noise for organic suspended dust."
+
+image:
+  image_from: "ef1"
+  image_id: 1
+
+emitter:
+  x: 0
+  y: 0
+  shape:
+    type: "box"
+    width: 220
+    height: 140
+
+animation:
+  duration:
+    value: 2.4
+    range:
+      min: 1.8
+      max: 3.0
+  position:
+    type: "cartesian"
+    end_x:
+      min: -18
+      max: 18
+    end_y:
+      min: -36
+      max: 20
+    turbulence:
+      strength:
+        min: 3
+        max: 8
+      scale: 140
+      octaves: 2
+      persistence: 0.5
+      time_scale: 0.4
+      space: "world"
+      domain_motion:
+        drift_x: 3
+        drift_y: -1
+        orbit_radius_x: 10
+        orbit_radius_y: 6
+        orbit_frequency: 0.35
+      envelope:
+        start: 0.4
+        end: 1.0
+        easing: "Linear"
+    easing: "InOutSine"
+  alpha:
+    start: 0.22
+    end: 0.02
+    easing: "Linear"
+    noise:
+      amplitude: 0.08
+      frequency: 0.55
+      octaves: 2
+      seed: 0.9
+  scale:
+    start: 0.32
+    end: 0.24
+    easing: "Linear"
+    noise:
+      amplitude: 0.06
+      frequency: 0.45
+      octaves: 2
+      seed: 3.8
+  rotation:
+    start: -0.2
+    end: 0.2
+    easing: "Linear"
+    noise:
+      amplitude: 0.25
+      frequency: 0.35
+      octaves: 1
+      seed: 5.2
+  color:
+    start_r: 0.95
+    start_g: 0.9
+    start_b: 0.75
+    end_r: 0.65
+    end_g: 0.7
+    end_b: 0.85
+    easing: "Linear"
+
+spawn:
+  interval: 4
+  particles_per_spawn: 8
+  max_particles: 220
+  is_loop: true

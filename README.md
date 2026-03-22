@@ -24,6 +24,8 @@ You can try it in your browser:
 - Built-in editor for real-time parameter tuning and YAML save/load
 - Position modes: `cartesian`, `polar`, `attractor`
 - Emitter shapes: `point`, `circle`, `box`, `line`
+- Analytic turbulence field with local/world space and domain drift/orbit
+- Continuous per-property noise overlays for alpha, scale, and rotation
 - Property animation with easing and multi-step sequences
 - Runtime attractor target updates for UI/item-collection effects
 - Save/load particle configs as YAML
@@ -127,6 +129,9 @@ Config highlights:
 
 - `emitter.shape` controls where particles are spawned around the emitter origin.
 - `animation.position.type: attractor` curves particles toward a runtime target.
+- `animation.position.turbulence` adds a shared flow field for smoke, magic drift, and exhaust wobble.
+- `animation.alpha|scale|rotation.noise` adds smooth time-continuous noise instead of frame-to-frame random jumps.
+- `animation.position.noise_x|noise_y` adds direct continuous drift on each axis without needing turbulence.
 - `PropertyConfig` supports both simple `start/end/easing` and multi-step `sequence` mode.
 - Example effects are available under `assets/particles/`.
 
@@ -138,11 +143,16 @@ Notable samples:
 - `fountain_arc.yaml`: arc-shaped directional spray
 - `muzzle_flash_cone.yaml`: short forward cone burst
 - `barrier_edge.yaml`: perimeter emission around a box
+- `turbulent_smoke_plume.yaml`: local-space turbulence for smoke and exhaust
+- `noisy_arcane_sparks.yaml`: continuous noise flicker for magic sparks
+- `noisy_ambient_motes.yaml`: suspended ambient dust with soft continuous wobble
+- `noisy_firefly_swarm.yaml`: direct X/Y position noise for hovering swarm motion
 
 ## Runtime Notes
 
 - The library is optimized around spawn-time randomization and batched draw submission.
 - Shape sampling happens when particles spawn; it does not add per-frame draw cost.
+- Turbulence is sampled analytically at draw time and does not require extra textures or offscreen passes.
 - `ParticleManager.SpawnLoop` returns an entity so the effect can be removed manually later.
 - `SetAttractor` can be called each frame for moving attractor targets.
 
