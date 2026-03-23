@@ -18,6 +18,7 @@ func ApplyConfigLive(world donburi.World, entity donburi.Entity, config *Particl
 	prevEmitterY := data.EmitterY
 	data.EmitterX = x + config.Emitter.X
 	data.EmitterY = y + config.Emitter.Y
+	data.EmitterLocalSpace = config.Emitter.Space != "world"
 	data.EmitterShape = buildEmitterShapeParams(config.Emitter.Shape)
 	data.SpawnInterval = config.Spawn.Interval
 	data.ParticlesPerSpawn = config.Spawn.ParticlesPerSpawn
@@ -34,7 +35,7 @@ func ApplyConfigLive(world donburi.World, entity donburi.Entity, config *Particl
 }
 
 func shiftActiveParticlesForEmitterDelta(data *SystemData, dx, dy float32) {
-	if dx == 0 && dy == 0 {
+	if !data.EmitterLocalSpace || (dx == 0 && dy == 0) {
 		return
 	}
 	for _, idx := range data.ActiveIndices {

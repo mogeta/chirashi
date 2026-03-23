@@ -125,6 +125,7 @@ func (m *ParticleManager) SpawnLoop(world donburi.World, name string, x, y float
 		EmitterX:          emitterX,
 		EmitterY:          emitterY,
 		EmitterShape:      buildEmitterShapeParams(config.Emitter.Shape),
+		EmitterLocalSpace: config.Emitter.Space != "world",
 		SpawnInterval:     config.Spawn.Interval,
 		ParticlesPerSpawn: config.Spawn.ParticlesPerSpawn,
 		MaxParticles:      config.Spawn.MaxParticles,

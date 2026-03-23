@@ -277,6 +277,64 @@ func TestApplyConfigLiveUpdatesActiveParticles(t *testing.T) {
 	}
 }
 
+func TestApplyConfigLiveDoesNotShiftActiveParticlesInWorldSpace(t *testing.T) {
+	world := donburi.NewWorld()
+	entity := world.Create(Component)
+	entry := world.Entry(entity)
+
+	donburi.SetValue(entry, Component, SystemData{
+		CurrentTime:       2,
+		EmitterX:          100,
+		EmitterY:          200,
+		EmitterLocalSpace: true,
+		ActiveIndices:     []int{0},
+		ActiveCount:       1,
+		ParticlePool: []Instance{
+			{
+				Active:    true,
+				SpawnTime: 0,
+				Duration:  4,
+				StartX:    110,
+				EndX:      140,
+				StartY:    210,
+				EndY:      240,
+			},
+		},
+		AnimParams: AnimationParams{
+			Duration: DurationParams{Base: 4},
+			Position: PositionParams{Easing: EasingLinear},
+			Appearance: AppearanceParams{
+				StartAlpha: 1, EndAlpha: 0, AlphaEasing: EasingLinear,
+				StartScale: 1, EndScale: 1, ScaleEasing: EasingLinear,
+				StartRotation: 0, EndRotation: 0, RotationEasing: EasingLinear,
+			},
+		},
+	})
+
+	cfg := &ParticleConfig{
+		Emitter: EmitterConfig{X: 50, Y: 25, Space: "world"},
+		Animation: AnimationConfig{
+			Duration: DurationConfig{Value: 4},
+			Position: PositionConfig{Easing: "Linear"},
+			Alpha:    PropertyConfig{Start: 1, End: 0, Easing: "Linear"},
+			Scale:    PropertyConfig{Start: 1, End: 1, Easing: "Linear"},
+			Rotation: PropertyConfig{Start: 0, End: 0, Easing: "Linear"},
+		},
+		Spawn: SpawnConfig{Interval: 1, ParticlesPerSpawn: 1, IsLoop: true},
+	}
+
+	ApplyConfigLive(world, entity, cfg, 1000, 500)
+
+	data := Component.Get(entry)
+	p := data.ParticlePool[0]
+	if data.EmitterLocalSpace {
+		t.Fatal("expected world-space emitter behavior")
+	}
+	if p.StartX != 110 || p.EndX != 140 || p.StartY != 210 || p.EndY != 240 {
+		t.Fatalf("expected active particle to keep world position, got start=(%v,%v) end=(%v,%v)", p.StartX, p.StartY, p.EndX, p.EndY)
+	}
+}
+
 func TestParticleManagerPreloadFromBytesAndSpawn(t *testing.T) {
 	// Use YAML bytes equivalent to minConfig
 	yaml := []byte(`

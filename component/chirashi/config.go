@@ -20,6 +20,7 @@ type ImageConfig struct {
 type EmitterConfig struct {
 	X     float32            `yaml:"x"`
 	Y     float32            `yaml:"y"`
+	Space string             `yaml:"space,omitempty"` // local (default) or world
 	Shape EmitterShapeConfig `yaml:"shape,omitempty"`
 }
 

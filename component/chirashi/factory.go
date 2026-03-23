@@ -81,6 +81,7 @@ func createParticlesFromConfig(w donburi.World, shader *ebiten.Shader, image *eb
 		EmitterX:          emitterX,
 		EmitterY:          emitterY,
 		EmitterShape:      buildEmitterShapeParams(config.Emitter.Shape),
+		EmitterLocalSpace: config.Emitter.Space != "world",
 		SpawnInterval:     config.Spawn.Interval,
 		ParticlesPerSpawn: config.Spawn.ParticlesPerSpawn,
 		MaxParticles:      config.Spawn.MaxParticles,

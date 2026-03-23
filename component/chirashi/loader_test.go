@@ -103,6 +103,13 @@ func TestValidateConfigRejectsInvalidValues(t *testing.T) {
 			wantErr: "emitter.shape.type",
 		},
 		{
+			name: "invalid emitter space",
+			mutate: func(c *ParticleConfig) {
+				c.Emitter.Space = "screen"
+			},
+			wantErr: "emitter.space",
+		},
+		{
 			name: "invalid emitter radius range",
 			mutate: func(c *ParticleConfig) {
 				c.Emitter.Shape.Type = "circle"
