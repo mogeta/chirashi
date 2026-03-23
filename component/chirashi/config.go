@@ -16,10 +16,19 @@ type ImageConfig struct {
 	ImageID   int    `yaml:"image_id"`
 }
 
+type EmitterSpaceMode string
+
+const (
+	EmitterSpaceDefault EmitterSpaceMode = ""
+	EmitterSpaceLocal   EmitterSpaceMode = "local"
+	EmitterSpaceWorld   EmitterSpaceMode = "world"
+)
+
 // EmitterConfig defines the emitter properties
 type EmitterConfig struct {
 	X     float32            `yaml:"x"`
 	Y     float32            `yaml:"y"`
+	Space EmitterSpaceMode   `yaml:"space,omitempty"` // local (default) or world
 	Shape EmitterShapeConfig `yaml:"shape,omitempty"`
 }
 

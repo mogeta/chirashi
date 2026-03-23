@@ -82,6 +82,7 @@ type SystemData struct {
 	// Emitter configuration
 	EmitterX, EmitterY float32
 	EmitterShape       EmitterShapeParams
+	EmitterLocalSpace  bool
 
 	// Spawn configuration
 	SpawnInterval     int

@@ -88,60 +88,7 @@ func (m *ParticleManager) SpawnLoop(world donburi.World, name string, x, y float
 	// Copy config
 	config := copyConfig(baseConfig)
 	config.Spawn.IsLoop = true
-	normalizeParticleConfig(config)
-
-	// Create entity
-	entity := world.Create(Component)
-	entry := world.Entry(entity)
-
-	// Build system data
-	emitterX := x + config.Emitter.X
-	emitterY := y + config.Emitter.Y
-	animParams := buildAnimationParams(config)
-
-	freeIndices := make([]int, config.Spawn.MaxParticles)
-	for i := range freeIndices {
-		freeIndices[i] = config.Spawn.MaxParticles - 1 - i
-	}
-
-	maxVertices := config.Spawn.MaxParticles * 4
-	maxIndices := config.Spawn.MaxParticles * 6
-
-	var imgWidth, imgHeight float32
-	if m.image != nil {
-		bounds := m.image.Bounds()
-		imgWidth = float32(bounds.Dx())
-		imgHeight = float32(bounds.Dy())
-	}
-
-	systemData := SystemData{
-		ParticlePool:      make([]Instance, config.Spawn.MaxParticles),
-		ActiveIndices:     make([]int, 0, config.Spawn.MaxParticles),
-		FreeIndices:       freeIndices,
-		Vertices:          make([]ebiten.Vertex, 0, maxVertices),
-		Indices:           make([]uint16, 0, maxIndices),
-		Shader:            m.shader,
-		CurrentTime:       0,
-		EmitterX:          emitterX,
-		EmitterY:          emitterY,
-		EmitterShape:      buildEmitterShapeParams(config.Emitter.Shape),
-		SpawnInterval:     config.Spawn.Interval,
-		ParticlesPerSpawn: config.Spawn.ParticlesPerSpawn,
-		MaxParticles:      config.Spawn.MaxParticles,
-		SourceImage:       m.image,
-		ImageWidth:        imgWidth,
-		ImageHeight:       imgHeight,
-		ActiveCount:       0,
-		IsLoop:            true,
-		LifeTime:          0,
-		AnimParams:        animParams,
-	}
-
-	// Apply sequence configurations if present
-	buildSequenceConfigs(config, &systemData)
-
-	donburi.SetValue(entry, Component, systemData)
-	return entity, nil
+	return createParticleEntityFromConfig(world, m.shader, m.image, config, x, y)
 }
 
 // SetShader updates the shader used for rendering

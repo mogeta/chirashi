@@ -48,6 +48,7 @@ type ParticleEditorScene struct {
 	glitchIntensity float64
 	useBlurShader   bool
 	vsyncEnabled    bool
+	dragEmitter     bool
 	time            float64
 	fileList        []string
 	attractorX      float32
@@ -126,6 +127,9 @@ func (s *ParticleEditorScene) Update() error {
 		s.attractorX = float32(x)
 		s.attractorY = float32(y)
 		s.applyAttractorTarget()
+	}
+	if s.dragEmitter && ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft) {
+		s.updateEmitterFromCursor()
 	}
 
 	s.container.Update()
@@ -332,6 +336,23 @@ func (s *ParticleEditorScene) drawEmitterControls(ctx *debugui.Context) {
 	ctx.Button("Y+").On(func() { s.config.Emitter.Y += 10; s.applyChange(applyModeLive) })
 	ctx.Button("Y-").On(func() { s.config.Emitter.Y -= 10; s.applyChange(applyModeLive) })
 	ctx.SetGridLayout([]int{-1}, nil)
+
+	space := s.config.Emitter.Space
+	if space == chirashi.EmitterSpaceDefault {
+		space = chirashi.EmitterSpaceLocal
+	}
+	ctx.SetGridLayout([]int{180, 180}, nil)
+	ctx.Text("Particle Space: " + string(space))
+	ctx.Button("Toggle Space").On(func() {
+		if s.config.Emitter.Space == chirashi.EmitterSpaceWorld {
+			s.config.Emitter.Space = chirashi.EmitterSpaceLocal
+		} else {
+			s.config.Emitter.Space = chirashi.EmitterSpaceWorld
+		}
+		s.applyChange(applyModeLive)
+	})
+	ctx.SetGridLayout([]int{-1}, nil)
+
 	s.drawEmitterShapeControls(ctx)
 }
 
@@ -358,6 +379,14 @@ func (s *ParticleEditorScene) drawVisualFeatureControls(ctx *debugui.Context) {
 		s.applyChange(applyModeLive)
 	})
 	ctx.SetGridLayout([]int{-1}, nil)
+
+	dragLabel := "Drag Emitter: OFF"
+	if s.dragEmitter {
+		dragLabel = "Drag Emitter: ON"
+	}
+	ctx.Button(dragLabel).On(func() {
+		s.dragEmitter = !s.dragEmitter
+	})
 }
 
 func (s *ParticleEditorScene) drawShaderControls(ctx *debugui.Context) {
@@ -821,6 +850,18 @@ func (s *ParticleEditorScene) applyAttractorTarget() {
 		data.AttractorX = s.attractorX
 		data.AttractorY = s.attractorY
 	})
+}
+
+func (s *ParticleEditorScene) updateEmitterFromCursor() {
+	x, y := ebiten.CursorPosition()
+	nextX := float32(x - editorCenterX)
+	nextY := float32(y - editorCenterY)
+	if s.config.Emitter.X == nextX && s.config.Emitter.Y == nextY {
+		return
+	}
+	s.config.Emitter.X = nextX
+	s.config.Emitter.Y = nextY
+	s.applyChange(applyModeLive)
 }
 
 func (s *ParticleEditorScene) refreshFileList() {

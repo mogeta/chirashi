@@ -89,6 +89,7 @@ description: "sample particle"
 emitter:
   x: 0
   y: 0
+  space: "local"
   shape:
     type: "circle"
     radius: { min: 0, max: 48 }
@@ -126,6 +127,7 @@ spawn:
 Config highlights:
 
 - `emitter.shape` controls where particles are spawned around the emitter origin.
+- `emitter.space: world` lets emitted particles keep their world position when the emitter moves later.
 - `animation.position.type: attractor` curves particles toward a runtime target.
 - `animation.position.flow` adds low-cost curl flow on top of the base path for drifting smoke, space dust, and magic ambience.
 - `PropertyConfig` supports both simple `start/end/easing` and multi-step `sequence` mode.

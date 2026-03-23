@@ -15,6 +15,7 @@ image:
 emitter:
   x: float
   y: float
+  space: "local" | "world" # optional
   shape: # optional
     type: "point" | "circle" | "box" | "line"
     radius: { min: float, max: float } # circle only
@@ -103,6 +104,7 @@ Validation is performed by `ConfigLoader`:
 - `spawn.particles_per_spawn` must be `> 0`.
 - `spawn.interval` must be `> 0`.
 - `animation.duration.value` must be `> 0`.
+- `emitter.space` must be `local` or `world`.
 - `animation.position.flow.type` must be `curl`.
 - `animation.position.flow.strength.min` must be `<= max`.
 - `animation.position.flow.scale` must be `>= 0`.
@@ -127,6 +129,9 @@ If validation fails, loading returns an error.
   - `space` defaults to `local`.
   - flow is applied as a continuously integrated offset on top of the configured base path.
 - `emitter.shape.type` defaults to `"point"`.
+- `emitter.space` defaults to `"local"`.
+- `emitter.space: "local"` keeps active particles attached to emitter movement after they spawn.
+- `emitter.space: "world"` leaves already-spawned particles in world space when the emitter moves.
 - `circle` shape defaults to a full 0..2π arc when `start_angle`/`end_angle` are omitted.
 - If cartesian ranges are omitted, values default to `0`, so particles can stay at emitter position.
 - If both `scale.start` and `scale.end` are `0`, runtime forces both to `1.0`.

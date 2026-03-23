@@ -39,29 +39,37 @@ func NewParticlesFromFile(w donburi.World, shader *ebiten.Shader, image *ebiten.
 
 // createParticlesFromConfig creates particles from a loaded configuration
 func createParticlesFromConfig(w donburi.World, shader *ebiten.Shader, image *ebiten.Image, config *ParticleConfig, x, y float32) error {
+	_, err := createParticleEntityFromConfig(w, shader, image, config, x, y)
+	return err
+}
+
+func createParticleEntityFromConfig(w donburi.World, shader *ebiten.Shader, image *ebiten.Image, config *ParticleConfig, x, y float32) (donburi.Entity, error) {
 	normalizeParticleConfig(config)
 
-	particles := w.Entry(w.Create(Component))
+	entity := w.Create(Component)
+	entry := w.Entry(entity)
+	systemData := buildSystemDataFromConfig(shader, image, config, x, y)
 
-	// Calculate emitter position (base position + config offset)
+	// Apply sequence configurations if present
+	buildSequenceConfigs(config, &systemData)
+
+	donburi.SetValue(entry, Component, systemData)
+	return entity, nil
+}
+
+func buildSystemDataFromConfig(shader *ebiten.Shader, image *ebiten.Image, config *ParticleConfig, x, y float32) SystemData {
 	emitterX := x + config.Emitter.X
 	emitterY := y + config.Emitter.Y
-
-	// Build animation parameters from config
 	animParams := buildAnimationParams(config)
 
-	// Initialize free indices pool (all particles are free initially)
 	freeIndices := make([]int, config.Spawn.MaxParticles)
 	for i := range freeIndices {
-		freeIndices[i] = config.Spawn.MaxParticles - 1 - i // Reverse order for stack
+		freeIndices[i] = config.Spawn.MaxParticles - 1 - i
 	}
 
-	// Pre-allocate vertex/index buffers
-	// Each particle = 4 vertices, 6 indices
 	maxVertices := config.Spawn.MaxParticles * 4
 	maxIndices := config.Spawn.MaxParticles * 6
 
-	// Cache image dimensions
 	var imgWidth, imgHeight float32
 	if image != nil {
 		bounds := image.Bounds()
@@ -69,8 +77,7 @@ func createParticlesFromConfig(w donburi.World, shader *ebiten.Shader, image *eb
 		imgHeight = float32(bounds.Dy())
 	}
 
-	// Build particle system data
-	systemData := SystemData{
+	return SystemData{
 		ParticlePool:      make([]Instance, config.Spawn.MaxParticles),
 		ActiveIndices:     make([]int, 0, config.Spawn.MaxParticles),
 		FreeIndices:       freeIndices,
@@ -81,6 +88,7 @@ func createParticlesFromConfig(w donburi.World, shader *ebiten.Shader, image *eb
 		EmitterX:          emitterX,
 		EmitterY:          emitterY,
 		EmitterShape:      buildEmitterShapeParams(config.Emitter.Shape),
+		EmitterLocalSpace: config.Emitter.Space != EmitterSpaceWorld,
 		SpawnInterval:     config.Spawn.Interval,
 		ParticlesPerSpawn: config.Spawn.ParticlesPerSpawn,
 		MaxParticles:      config.Spawn.MaxParticles,
@@ -92,12 +100,6 @@ func createParticlesFromConfig(w donburi.World, shader *ebiten.Shader, image *eb
 		LifeTime:          config.Spawn.LifeTime,
 		AnimParams:        animParams,
 	}
-
-	// Apply sequence configurations if present
-	buildSequenceConfigs(config, &systemData)
-
-	donburi.SetValue(particles, Component, systemData)
-	return nil
 }
 
 func normalizeParticleConfig(config *ParticleConfig) {
