@@ -307,6 +307,12 @@ func buildSequenceConfig(prop *PropertyConfig) *SequenceConfig {
 
 // buildSequenceConfigs extracts sequence configs from the particle config and sets them on SystemData
 func buildSequenceConfigs(config *ParticleConfig, data *SystemData) {
+	data.PosXSeq = nil
+	data.PosYSeq = nil
+	data.AlphaSeq = nil
+	data.ScaleSeq = nil
+	data.RotSeq = nil
+
 	// Position X/Y sequences
 	if config.Animation.Position.X != nil && config.Animation.Position.X.IsSequence() {
 		data.PosXSeq = buildSequenceConfig(config.Animation.Position.X)

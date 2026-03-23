@@ -169,6 +169,114 @@ func TestCopyConfigDeepCopiesEmitterShape(t *testing.T) {
 	}
 }
 
+func TestApplyConfigLiveUpdatesActiveParticles(t *testing.T) {
+	world := donburi.NewWorld()
+	entity := world.Create(Component)
+	entry := world.Entry(entity)
+
+	donburi.SetValue(entry, Component, SystemData{
+		CurrentTime:   5,
+		EmitterX:      100,
+		EmitterY:      200,
+		ActiveIndices: []int{0},
+		ActiveCount:   1,
+		ParticlePool: []Instance{
+			{
+				Active:         true,
+				SpawnTime:      2,
+				Duration:       6,
+				StartX:         110,
+				EndX:           140,
+				StartY:         210,
+				EndY:           260,
+				ControlX:       120,
+				ControlY:       180,
+				StartAlpha:     1,
+				EndAlpha:       0,
+				StartScale:     1,
+				EndScale:       2,
+				StartRotation:  0,
+				EndRotation:    1,
+				StartR:         1,
+				StartG:         1,
+				StartB:         1,
+				EndR:           1,
+				EndG:           1,
+				EndB:           1,
+				PositionEasing: EasingLinear,
+				AlphaEasing:    EasingLinear,
+				ScaleEasing:    EasingLinear,
+				RotationEasing: EasingLinear,
+				ColorEasing:    EasingLinear,
+			},
+		},
+		AnimParams: AnimationParams{
+			Duration: DurationParams{Base: 6},
+			Position: PositionParams{Easing: EasingLinear},
+			Appearance: AppearanceParams{
+				StartAlpha:     1,
+				EndAlpha:       0,
+				AlphaEasing:    EasingLinear,
+				StartScale:     1,
+				EndScale:       2,
+				ScaleEasing:    EasingLinear,
+				StartRotation:  0,
+				EndRotation:    1,
+				RotationEasing: EasingLinear,
+			},
+			Color: ColorParams{
+				Enabled: true,
+				StartR:  1, StartG: 1, StartB: 1,
+				EndR: 1, EndG: 1, EndB: 1,
+				Easing: EasingLinear,
+			},
+		},
+	})
+
+	cfg := &ParticleConfig{
+		Emitter: EmitterConfig{X: 20, Y: -10},
+		Animation: AnimationConfig{
+			Duration: DurationConfig{Value: 3},
+			Position: PositionConfig{
+				Easing: "OutSine",
+				Flow:   &FlowConfig{Type: "curl", Strength: &RangeFloat{Min: 6, Max: 10}},
+			},
+			Alpha:    PropertyConfig{Start: 0.4, End: 0.1, Easing: "OutQuad"},
+			Scale:    PropertyConfig{Start: 2.5, End: 0.5, Easing: "InQuad"},
+			Rotation: PropertyConfig{Start: 0.3, End: 2.1, Easing: "InOutSine"},
+			Color:    &ColorConfig{StartR: 0.1, StartG: 0.2, StartB: 0.3, EndR: 0.7, EndG: 0.8, EndB: 0.9, Easing: "OutCubic"},
+		},
+		Spawn: SpawnConfig{Interval: 4, ParticlesPerSpawn: 9, IsLoop: true},
+	}
+
+	ApplyConfigLive(world, entity, cfg, 1000, 500)
+
+	data := Component.Get(entry)
+	p := data.ParticlePool[0]
+
+	if data.EmitterX != 1020 || data.EmitterY != 490 {
+		t.Fatalf("unexpected emitter position: (%v,%v)", data.EmitterX, data.EmitterY)
+	}
+	if p.StartX != 1030 || p.EndX != 1060 || p.StartY != 500 || p.EndY != 550 {
+		t.Fatalf("expected active particle to shift with emitter, got start=(%v,%v) end=(%v,%v)", p.StartX, p.StartY, p.EndX, p.EndY)
+	}
+	if p.StartAlpha != 0.4 || p.EndAlpha != 0.1 || p.StartScale != 2.5 || p.EndScale != 0.5 {
+		t.Fatalf("appearance was not updated: startAlpha=%v endAlpha=%v startScale=%v endScale=%v", p.StartAlpha, p.EndAlpha, p.StartScale, p.EndScale)
+	}
+	if p.StartR != 0.1 || p.EndB != 0.9 {
+		t.Fatalf("color was not updated: startR=%v endB=%v", p.StartR, p.EndB)
+	}
+	if p.Duration != 3 {
+		t.Fatalf("duration was not updated: %v", p.Duration)
+	}
+	if !p.HasFlow || p.FlowGain != 8 {
+		t.Fatalf("flow was not enabled with midpoint strength, got hasFlow=%v gain=%v", p.HasFlow, p.FlowGain)
+	}
+	if data.SpawnInterval != 4 || data.ParticlesPerSpawn != 9 {
+		t.Fatalf("spawn settings were not updated: interval=%d particles=%d", data.SpawnInterval, data.ParticlesPerSpawn)
+	}
+}
+
 func TestParticleManagerPreloadFromBytesAndSpawn(t *testing.T) {
 	// Use YAML bytes equivalent to minConfig
 	yaml := []byte(`
