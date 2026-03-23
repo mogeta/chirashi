@@ -85,7 +85,24 @@ type PositionConfig struct {
 	ControlX *RangeFloat `yaml:"control_x,omitempty"` // X offset range for bezier control point
 	ControlY *RangeFloat `yaml:"control_y,omitempty"` // Y offset range for bezier control point
 
+	// Flow mode - continuous field offset layered on top of the base path
+	Flow *FlowConfig `yaml:"flow,omitempty"`
+
 	Easing string `yaml:"easing"`
+}
+
+// FlowConfig defines a continuous vector field layered on top of the base path.
+type FlowConfig struct {
+	Type            string      `yaml:"type,omitempty"` // curl
+	Strength        *RangeFloat `yaml:"strength,omitempty"`
+	Scale           float32     `yaml:"scale,omitempty"`             // Larger values produce wider motion
+	Octaves         int         `yaml:"octaves,omitempty"`           // Layer count, clamped to a small range
+	Persistence     float32     `yaml:"persistence,omitempty"`       // Amplitude falloff per octave
+	TimeScale       float32     `yaml:"time_scale,omitempty"`        // Field evolution speed
+	Drag            float32     `yaml:"drag,omitempty"`              // Velocity damping per update
+	Space           string      `yaml:"space,omitempty"`             // local (default) or world
+	BoundRadius     float32     `yaml:"bound_radius,omitempty"`      // Optional reset radius from emitter
+	RespawnOnEscape bool        `yaml:"respawn_on_escape,omitempty"` // Reset flow offset when leaving bounds
 }
 
 // PropertyConfig defines an animation with easing.

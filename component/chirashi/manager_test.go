@@ -89,6 +89,11 @@ func TestCopyConfigDeepCopiesPositionRanges(t *testing.T) {
 				EndX:     &RangeFloat{Min: 100, Max: 200},
 				Angle:    &RangeFloat{Min: 0, Max: 6.28},
 				Distance: &RangeFloat{Min: 10, Max: 50},
+				Flow: &FlowConfig{
+					Type:     "curl",
+					Strength: &RangeFloat{Min: 4, Max: 12},
+					Scale:    180,
+				},
 			},
 		},
 	}
@@ -96,12 +101,16 @@ func TestCopyConfigDeepCopiesPositionRanges(t *testing.T) {
 	dst := copyConfig(src)
 	dst.Animation.Position.StartX.Min = 99
 	dst.Animation.Position.Angle.Max = 99
+	dst.Animation.Position.Flow.Strength.Min = 99
 
 	if src.Animation.Position.StartX.Min == 99 {
 		t.Error("Position.StartX: src was modified by dst change")
 	}
 	if src.Animation.Position.Angle.Max == 99 {
 		t.Error("Position.Angle: src was modified by dst change")
+	}
+	if src.Animation.Position.Flow.Strength.Min == 99 {
+		t.Error("Position.Flow.Strength: src was modified by dst change")
 	}
 }
 

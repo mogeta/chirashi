@@ -490,6 +490,66 @@ func (s *ParticleEditorScene) drawAnimationWindow(ctx *debugui.Context) {
 		})
 		ctx.SetGridLayout([]int{-1}, nil)
 
+		ctx.Text("Flow")
+		ctx.SetGridLayout([]int{200, 180}, nil)
+		if s.config.Animation.Position.Flow == nil {
+			ctx.Text("State: Off")
+			ctx.Button("Enable Flow").On(func() {
+				s.config.Animation.Position.Flow = &chirashi.FlowConfig{
+					Type:        "curl",
+					Strength:    &chirashi.RangeFloat{Min: 8, Max: 18},
+					Scale:       180,
+					Octaves:     2,
+					Persistence: 0.5,
+					TimeScale:   0.2,
+					Drag:        0.96,
+					Space:       "local",
+				}
+				s.recreateParticles()
+			})
+		} else {
+			ctx.Text("State: On")
+			ctx.Button("Disable Flow").On(func() {
+				s.config.Animation.Position.Flow = nil
+				s.recreateParticles()
+			})
+		}
+		ctx.SetGridLayout([]int{-1}, nil)
+		if flow := s.config.Animation.Position.Flow; flow != nil {
+			if flow.Strength == nil {
+				flow.Strength = &chirashi.RangeFloat{Min: 8, Max: 18}
+			}
+			ctx.Text("Type: curl")
+			s.rangeControl(ctx, "Flow Strength", flow.Strength, 0, 80, 1)
+			s.sliderControl32(ctx, "Flow Scale", &flow.Scale, 32, 480, 4)
+			octaves := float64(flow.Octaves)
+			s.sliderControl(ctx, "Flow Octaves", &octaves, 1, 3, 1)
+			flow.Octaves = int(octaves)
+			s.sliderControl32(ctx, "Flow Persistence", &flow.Persistence, 0, 1, 0.05)
+			s.sliderControl32(ctx, "Flow Time Scale", &flow.TimeScale, 0, 2, 0.05)
+			s.sliderControl32(ctx, "Flow Drag", &flow.Drag, 0.80, 1.0, 0.01)
+			s.sliderControl32(ctx, "Flow Bounds", &flow.BoundRadius, 0, 1200, 10)
+			ctx.SetGridLayout([]int{200, 180}, nil)
+			ctx.Text("Flow Space: " + flow.Space)
+			ctx.Button("Toggle Flow Space").On(func() {
+				if flow.Space == "world" {
+					flow.Space = "local"
+				} else {
+					flow.Space = "world"
+				}
+				s.recreateParticles()
+			})
+			respawnLabel := "Respawn On Escape: OFF"
+			if flow.RespawnOnEscape {
+				respawnLabel = "Respawn On Escape: ON"
+			}
+			ctx.Button(respawnLabel).On(func() {
+				flow.RespawnOnEscape = !flow.RespawnOnEscape
+				s.recreateParticles()
+			})
+			ctx.SetGridLayout([]int{-1}, nil)
+		}
+
 		ctx.Text("----------------")
 
 		// Alpha

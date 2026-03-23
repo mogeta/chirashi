@@ -18,6 +18,14 @@ type Instance struct {
 	// Attractor mode: quadratic bezier control point (randomized at spawn)
 	ControlX, ControlY float32
 	HasAttractor       bool
+	HasFlow            bool
+	FlowGain           float32
+	FlowOffsetX        float32
+	FlowOffsetY        float32
+	FlowVelX           float32
+	FlowVelY           float32
+	FlowSeedX          float32
+	FlowSeedY          float32
 
 	// Appearance animation
 	StartAlpha, EndAlpha       float32
@@ -164,6 +172,18 @@ type PositionParams struct {
 	// Attractor: bezier control point offset from emitter
 	ControlXMin, ControlXMax float32
 	ControlYMin, ControlYMax float32
+
+	HasFlow             bool
+	FlowStrengthMin     float32
+	FlowStrengthMax     float32
+	FlowScale           float32
+	FlowOctaves         int
+	FlowPersistence     float32
+	FlowTimeScale       float32
+	FlowDrag            float32
+	FlowLocalSpace      bool
+	FlowBoundRadius     float32
+	FlowRespawnOnEscape bool
 
 	Easing EasingType
 }

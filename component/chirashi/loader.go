@@ -153,6 +153,40 @@ func (l *ConfigLoader) validateConfig(config *ParticleConfig) error {
 		return fmt.Errorf("emitter.shape.type must be point, circle, box, or line")
 	}
 
+	if flow := config.Animation.Position.Flow; flow != nil {
+		switch flow.Type {
+		case "", "curl":
+		default:
+			return fmt.Errorf("animation.position.flow.type must be curl")
+		}
+		if flow.Strength != nil && flow.Strength.Min > flow.Strength.Max {
+			return fmt.Errorf("animation.position.flow.strength.min must be less than or equal to max")
+		}
+		if flow.Scale < 0 {
+			return fmt.Errorf("animation.position.flow.scale must be greater than or equal to 0")
+		}
+		if flow.Octaves < 0 || flow.Octaves > 3 {
+			return fmt.Errorf("animation.position.flow.octaves must be within [0,3]")
+		}
+		if flow.Persistence < 0 {
+			return fmt.Errorf("animation.position.flow.persistence must be greater than or equal to 0")
+		}
+		if flow.TimeScale < 0 {
+			return fmt.Errorf("animation.position.flow.time_scale must be greater than or equal to 0")
+		}
+		if flow.Drag < 0 || flow.Drag > 1 {
+			return fmt.Errorf("animation.position.flow.drag must be within [0,1]")
+		}
+		switch flow.Space {
+		case "", "local", "world":
+		default:
+			return fmt.Errorf("animation.position.flow.space must be local or world")
+		}
+		if flow.BoundRadius < 0 {
+			return fmt.Errorf("animation.position.flow.bound_radius must be greater than or equal to 0")
+		}
+	}
+
 	if config.Emitter.Shape.Radius != nil && config.Emitter.Shape.Radius.Min > config.Emitter.Shape.Radius.Max {
 		return fmt.Errorf("emitter.shape.radius.min must be less than or equal to max")
 	}

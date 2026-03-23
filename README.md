@@ -127,6 +127,7 @@ Config highlights:
 
 - `emitter.shape` controls where particles are spawned around the emitter origin.
 - `animation.position.type: attractor` curves particles toward a runtime target.
+- `animation.position.flow` adds low-cost curl flow on top of the base path for drifting smoke, space dust, and magic ambience.
 - `PropertyConfig` supports both simple `start/end/easing` and multi-step `sequence` mode.
 - Example effects are available under `assets/particles/`.
 
@@ -138,11 +139,13 @@ Notable samples:
 - `fountain_arc.yaml`: arc-shaped directional spray
 - `muzzle_flash_cone.yaml`: short forward cone burst
 - `barrier_edge.yaml`: perimeter emission around a box
+- `starlit_drift.yaml`: curl-flow ambient starfield drift around the emitter
 
 ## Runtime Notes
 
 - The library is optimized around spawn-time randomization and batched draw submission.
 - Shape sampling happens when particles spawn; it does not add per-frame draw cost.
+- `animation.position.flow` adds update-time CPU cost proportional to active particles and `octaves`; keep `octaves` low for mobile targets.
 - `ParticleManager.SpawnLoop` returns an entity so the effect can be removed manually later.
 - `SetAttractor` can be called each frame for moving attractor targets.
 

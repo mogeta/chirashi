@@ -55,6 +55,14 @@ func BuildWindows() error {
 	return sh.RunWith(env, "go", "build", "-o", filepath.Join(BuildDir, ProjectName+".exe"), AppDir)
 }
 
+// RunWin builds the Windows binary and runs it.
+// On WSL2 or Windows, the .exe is executed directly via Windows interop.
+func RunWin() error {
+	mg.Deps(BuildWindows)
+	fmt.Println("Running Windows binary...")
+	return sh.RunV("./build/chirashi.exe")
+}
+
 // BuildMac builds the Ebiten game for macOS
 func BuildMac() error {
 	fmt.Println("Building Ebiten game for macOS...")
