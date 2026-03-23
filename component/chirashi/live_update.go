@@ -16,8 +16,6 @@ func ApplyConfigLive(world donburi.World, entity donburi.Entity, config *Particl
 
 	prevEmitterX := data.EmitterX
 	prevEmitterY := data.EmitterY
-	prevAnim := data.AnimParams
-
 	data.EmitterX = x + config.Emitter.X
 	data.EmitterY = y + config.Emitter.Y
 	data.EmitterShape = buildEmitterShapeParams(config.Emitter.Shape)
@@ -32,7 +30,7 @@ func ApplyConfigLive(world donburi.World, entity donburi.Entity, config *Particl
 	buildSequenceConfigs(config, data)
 
 	shiftActiveParticlesForEmitterDelta(data, data.EmitterX-prevEmitterX, data.EmitterY-prevEmitterY)
-	applyAnimationParamsToActiveParticles(data, prevAnim)
+	applyAnimationParamsToActiveParticles(data)
 }
 
 func shiftActiveParticlesForEmitterDelta(data *SystemData, dx, dy float32) {
@@ -50,7 +48,7 @@ func shiftActiveParticlesForEmitterDelta(data *SystemData, dx, dy float32) {
 	}
 }
 
-func applyAnimationParamsToActiveParticles(data *SystemData, prev AnimationParams) {
+func applyAnimationParamsToActiveParticles(data *SystemData) {
 	pos := data.AnimParams.Position
 	app := data.AnimParams.Appearance
 	clr := data.AnimParams.Color
@@ -86,7 +84,7 @@ func applyAnimationParamsToActiveParticles(data *SystemData, prev AnimationParam
 			p.HasAlphaSeq = false
 			p.StartAlpha = app.StartAlpha
 			p.EndAlpha = app.EndAlpha
-		} else if prev.Appearance != app || prev.Duration != duration {
+		} else {
 			p.HasAlphaSeq = true
 			p.AlphaSnap = GenerateSnapshot(data.AlphaSeq, 0)
 		}
@@ -95,7 +93,7 @@ func applyAnimationParamsToActiveParticles(data *SystemData, prev AnimationParam
 			p.HasScaleSeq = false
 			p.StartScale = app.StartScale
 			p.EndScale = app.EndScale
-		} else if prev.Appearance != app || prev.Duration != duration {
+		} else {
 			p.HasScaleSeq = true
 			p.ScaleSnap = GenerateSnapshot(data.ScaleSeq, 0)
 		}
@@ -104,7 +102,7 @@ func applyAnimationParamsToActiveParticles(data *SystemData, prev AnimationParam
 			p.HasRotSeq = false
 			p.StartRotation = app.StartRotation
 			p.EndRotation = app.EndRotation
-		} else if prev.Appearance != app || prev.Duration != duration {
+		} else {
 			p.HasRotSeq = true
 			p.RotSnap = GenerateSnapshot(data.RotSeq, 0)
 		}
@@ -132,7 +130,7 @@ func applyAnimationParamsToActiveParticles(data *SystemData, prev AnimationParam
 		p.HasAttractor = pos.UseAttractor
 		p.HasFlow = pos.HasFlow
 		if pos.HasFlow {
-			if !prev.Position.HasFlow {
+			if p.FlowGain == 0 {
 				resetParticleFlowState(p, true)
 			}
 			p.FlowGain = flowGain

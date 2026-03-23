@@ -234,12 +234,6 @@ func (s *ParticleEditorScene) Layout(outsideWidth, outsideHeight int) (int, int)
 	return editorScreenWidth, editorScreenHeight
 }
 
-func (s *ParticleEditorScene) drawGeneralSettingsWindow(ctx *debugui.Context) {
-	ctx.Window("General Settings", image.Rect(20, 20, 560, 420), func(layout debugui.ContainerLayout) {
-		s.drawGeneralSettingsContents(ctx)
-	})
-}
-
 func (s *ParticleEditorScene) drawGeneralSettingsContents(ctx *debugui.Context) {
 	ctx.Text("Spawn Config")
 
@@ -473,42 +467,12 @@ func (s *ParticleEditorScene) setPositionMode(mode string) {
 	s.recreateParticles()
 }
 
-func (s *ParticleEditorScene) drawMotionWindow(ctx *debugui.Context) {
-	ctx.Window("Motion", image.Rect(20, 450, 620, 1060), func(layout debugui.ContainerLayout) {
-		s.drawMotionContents(ctx)
-	})
-}
-
 func (s *ParticleEditorScene) drawMotionContents(ctx *debugui.Context) {
 	s.drawDurationControls(ctx)
 	ctx.Text("----------------")
 	s.drawPositionControls(ctx)
 	ctx.Text("----------------")
 	s.drawFlowControls(ctx)
-}
-
-func (s *ParticleEditorScene) drawAlphaWindow(ctx *debugui.Context) {
-	ctx.Window("Alpha", image.Rect(660, 20, 1100, 360), func(layout debugui.ContainerLayout) {
-		s.drawPropertyWindow(ctx, "Alpha", &s.config.Animation.Alpha, 0.0, 1.0, 0.05, "alpha")
-	})
-}
-
-func (s *ParticleEditorScene) drawScaleWindow(ctx *debugui.Context) {
-	ctx.Window("Scale", image.Rect(660, 380, 1100, 720), func(layout debugui.ContainerLayout) {
-		s.drawPropertyWindow(ctx, "Scale", &s.config.Animation.Scale, 0.0, 5.0, 0.1, "scale")
-	})
-}
-
-func (s *ParticleEditorScene) drawRotationWindow(ctx *debugui.Context) {
-	ctx.Window("Rotation", image.Rect(660, 740, 1100, 1060), func(layout debugui.ContainerLayout) {
-		s.drawPropertyWindow(ctx, "Rotation", &s.config.Animation.Rotation, -6.28, 6.28, 0.1, "rotation")
-	})
-}
-
-func (s *ParticleEditorScene) drawColorWindow(ctx *debugui.Context) {
-	ctx.Window("Color", image.Rect(1120, 20, 1520, 420), func(layout debugui.ContainerLayout) {
-		s.drawColorControls(ctx)
-	})
 }
 
 func (s *ParticleEditorScene) drawDurationControls(ctx *debugui.Context) {
@@ -725,12 +689,6 @@ func (s *ParticleEditorScene) drawColorControls(ctx *debugui.Context) {
 	ctx.SetGridLayout([]int{-1}, nil)
 }
 
-func (s *ParticleEditorScene) drawDebugWindow(ctx *debugui.Context) {
-	ctx.Window("Debug Info", image.Rect(1560, 20, 1900, 220), func(layout debugui.ContainerLayout) {
-		s.drawDebugContents(ctx)
-	})
-}
-
 func (s *ParticleEditorScene) drawDebugContents(ctx *debugui.Context) {
 	fps := ebiten.ActualFPS()
 	ctx.Text(fmt.Sprintf("FPS: %.2f", fps))
@@ -755,12 +713,6 @@ func (s *ParticleEditorScene) drawDebugContents(ctx *debugui.Context) {
 	ctx.Text(fmt.Sprintf("Draw: %d us", drawTimeUs))
 	ctx.Text(fmt.Sprintf("Total: %.2f ms", float64(updateTimeUs+drawTimeUs)/1000.0))
 	ctx.Text("GPU Batch: 1 draw call")
-}
-
-func (s *ParticleEditorScene) drawFileWindow(ctx *debugui.Context) {
-	ctx.Window("File Operations", image.Rect(1560, 240, 1900, 920), func(layout debugui.ContainerLayout) {
-		s.drawFileContents(ctx)
-	})
 }
 
 func (s *ParticleEditorScene) drawFileContents(ctx *debugui.Context) {
