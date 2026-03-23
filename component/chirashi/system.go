@@ -11,6 +11,27 @@ import (
 	"github.com/yohamta/donburi/filter"
 )
 
+const (
+	defaultDeltaTime        = float32(1.0 / 60.0)
+	flowSeedRange           = float32(32)
+	flowSeedHalfRange       = flowSeedRange / 2
+	curlNoiseEpsilon        = float32(0.05)
+	flowTimeBaseFactor      = float32(0.75)
+	flowTimeFrequencyGain   = float32(0.25)
+	flowPrimaryTimeScale    = float32(0.9)
+	flowSecondaryAmplitude  = float32(0.7)
+	flowSecondarySpaceScale = float32(1.3)
+	flowSecondaryTimeScale  = float32(1.1)
+	flowTertiaryAmplitude   = float32(0.5)
+	flowTertiaryXScale      = float32(0.8)
+	flowTertiaryYScale      = float32(1.1)
+	flowTertiaryTimeScale   = float32(0.6)
+	flowQuaternaryAmplitude = float32(0.35)
+	flowQuaternaryXScale    = float32(1.7)
+	flowQuaternaryYScale    = float32(0.6)
+	flowQuaternaryTimeScale = float32(0.4)
+)
+
 // System manages GPU-based particle systems with batch rendering
 type System struct {
 	query *donburi.Query
@@ -29,7 +50,7 @@ func NewSystem() *System {
 func (sys *System) Update(ecs *ecs.ECS) {
 	sys.cnt++
 	tps := ebiten.TPS()
-	deltaTime := float32(1.0 / 60.0)
+	deltaTime := defaultDeltaTime
 	if tps > 0 {
 		deltaTime = float32(1.0 / float64(tps))
 	}
@@ -131,20 +152,9 @@ func (sys *System) spawn(data *SystemData) {
 		particle.HasFlow = pos.HasFlow
 		if pos.HasFlow {
 			particle.FlowGain = rangeFloat32(pos.FlowStrengthMin, pos.FlowStrengthMax)
-			particle.FlowOffsetX = 0
-			particle.FlowOffsetY = 0
-			particle.FlowVelX = 0
-			particle.FlowVelY = 0
-			particle.FlowSeedX = rand.Float32()*32 - 16
-			particle.FlowSeedY = rand.Float32()*32 - 16
+			resetParticleFlowState(particle, true)
 		} else {
-			particle.FlowGain = 0
-			particle.FlowOffsetX = 0
-			particle.FlowOffsetY = 0
-			particle.FlowVelX = 0
-			particle.FlowVelY = 0
-			particle.FlowSeedX = 0
-			particle.FlowSeedY = 0
+			resetParticleFlowState(particle, false)
 		}
 
 		// Appearance
@@ -549,24 +559,32 @@ func updateParticleFlow(data *SystemData, p *Instance, elapsed, normalizedT, del
 		dx := baseX + p.FlowOffsetX - data.EmitterX
 		dy := baseY + p.FlowOffsetY - data.EmitterY
 		if dx*dx+dy*dy > pos.FlowBoundRadius*pos.FlowBoundRadius {
-			p.FlowOffsetX = 0
-			p.FlowOffsetY = 0
-			p.FlowVelX = 0
-			p.FlowVelY = 0
-			p.FlowSeedX = rand.Float32()*32 - 16
-			p.FlowSeedY = rand.Float32()*32 - 16
+			resetParticleFlowState(p, true)
 		}
 	}
 }
 
+func resetParticleFlowState(p *Instance, randomizeSeed bool) {
+	p.FlowOffsetX = 0
+	p.FlowOffsetY = 0
+	p.FlowVelX = 0
+	p.FlowVelY = 0
+	if randomizeSeed {
+		p.FlowSeedX = rand.Float32()*flowSeedRange - flowSeedHalfRange
+		p.FlowSeedY = rand.Float32()*flowSeedRange - flowSeedHalfRange
+		return
+	}
+	p.FlowSeedX = 0
+	p.FlowSeedY = 0
+}
+
 func sampleCurlNoiseField(x, y, t float32, octaves int, persistence float32) (float32, float32) {
-	const epsilon = float32(0.05)
-	nx1 := sampleFlowScalar(x+epsilon, y, t, octaves, persistence)
-	nx2 := sampleFlowScalar(x-epsilon, y, t, octaves, persistence)
-	ny1 := sampleFlowScalar(x, y+epsilon, t, octaves, persistence)
-	ny2 := sampleFlowScalar(x, y-epsilon, t, octaves, persistence)
-	ddx := (nx1 - nx2) / (2 * epsilon)
-	ddy := (ny1 - ny2) / (2 * epsilon)
+	nx1 := sampleFlowScalar(x+curlNoiseEpsilon, y, t, octaves, persistence)
+	nx2 := sampleFlowScalar(x-curlNoiseEpsilon, y, t, octaves, persistence)
+	ny1 := sampleFlowScalar(x, y+curlNoiseEpsilon, t, octaves, persistence)
+	ny2 := sampleFlowScalar(x, y-curlNoiseEpsilon, t, octaves, persistence)
+	ddx := (nx1 - nx2) / (2 * curlNoiseEpsilon)
+	ddy := (ny1 - ny2) / (2 * curlNoiseEpsilon)
 	return ddy, -ddx
 }
 
@@ -578,11 +596,11 @@ func sampleFlowScalar(x, y, t float32, octaves int, persistence float32) float32
 	for i := 0; i < octaves; i++ {
 		px := x * freq
 		py := y * freq
-		pt := t * (0.75 + 0.25*freq)
-		value += float32(math.Sin(float64(px+pt*0.9))) * amp
-		value += 0.7 * float32(math.Cos(float64(py*1.3-pt*1.1))) * amp
-		value += 0.5 * float32(math.Sin(float64((px*0.8+py*1.1)+pt*0.6))) * amp
-		value += 0.35 * float32(math.Cos(float64((px*1.7-py*0.6)-pt*0.4))) * amp
+		pt := t * (flowTimeBaseFactor + flowTimeFrequencyGain*freq)
+		value += float32(math.Sin(float64(px+pt*flowPrimaryTimeScale))) * amp
+		value += flowSecondaryAmplitude * float32(math.Cos(float64(py*flowSecondarySpaceScale-pt*flowSecondaryTimeScale))) * amp
+		value += flowTertiaryAmplitude * float32(math.Sin(float64((px*flowTertiaryXScale+py*flowTertiaryYScale)+pt*flowTertiaryTimeScale))) * amp
+		value += flowQuaternaryAmplitude * float32(math.Cos(float64((px*flowQuaternaryXScale-py*flowQuaternaryYScale)-pt*flowQuaternaryTimeScale))) * amp
 		sumAmp += amp
 		amp *= persistence
 		freq *= 2

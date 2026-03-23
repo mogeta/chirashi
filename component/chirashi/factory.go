@@ -9,6 +9,14 @@ import (
 
 const fullCircleEpsilon = float32(0.01)
 
+const (
+	defaultFlowScale       = float32(160)
+	defaultFlowOctaves     = 2
+	defaultFlowPersistence = float32(0.5)
+	defaultFlowTimeScale   = float32(0.2)
+	defaultFlowDrag        = float32(0.96)
+)
+
 var (
 	// Global configuration loader instance
 	configLoader = NewConfigLoader()
@@ -206,23 +214,23 @@ func buildAnimationParams(config *ParticleConfig) AnimationParams {
 		}
 		pos.FlowScale = flow.Scale
 		if pos.FlowScale <= 0 {
-			pos.FlowScale = 160
+			pos.FlowScale = defaultFlowScale
 		}
 		pos.FlowOctaves = flow.Octaves
 		if pos.FlowOctaves <= 0 {
-			pos.FlowOctaves = 2
+			pos.FlowOctaves = defaultFlowOctaves
 		}
 		pos.FlowPersistence = flow.Persistence
 		if pos.FlowPersistence == 0 {
-			pos.FlowPersistence = 0.5
+			pos.FlowPersistence = defaultFlowPersistence
 		}
 		pos.FlowTimeScale = flow.TimeScale
 		if pos.FlowTimeScale == 0 {
-			pos.FlowTimeScale = 0.2
+			pos.FlowTimeScale = defaultFlowTimeScale
 		}
 		pos.FlowDrag = flow.Drag
 		if pos.FlowDrag == 0 {
-			pos.FlowDrag = 0.96
+			pos.FlowDrag = defaultFlowDrag
 		}
 		pos.FlowLocalSpace = flow.Space != "world"
 		pos.FlowBoundRadius = flow.BoundRadius
