@@ -110,6 +110,27 @@ func TestValidateConfigRejectsInvalidValues(t *testing.T) {
 			},
 			wantErr: "emitter.shape.radius.min",
 		},
+		{
+			name: "invalid flow type",
+			mutate: func(c *ParticleConfig) {
+				c.Animation.Position.Flow = &FlowConfig{Type: "swirl"}
+			},
+			wantErr: "animation.position.flow.type",
+		},
+		{
+			name: "invalid flow octaves",
+			mutate: func(c *ParticleConfig) {
+				c.Animation.Position.Flow = &FlowConfig{Type: "curl", Octaves: 4}
+			},
+			wantErr: "animation.position.flow.octaves",
+		},
+		{
+			name: "invalid flow drag",
+			mutate: func(c *ParticleConfig) {
+				c.Animation.Position.Flow = &FlowConfig{Type: "curl", Drag: 1.5}
+			},
+			wantErr: "animation.position.flow.drag",
+		},
 	}
 
 	loader := NewConfigLoader()

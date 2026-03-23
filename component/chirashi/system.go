@@ -28,7 +28,11 @@ func NewSystem() *System {
 // Update advances particle simulation for all entities with the particle component.
 func (sys *System) Update(ecs *ecs.ECS) {
 	sys.cnt++
-	deltaTime := float32(1.0 / float64(ebiten.TPS()))
+	tps := ebiten.TPS()
+	deltaTime := float32(1.0 / 60.0)
+	if tps > 0 {
+		deltaTime = float32(1.0 / float64(tps))
+	}
 
 	for entry := range sys.query.Iter(ecs.World) {
 		data := Component.Get(entry)
@@ -42,7 +46,7 @@ func (sys *System) Update(ecs *ecs.ECS) {
 		sys.spawn(data)
 
 		// Deactivate expired particles
-		sys.updateParticles(data)
+		sys.updateParticles(data, deltaTime)
 
 		// Update metrics
 		data.Metrics.UpdateTimeUs = time.Since(startTime).Microseconds()
@@ -124,6 +128,24 @@ func (sys *System) spawn(data *SystemData) {
 			particle.HasAttractor = false
 		}
 		particle.PositionEasing = pos.Easing
+		particle.HasFlow = pos.HasFlow
+		if pos.HasFlow {
+			particle.FlowGain = rangeFloat32(pos.FlowStrengthMin, pos.FlowStrengthMax)
+			particle.FlowOffsetX = 0
+			particle.FlowOffsetY = 0
+			particle.FlowVelX = 0
+			particle.FlowVelY = 0
+			particle.FlowSeedX = rand.Float32()*32 - 16
+			particle.FlowSeedY = rand.Float32()*32 - 16
+		} else {
+			particle.FlowGain = 0
+			particle.FlowOffsetX = 0
+			particle.FlowOffsetY = 0
+			particle.FlowVelX = 0
+			particle.FlowVelY = 0
+			particle.FlowSeedX = 0
+			particle.FlowSeedY = 0
+		}
 
 		// Appearance
 		particle.StartAlpha = app.StartAlpha
@@ -271,7 +293,7 @@ func rotateOffset(originX, originY, offsetX, offsetY, rotation float32) (float32
 	return originX + offsetX*cos - offsetY*sin, originY + offsetX*sin + offsetY*cos
 }
 
-func (sys *System) updateParticles(data *SystemData) {
+func (sys *System) updateParticles(data *SystemData, deltaTime float32) {
 	currentTime := data.CurrentTime
 	indicesToRemove := []int{}
 
@@ -281,6 +303,16 @@ func (sys *System) updateParticles(data *SystemData) {
 		particle := &data.ParticlePool[particleIdx]
 
 		elapsed := currentTime - particle.SpawnTime
+		if particle.HasFlow && data.AnimParams.Position.HasFlow {
+			normalizedT := elapsed / particle.Duration
+			if normalizedT < 0 {
+				normalizedT = 0
+			}
+			if normalizedT > 1 {
+				normalizedT = 1
+			}
+			updateParticleFlow(data, particle, elapsed, normalizedT, deltaTime)
+		}
 		if elapsed >= particle.Duration {
 			particle.Active = false
 			indicesToRemove = append(indicesToRemove, i)
@@ -337,27 +369,10 @@ func (sys *System) Draw(ecs *ecs.ECS, screen *ebiten.Image) {
 
 			// Calculate position, scale, rotation (per-property sequence or lerp)
 			posT := ApplyEasing(normalizedT, p.PositionEasing)
-			var x, y float32
-			switch {
-			case p.HasAttractor:
-				// Quadratic bezier: B(t) = (1-t)²·P0 + 2(1-t)t·P1 + t²·P2
-				u := 1 - posT
-				x = u*u*p.StartX + 2*u*posT*p.ControlX + posT*posT*data.AttractorX
-				y = u*u*p.StartY + 2*u*posT*p.ControlY + posT*posT*data.AttractorY
-			case p.HasPosXSeq:
-				x = EvaluateSequence(data.PosXSeq, &p.PosXSnap, elapsed)
-				if p.HasPosYSeq {
-					y = EvaluateSequence(data.PosYSeq, &p.PosYSnap, elapsed)
-				} else {
-					y = lerp(p.StartY, p.EndY, posT)
-				}
-			default:
-				x = lerp(p.StartX, p.EndX, posT)
-				if p.HasPosYSeq {
-					y = EvaluateSequence(data.PosYSeq, &p.PosYSnap, elapsed)
-				} else {
-					y = lerp(p.StartY, p.EndY, posT)
-				}
+			x, y := evaluateParticleBasePosition(data, p, elapsed, posT)
+			if p.HasFlow {
+				x += p.FlowOffsetX
+				y += p.FlowOffsetY
 			}
 
 			var scale float32
@@ -483,4 +498,97 @@ func rangeFloat32(min, max float32) float32 {
 
 func lerp(a, b, t float32) float32 {
 	return a + (b-a)*t
+}
+
+func evaluateParticleBasePosition(data *SystemData, p *Instance, elapsed, posT float32) (float32, float32) {
+	switch {
+	case p.HasAttractor:
+		// Quadratic bezier: B(t) = (1-t)^2*P0 + 2(1-t)t*P1 + t^2*P2
+		u := 1 - posT
+		return u*u*p.StartX + 2*u*posT*p.ControlX + posT*posT*data.AttractorX,
+			u*u*p.StartY + 2*u*posT*p.ControlY + posT*posT*data.AttractorY
+	case p.HasPosXSeq:
+		x := EvaluateSequence(data.PosXSeq, &p.PosXSnap, elapsed)
+		if p.HasPosYSeq {
+			return x, EvaluateSequence(data.PosYSeq, &p.PosYSnap, elapsed)
+		}
+		return x, lerp(p.StartY, p.EndY, posT)
+	default:
+		x := lerp(p.StartX, p.EndX, posT)
+		if p.HasPosYSeq {
+			return x, EvaluateSequence(data.PosYSeq, &p.PosYSnap, elapsed)
+		}
+		return x, lerp(p.StartY, p.EndY, posT)
+	}
+}
+
+func updateParticleFlow(data *SystemData, p *Instance, elapsed, normalizedT, deltaTime float32) {
+	pos := data.AnimParams.Position
+	if !pos.HasFlow || p.FlowGain == 0 {
+		return
+	}
+
+	baseT := ApplyEasing(normalizedT, p.PositionEasing)
+	baseX, baseY := evaluateParticleBasePosition(data, p, elapsed, baseT)
+	sampleX := baseX + p.FlowOffsetX
+	sampleY := baseY + p.FlowOffsetY
+	if pos.FlowLocalSpace {
+		sampleX -= data.EmitterX
+		sampleY -= data.EmitterY
+	}
+	sampleX = sampleX/pos.FlowScale + p.FlowSeedX
+	sampleY = sampleY/pos.FlowScale + p.FlowSeedY
+	t := elapsed * pos.FlowTimeScale
+	fieldX, fieldY := sampleCurlNoiseField(sampleX, sampleY, t, pos.FlowOctaves, pos.FlowPersistence)
+	p.FlowVelX = p.FlowVelX*pos.FlowDrag + fieldX*p.FlowGain*deltaTime
+	p.FlowVelY = p.FlowVelY*pos.FlowDrag + fieldY*p.FlowGain*deltaTime
+	p.FlowOffsetX += p.FlowVelX * deltaTime
+	p.FlowOffsetY += p.FlowVelY * deltaTime
+
+	if pos.FlowRespawnOnEscape && pos.FlowBoundRadius > 0 {
+		dx := baseX + p.FlowOffsetX - data.EmitterX
+		dy := baseY + p.FlowOffsetY - data.EmitterY
+		if dx*dx+dy*dy > pos.FlowBoundRadius*pos.FlowBoundRadius {
+			p.FlowOffsetX = 0
+			p.FlowOffsetY = 0
+			p.FlowVelX = 0
+			p.FlowVelY = 0
+			p.FlowSeedX = rand.Float32()*32 - 16
+			p.FlowSeedY = rand.Float32()*32 - 16
+		}
+	}
+}
+
+func sampleCurlNoiseField(x, y, t float32, octaves int, persistence float32) (float32, float32) {
+	const epsilon = float32(0.05)
+	nx1 := sampleFlowScalar(x+epsilon, y, t, octaves, persistence)
+	nx2 := sampleFlowScalar(x-epsilon, y, t, octaves, persistence)
+	ny1 := sampleFlowScalar(x, y+epsilon, t, octaves, persistence)
+	ny2 := sampleFlowScalar(x, y-epsilon, t, octaves, persistence)
+	ddx := (nx1 - nx2) / (2 * epsilon)
+	ddy := (ny1 - ny2) / (2 * epsilon)
+	return ddy, -ddx
+}
+
+func sampleFlowScalar(x, y, t float32, octaves int, persistence float32) float32 {
+	amp := float32(1)
+	freq := float32(1)
+	sumAmp := float32(0)
+	value := float32(0)
+	for i := 0; i < octaves; i++ {
+		px := x * freq
+		py := y * freq
+		pt := t * (0.75 + 0.25*freq)
+		value += float32(math.Sin(float64(px+pt*0.9))) * amp
+		value += 0.7 * float32(math.Cos(float64(py*1.3-pt*1.1))) * amp
+		value += 0.5 * float32(math.Sin(float64((px*0.8+py*1.1)+pt*0.6))) * amp
+		value += 0.35 * float32(math.Cos(float64((px*1.7-py*0.6)-pt*0.4))) * amp
+		sumAmp += amp
+		amp *= persistence
+		freq *= 2
+	}
+	if sumAmp == 0 {
+		return 0
+	}
+	return value / sumAmp
 }

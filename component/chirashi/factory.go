@@ -198,6 +198,36 @@ func buildAnimationParams(config *ParticleConfig) AnimationParams {
 			pos.EndYMax = config.Animation.Position.EndY.Max
 		}
 	}
+	if flow := config.Animation.Position.Flow; flow != nil {
+		pos.HasFlow = true
+		if flow.Strength != nil {
+			pos.FlowStrengthMin = flow.Strength.Min
+			pos.FlowStrengthMax = flow.Strength.Max
+		}
+		pos.FlowScale = flow.Scale
+		if pos.FlowScale <= 0 {
+			pos.FlowScale = 160
+		}
+		pos.FlowOctaves = flow.Octaves
+		if pos.FlowOctaves <= 0 {
+			pos.FlowOctaves = 2
+		}
+		pos.FlowPersistence = flow.Persistence
+		if pos.FlowPersistence == 0 {
+			pos.FlowPersistence = 0.5
+		}
+		pos.FlowTimeScale = flow.TimeScale
+		if pos.FlowTimeScale == 0 {
+			pos.FlowTimeScale = 0.2
+		}
+		pos.FlowDrag = flow.Drag
+		if pos.FlowDrag == 0 {
+			pos.FlowDrag = 0.96
+		}
+		pos.FlowLocalSpace = flow.Space != "world"
+		pos.FlowBoundRadius = flow.BoundRadius
+		pos.FlowRespawnOnEscape = flow.RespawnOnEscape
+	}
 
 	app := AppearanceParams{
 		StartAlpha:     config.Animation.Alpha.Start,

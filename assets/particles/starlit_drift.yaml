@@ -1,0 +1,76 @@
+name: "starlit_drift"
+description: >
+  Soft star motes that hover around the emitter with curl flow.
+  Useful for space backdrops, nebula ambience, or magical void scenes.
+
+image:
+  image_from: "ef1"
+  image_id: 5
+
+emitter:
+  x: 0
+  y: 0
+  shape:
+    type: "circle"
+    radius:
+      min: 0
+      max: 220
+
+animation:
+  duration:
+    range:
+      min: 5.0
+      max: 8.0
+
+  position:
+    type: "cartesian"
+    end_x:
+      min: 0
+      max: 0
+    end_y:
+      min: 0
+      max: 0
+    flow:
+      type: "curl"
+      strength:
+        min: 10
+        max: 24
+      scale: 220
+      octaves: 2
+      persistence: 0.5
+      time_scale: 0.16
+      drag: 0.97
+      space: "local"
+      bound_radius: 420
+      respawn_on_escape: true
+    easing: "Linear"
+
+  alpha:
+    start: 0.35
+    end: 0.0
+    easing: "Linear"
+
+  scale:
+    start: 0.18
+    end: 0.42
+    easing: "InOutSine"
+
+  rotation:
+    start: 0.0
+    end: 1.2
+    easing: "Linear"
+
+  color:
+    start_r: 0.75
+    start_g: 0.88
+    start_b: 1.0
+    end_r: 0.35
+    end_g: 0.55
+    end_b: 0.95
+    easing: "InOutSine"
+
+spawn:
+  interval: 2
+  particles_per_spawn: 4
+  max_particles: 480
+  is_loop: true

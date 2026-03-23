@@ -43,6 +43,17 @@ animation:
     # polar fields
     angle:    { min: float, max: float } # optional
     distance: { min: float, max: float } # optional
+    flow: # optional
+      type: "curl"
+      strength: { min: float, max: float } # optional
+      scale: float
+      octaves: int
+      persistence: float
+      time_scale: float
+      drag: float
+      space: "local" | "world" # optional
+      bound_radius: float # optional
+      respawn_on_escape: bool # optional
     easing: string
   alpha: PropertyConfig
   scale: PropertyConfig
@@ -92,6 +103,15 @@ Validation is performed by `ConfigLoader`:
 - `spawn.particles_per_spawn` must be `> 0`.
 - `spawn.interval` must be `> 0`.
 - `animation.duration.value` must be `> 0`.
+- `animation.position.flow.type` must be `curl`.
+- `animation.position.flow.strength.min` must be `<= max`.
+- `animation.position.flow.scale` must be `>= 0`.
+- `animation.position.flow.octaves` must be within `[0,3]`.
+- `animation.position.flow.persistence` must be `>= 0`.
+- `animation.position.flow.time_scale` must be `>= 0`.
+- `animation.position.flow.drag` must be within `[0,1]`.
+- `animation.position.flow.space` must be `local` or `world`.
+- `animation.position.flow.bound_radius` must be `>= 0`.
 
 If validation fails, loading returns an error.
 
@@ -101,6 +121,11 @@ If validation fails, loading returns an error.
 - `animation.position.type`:
   - `"polar"` uses `angle` + `distance`.
   - any other value (including empty) is treated as cartesian mode.
+- `animation.position.flow`:
+  - `type` defaults to `curl`.
+  - `scale` defaults to `160`, `octaves` to `2`, `persistence` to `0.5`, `time_scale` to `0.2`, and `drag` to `0.96`.
+  - `space` defaults to `local`.
+  - flow is applied as a continuously integrated offset on top of the configured base path.
 - `emitter.shape.type` defaults to `"point"`.
 - `circle` shape defaults to a full 0..2π arc when `start_angle`/`end_angle` are omitted.
 - If cartesian ranges are omitted, values default to `0`, so particles can stay at emitter position.
@@ -121,6 +146,7 @@ Recommended practice:
 - Always use `min <= max`.
 - Keep all sequence `duration > 0`.
 - Provide explicit easing for each animated property/step.
+- Keep `position.flow.octaves` low on mobile; `1` or `2` is the intended range.
 
 ## Example: Looping effect (cartesian)
 
@@ -143,6 +169,47 @@ spawn:
   interval: 2
   particles_per_spawn: 8
   max_particles: 1200
+  is_loop: true
+```
+
+## Example: Ambient curl drift
+
+```yaml
+name: "starlit_drift"
+description: "ambient star motes drifting with curl flow"
+image: { image_from: "ef1", image_id: 5 }
+emitter:
+  x: 0
+  y: 0
+  shape:
+    type: "circle"
+    radius: { min: 0, max: 220 }
+animation:
+  duration:
+    range: { min: 5.0, max: 8.0 }
+  position:
+    type: "cartesian"
+    end_x: { min: 0, max: 0 }
+    end_y: { min: 0, max: 0 }
+    flow:
+      type: "curl"
+      strength: { min: 10, max: 24 }
+      scale: 220
+      octaves: 2
+      persistence: 0.5
+      time_scale: 0.16
+      drag: 0.97
+      space: "local"
+      bound_radius: 420
+      respawn_on_escape: true
+    easing: "Linear"
+  alpha: { start: 0.35, end: 0.0, easing: "Linear" }
+  scale: { start: 0.18, end: 0.42, easing: "InOutSine" }
+  rotation: { start: 0.0, end: 1.2, easing: "Linear" }
+spawn:
+  interval: 2
+  particles_per_spawn: 4
+  max_particles: 480
   is_loop: true
 ```
 

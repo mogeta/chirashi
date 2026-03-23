@@ -217,6 +217,11 @@ func copyPositionConfig(src PositionConfig) PositionConfig {
 	dst.Distance = copyRangePtr(src.Distance)
 	dst.ControlX = copyRangePtr(src.ControlX)
 	dst.ControlY = copyRangePtr(src.ControlY)
+	if src.Flow != nil {
+		flow := *src.Flow
+		flow.Strength = copyRangePtr(src.Flow.Strength)
+		dst.Flow = &flow
+	}
 	if src.X != nil {
 		x := copyPropertyConfig(*src.X)
 		dst.X = &x

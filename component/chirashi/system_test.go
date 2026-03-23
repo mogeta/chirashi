@@ -67,7 +67,7 @@ func TestUpdateParticlesDeactivatesExpired(t *testing.T) {
 		CurrentTime:   1.0,
 	}
 
-	sys.updateParticles(data)
+	sys.updateParticles(data, 1.0/60.0)
 
 	if got := data.ActiveCount; got != 1 {
 		t.Fatalf("active count got %d, want 1", got)
@@ -80,6 +80,119 @@ func TestUpdateParticlesDeactivatesExpired(t *testing.T) {
 	}
 	if got := data.Metrics.DeactivateCount; got != 1 {
 		t.Fatalf("deactivate count got %d, want 1", got)
+	}
+}
+
+func TestBuildAnimationParamsIncludesFlowDefaults(t *testing.T) {
+	cfg := &ParticleConfig{
+		Animation: AnimationConfig{
+			Duration: DurationConfig{Value: 1},
+			Position: PositionConfig{
+				Easing: "Linear",
+				Flow:   &FlowConfig{Type: "curl", Strength: &RangeFloat{Min: 4, Max: 10}},
+			},
+			Alpha:    PropertyConfig{Start: 1, End: 0, Easing: "Linear"},
+			Scale:    PropertyConfig{Start: 1, End: 1, Easing: "Linear"},
+			Rotation: PropertyConfig{Start: 0, End: 0, Easing: "Linear"},
+		},
+	}
+
+	pos := buildAnimationParams(cfg).Position
+	if !pos.HasFlow {
+		t.Fatal("expected flow to be enabled")
+	}
+	if pos.FlowStrengthMin != 4 || pos.FlowStrengthMax != 10 {
+		t.Fatalf("unexpected flow strength range: [%v,%v]", pos.FlowStrengthMin, pos.FlowStrengthMax)
+	}
+	if pos.FlowScale != 160 || pos.FlowOctaves != 2 || pos.FlowPersistence != 0.5 || pos.FlowTimeScale != 0.2 || pos.FlowDrag != 0.96 {
+		t.Fatalf("unexpected flow defaults: %+v", pos)
+	}
+	if !pos.FlowLocalSpace {
+		t.Fatal("expected local flow space by default")
+	}
+}
+
+func TestUpdateParticlesAppliesCurlFlow(t *testing.T) {
+	sys := &System{}
+	data := &SystemData{
+		ParticlePool: []Instance{
+			{
+				Active:         true,
+				SpawnTime:      0,
+				Duration:       10,
+				StartX:         0,
+				EndX:           0,
+				StartY:         0,
+				EndY:           0,
+				PositionEasing: EasingLinear,
+				HasFlow:        true,
+				FlowGain:       24,
+				FlowSeedX:      0.6,
+				FlowSeedY:      -0.4,
+			},
+		},
+		ActiveIndices: []int{0},
+		ActiveCount:   1,
+		CurrentTime:   0.5,
+		AnimParams: AnimationParams{
+			Position: PositionParams{
+				Easing:          EasingLinear,
+				HasFlow:         true,
+				FlowStrengthMin: 24,
+				FlowStrengthMax: 24,
+				FlowScale:       160,
+				FlowOctaves:     2,
+				FlowPersistence: 0.5,
+				FlowTimeScale:   0.3,
+				FlowDrag:        0.96,
+				FlowLocalSpace:  true,
+			},
+		},
+	}
+
+	sys.updateParticles(data, 1.0/60.0)
+
+	p := data.ParticlePool[0]
+	if p.FlowOffsetX == 0 && p.FlowOffsetY == 0 {
+		t.Fatal("expected curl flow to move the particle offset")
+	}
+	if p.FlowVelX == 0 && p.FlowVelY == 0 {
+		t.Fatal("expected curl flow to update particle velocity")
+	}
+}
+
+func TestUpdateParticlesResetsFlowWhenLeavingBounds(t *testing.T) {
+	sys := &System{}
+	data := &SystemData{
+		EmitterX:      0,
+		EmitterY:      0,
+		ParticlePool:  []Instance{{Active: true, SpawnTime: 0, Duration: 10, PositionEasing: EasingLinear, HasFlow: true, FlowGain: 12, FlowOffsetX: 30, FlowOffsetY: 0, FlowVelX: 5, FlowVelY: 5}},
+		ActiveIndices: []int{0},
+		ActiveCount:   1,
+		CurrentTime:   0.5,
+		AnimParams: AnimationParams{
+			Position: PositionParams{
+				Easing:              EasingLinear,
+				HasFlow:             true,
+				FlowStrengthMin:     12,
+				FlowStrengthMax:     12,
+				FlowScale:           160,
+				FlowOctaves:         1,
+				FlowPersistence:     0.5,
+				FlowTimeScale:       0.2,
+				FlowDrag:            0.96,
+				FlowLocalSpace:      true,
+				FlowBoundRadius:     10,
+				FlowRespawnOnEscape: true,
+			},
+		},
+	}
+
+	sys.updateParticles(data, 1.0/60.0)
+
+	p := data.ParticlePool[0]
+	if p.FlowOffsetX != 0 || p.FlowOffsetY != 0 || p.FlowVelX != 0 || p.FlowVelY != 0 {
+		t.Fatalf("expected flow state to reset after leaving bounds, got offset=(%v,%v) vel=(%v,%v)", p.FlowOffsetX, p.FlowOffsetY, p.FlowVelX, p.FlowVelY)
 	}
 }
 
