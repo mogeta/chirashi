@@ -26,6 +26,13 @@ const (
 	editorCenterY      = editorScreenHeight / 2
 )
 
+type applyMode int
+
+const (
+	applyModeLive applyMode = iota
+	applyModeRecreate
+)
+
 type ParticleEditorScene struct {
 	world           donburi.World
 	container       *ecs.ECS
@@ -40,6 +47,7 @@ type ParticleEditorScene struct {
 	offscreen       *ebiten.Image
 	glitchIntensity float64
 	useBlurShader   bool
+	vsyncEnabled    bool
 	time            float64
 	fileList        []string
 	attractorX      float32
@@ -93,6 +101,7 @@ func NewParticleEditorScene() (*ParticleEditorScene, error) {
 		shader:        shader,
 		blurShader:    blurShader,
 		bloomShader:   bloomShader,
+		vsyncEnabled:  false,
 		attractorX:    editorCenterX,
 		attractorY:    editorCenterY,
 	}
@@ -216,14 +225,26 @@ func (s *ParticleEditorScene) recreateParticles() {
 }
 
 func (s *ParticleEditorScene) applyConfigLive() {
-	query := donburi.NewQuery(filter.Contains(chirashi.Component))
-	query.Each(s.world, func(entry *donburi.Entry) {
+	s.forEachParticleSystem(func(entry *donburi.Entry) {
 		chirashi.ApplyConfigLive(s.world, entry.Entity(), s.config, editorCenterX, editorCenterY)
 	})
 
 	if s.config.Animation.Position.Type == "attractor" {
 		s.applyAttractorTarget()
 	}
+}
+
+func (s *ParticleEditorScene) applyChange(mode applyMode) {
+	if mode == applyModeRecreate {
+		s.recreateParticles()
+		return
+	}
+	s.applyConfigLive()
+}
+
+func (s *ParticleEditorScene) forEachParticleSystem(fn func(entry *donburi.Entry)) {
+	query := donburi.NewQuery(filter.Contains(chirashi.Component))
+	query.Each(s.world, fn)
 }
 
 func (s *ParticleEditorScene) Layout(outsideWidth, outsideHeight int) (int, int) {
@@ -235,34 +256,44 @@ func (s *ParticleEditorScene) Layout(outsideWidth, outsideHeight int) (int, int)
 }
 
 func (s *ParticleEditorScene) drawGeneralSettingsContents(ctx *debugui.Context) {
+	s.drawSpawnControls(ctx)
+	ctx.Text("----------------")
+	s.drawEmitterControls(ctx)
+	ctx.Text("----------------")
+	s.drawVisualFeatureControls(ctx)
+	ctx.Text("----------------")
+	s.drawShaderControls(ctx)
+}
+
+func (s *ParticleEditorScene) drawSpawnControls(ctx *debugui.Context) {
 	ctx.Text("Spawn Config")
 
 	ctx.SetGridLayout([]int{140, 60, 60}, nil)
 	ctx.Text(fmt.Sprintf("Interval: %d", s.config.Spawn.Interval))
-	ctx.Button("I+").On(func() { s.config.Spawn.Interval++; s.applyConfigLive() })
+	ctx.Button("I+").On(func() { s.config.Spawn.Interval++; s.applyChange(applyModeLive) })
 	ctx.Button("I-").On(func() {
 		if s.config.Spawn.Interval > 1 {
 			s.config.Spawn.Interval--
 		}
-		s.applyConfigLive()
+		s.applyChange(applyModeLive)
 	})
 
 	ctx.Text(fmt.Sprintf("Per Spawn: %d", s.config.Spawn.ParticlesPerSpawn))
-	ctx.Button("P+").On(func() { s.config.Spawn.ParticlesPerSpawn += 10; s.applyConfigLive() })
+	ctx.Button("P+").On(func() { s.config.Spawn.ParticlesPerSpawn += 10; s.applyChange(applyModeLive) })
 	ctx.Button("P-").On(func() {
 		if s.config.Spawn.ParticlesPerSpawn > 1 {
 			s.config.Spawn.ParticlesPerSpawn -= 10
 		}
-		s.applyConfigLive()
+		s.applyChange(applyModeLive)
 	})
 
 	ctx.Text(fmt.Sprintf("Max Particles: %d", s.config.Spawn.MaxParticles))
-	ctx.Button("M+").On(func() { s.config.Spawn.MaxParticles += 1000; s.recreateParticles() })
+	ctx.Button("M+").On(func() { s.config.Spawn.MaxParticles += 1000; s.applyChange(applyModeRecreate) })
 	ctx.Button("M-").On(func() {
 		if s.config.Spawn.MaxParticles > 100 {
 			s.config.Spawn.MaxParticles -= 1000
 		}
-		s.recreateParticles()
+		s.applyChange(applyModeRecreate)
 	})
 	ctx.SetGridLayout([]int{-1}, nil)
 
@@ -272,39 +303,39 @@ func (s *ParticleEditorScene) drawGeneralSettingsContents(ctx *debugui.Context) 
 	}
 	ctx.Button(loopLabel).On(func() {
 		s.config.Spawn.IsLoop = !s.config.Spawn.IsLoop
-		s.applyConfigLive()
+		s.applyChange(applyModeLive)
 	})
 
 	if !s.config.Spawn.IsLoop {
 		ctx.SetGridLayout([]int{140, 60, 60}, nil)
 		ctx.Text(fmt.Sprintf("LifeTime: %d", s.config.Spawn.LifeTime))
-		ctx.Button("L+").On(func() { s.config.Spawn.LifeTime += 60; s.applyConfigLive() })
+		ctx.Button("L+").On(func() { s.config.Spawn.LifeTime += 60; s.applyChange(applyModeLive) })
 		ctx.Button("L-").On(func() {
 			if s.config.Spawn.LifeTime > 60 {
 				s.config.Spawn.LifeTime -= 60
 			}
-			s.applyConfigLive()
+			s.applyChange(applyModeLive)
 		})
 		ctx.SetGridLayout([]int{-1}, nil)
 	}
 
-	ctx.Text("----------------")
-	ctx.Text("Emitter")
+}
 
+func (s *ParticleEditorScene) drawEmitterControls(ctx *debugui.Context) {
+	ctx.Text("Emitter")
 	ctx.SetGridLayout([]int{140, 60, 60}, nil)
 	ctx.Text(fmt.Sprintf("X: %.1f", s.config.Emitter.X))
-	ctx.Button("X+").On(func() { s.config.Emitter.X += 10; s.applyConfigLive() })
-	ctx.Button("X-").On(func() { s.config.Emitter.X -= 10; s.applyConfigLive() })
+	ctx.Button("X+").On(func() { s.config.Emitter.X += 10; s.applyChange(applyModeLive) })
+	ctx.Button("X-").On(func() { s.config.Emitter.X -= 10; s.applyChange(applyModeLive) })
 
 	ctx.Text(fmt.Sprintf("Y: %.1f", s.config.Emitter.Y))
-	ctx.Button("Y+").On(func() { s.config.Emitter.Y += 10; s.applyConfigLive() })
-	ctx.Button("Y-").On(func() { s.config.Emitter.Y -= 10; s.applyConfigLive() })
+	ctx.Button("Y+").On(func() { s.config.Emitter.Y += 10; s.applyChange(applyModeLive) })
+	ctx.Button("Y-").On(func() { s.config.Emitter.Y -= 10; s.applyChange(applyModeLive) })
 	ctx.SetGridLayout([]int{-1}, nil)
-
-	ctx.Text("----------------")
 	s.drawEmitterShapeControls(ctx)
-	ctx.Text("----------------")
+}
 
+func (s *ParticleEditorScene) drawVisualFeatureControls(ctx *debugui.Context) {
 	ctx.Text("Visual Features")
 	ctx.SetGridLayout([]int{180, 180}, nil)
 	colorState := "Color Window: OFF"
@@ -324,14 +355,22 @@ func (s *ParticleEditorScene) drawGeneralSettingsContents(ctx *debugui.Context) 
 		} else {
 			s.config.Animation.Color = nil
 		}
-		s.applyConfigLive()
+		s.applyChange(applyModeLive)
 	})
 	ctx.SetGridLayout([]int{-1}, nil)
+}
 
-	ctx.Text("----------------")
-
-	// Glitch Intensity
+func (s *ParticleEditorScene) drawShaderControls(ctx *debugui.Context) {
 	s.sliderControl(ctx, "Glitch Intensity", &s.glitchIntensity, 0.0, 1.0, 0.01)
+
+	vsyncLabel := "VSync: OFF"
+	if s.vsyncEnabled {
+		vsyncLabel = "VSync: ON"
+	}
+	ctx.Button(vsyncLabel).On(func() {
+		s.vsyncEnabled = !s.vsyncEnabled
+		ebiten.SetVsyncEnabled(s.vsyncEnabled)
+	})
 
 	mode := "Default"
 	if s.useBlurShader {
@@ -346,7 +385,7 @@ func (s *ParticleEditorScene) drawGeneralSettingsContents(ctx *debugui.Context) 
 		} else {
 			s.shader = s.defaultShader
 		}
-		s.recreateParticles()
+		s.applyChange(applyModeRecreate)
 	})
 	ctx.SetGridLayout([]int{-1}, nil)
 }
@@ -377,7 +416,7 @@ func (s *ParticleEditorScene) drawEmitterShapeControls(ctx *debugui.Context) {
 		ctx.Button("Full Arc").On(func() {
 			shape.StartAngle = 0
 			shape.EndAngle = 6.2831855
-			s.applyConfigLive()
+			s.applyChange(applyModeLive)
 		})
 		edgeLabel := "Area"
 		if shape.FromEdge {
@@ -385,7 +424,7 @@ func (s *ParticleEditorScene) drawEmitterShapeControls(ctx *debugui.Context) {
 		}
 		ctx.Button("Sample: " + edgeLabel).On(func() {
 			shape.FromEdge = !shape.FromEdge
-			s.recreateParticles()
+			s.applyChange(applyModeRecreate)
 		})
 	case "box":
 		s.sliderControl32(ctx, "Width", &shape.Width, 0, 400, 5)
@@ -397,7 +436,7 @@ func (s *ParticleEditorScene) drawEmitterShapeControls(ctx *debugui.Context) {
 		}
 		ctx.Button("Sample: " + boxSample).On(func() {
 			shape.FromEdge = !shape.FromEdge
-			s.recreateParticles()
+			s.applyChange(applyModeRecreate)
 		})
 	case "line":
 		s.sliderControl32(ctx, "Length", &shape.Length, 0, 400, 5)
@@ -432,7 +471,7 @@ func (s *ParticleEditorScene) setEmitterShapeType(shapeType string) {
 	default:
 		shape.Type = "point"
 	}
-	s.recreateParticles()
+	s.applyChange(applyModeRecreate)
 }
 
 func (s *ParticleEditorScene) setPositionMode(mode string) {
@@ -464,18 +503,18 @@ func (s *ParticleEditorScene) setPositionMode(mode string) {
 			s.config.Animation.Position.EndY = &chirashi.RangeFloat{Min: -100, Max: 100}
 		}
 	}
-	s.recreateParticles()
+	s.applyChange(applyModeRecreate)
 }
 
 func (s *ParticleEditorScene) drawMotionContents(ctx *debugui.Context) {
-	s.drawDurationControls(ctx)
+	s.drawDurationSection(ctx)
 	ctx.Text("----------------")
-	s.drawPositionControls(ctx)
+	s.drawPositionSection(ctx)
 	ctx.Text("----------------")
-	s.drawFlowControls(ctx)
+	s.drawFlowSection(ctx)
 }
 
-func (s *ParticleEditorScene) drawDurationControls(ctx *debugui.Context) {
+func (s *ParticleEditorScene) drawDurationSection(ctx *debugui.Context) {
 	if s.config.Animation.Duration.Range != nil {
 		ctx.SetGridLayout([]int{180, 180}, nil)
 		ctx.Text("Duration")
@@ -484,7 +523,7 @@ func (s *ParticleEditorScene) drawDurationControls(ctx *debugui.Context) {
 			if s.config.Animation.Duration.Value <= 0 {
 				s.config.Animation.Duration.Value = 1.0
 			}
-			s.applyConfigLive()
+			s.applyChange(applyModeLive)
 		})
 		ctx.SetGridLayout([]int{-1}, nil)
 		s.rangeControlCompact(ctx, "Duration", s.config.Animation.Duration.Range, 0.1, 10.0, 0.1)
@@ -503,7 +542,7 @@ func (s *ParticleEditorScene) drawDurationControls(ctx *debugui.Context) {
 			minVal = 0.1
 		}
 		s.config.Animation.Duration.Range = &chirashi.RangeFloat{Min: minVal, Max: base * 1.5}
-		s.applyConfigLive()
+		s.applyChange(applyModeLive)
 	})
 	ctx.SetGridLayout([]int{-1}, nil)
 
@@ -512,7 +551,7 @@ func (s *ParticleEditorScene) drawDurationControls(ctx *debugui.Context) {
 	s.config.Animation.Duration.Value = float32(dv)
 }
 
-func (s *ParticleEditorScene) drawPositionControls(ctx *debugui.Context) {
+func (s *ParticleEditorScene) drawPositionSection(ctx *debugui.Context) {
 	posType := s.config.Animation.Position.Type
 	if posType == "" {
 		posType = "cartesian"
@@ -561,12 +600,12 @@ func (s *ParticleEditorScene) drawPositionControls(ctx *debugui.Context) {
 	ctx.Text("Easing: " + s.config.Animation.Position.Easing)
 	ctx.Button("Cycle Easing").On(func() {
 		s.config.Animation.Position.Easing = s.cycleEasing(s.config.Animation.Position.Easing)
-		s.applyConfigLive()
+		s.applyChange(applyModeLive)
 	})
 	ctx.SetGridLayout([]int{-1}, nil)
 }
 
-func (s *ParticleEditorScene) drawFlowControls(ctx *debugui.Context) {
+func (s *ParticleEditorScene) drawFlowSection(ctx *debugui.Context) {
 	ctx.SetGridLayout([]int{200, 180}, nil)
 	if s.config.Animation.Position.Flow == nil {
 		ctx.Text("Flow: OFF")
@@ -581,7 +620,7 @@ func (s *ParticleEditorScene) drawFlowControls(ctx *debugui.Context) {
 				Drag:        0.96,
 				Space:       "local",
 			}
-			s.applyConfigLive()
+			s.applyChange(applyModeLive)
 		})
 		ctx.SetGridLayout([]int{-1}, nil)
 		ctx.Text("Enable flow to show curl drift controls.")
@@ -591,7 +630,7 @@ func (s *ParticleEditorScene) drawFlowControls(ctx *debugui.Context) {
 	ctx.Text("Flow: ON")
 	ctx.Button("Disable Flow").On(func() {
 		s.config.Animation.Position.Flow = nil
-		s.applyConfigLive()
+		s.applyChange(applyModeLive)
 	})
 	ctx.SetGridLayout([]int{-1}, nil)
 
@@ -617,7 +656,7 @@ func (s *ParticleEditorScene) drawFlowControls(ctx *debugui.Context) {
 		} else {
 			flow.Space = "world"
 		}
-		s.applyConfigLive()
+		s.applyChange(applyModeLive)
 	})
 	respawnLabel := "Respawn On Escape: OFF"
 	if flow.RespawnOnEscape {
@@ -625,7 +664,7 @@ func (s *ParticleEditorScene) drawFlowControls(ctx *debugui.Context) {
 	}
 	ctx.Button(respawnLabel).On(func() {
 		flow.RespawnOnEscape = !flow.RespawnOnEscape
-		s.applyConfigLive()
+		s.applyChange(applyModeLive)
 	})
 	ctx.SetGridLayout([]int{-1}, nil)
 }
@@ -647,7 +686,7 @@ func (s *ParticleEditorScene) drawPropertyWindow(ctx *debugui.Context, label str
 	ctx.Text("Easing: " + config.Easing)
 	ctx.Button("Cycle Easing##" + idSuffix).On(func() {
 		config.Easing = s.cycleEasing(config.Easing)
-		s.applyConfigLive()
+		s.applyChange(applyModeLive)
 	})
 	ctx.SetGridLayout([]int{-1}, nil)
 }
@@ -659,7 +698,7 @@ func (s *ParticleEditorScene) drawColorControls(ctx *debugui.Context) {
 
 	ctx.Button("Disable Color").On(func() {
 		s.config.Animation.Color = nil
-		s.applyConfigLive()
+		s.applyChange(applyModeLive)
 	})
 
 	startR := float64(s.config.Animation.Color.StartR)
@@ -684,20 +723,22 @@ func (s *ParticleEditorScene) drawColorControls(ctx *debugui.Context) {
 	ctx.Text("Easing: " + s.config.Animation.Color.Easing)
 	ctx.Button("Cycle Easing##color").On(func() {
 		s.config.Animation.Color.Easing = s.cycleEasing(s.config.Animation.Color.Easing)
-		s.applyConfigLive()
+		s.applyChange(applyModeLive)
 	})
 	ctx.SetGridLayout([]int{-1}, nil)
 }
 
 func (s *ParticleEditorScene) drawDebugContents(ctx *debugui.Context) {
 	fps := ebiten.ActualFPS()
+	tps := ebiten.ActualTPS()
 	ctx.Text(fmt.Sprintf("FPS: %.2f", fps))
+	ctx.Text(fmt.Sprintf("TPS: %.2f", tps))
+	ctx.Text(fmt.Sprintf("VSync: %v", s.vsyncEnabled))
 
 	// Collect metrics from all particle systems
 	var activeCount, totalSpawned, totalDeactivated int
 	var updateTimeUs, drawTimeUs int64
-	query := donburi.NewQuery(filter.Contains(chirashi.Component))
-	query.Each(s.world, func(entry *donburi.Entry) {
+	s.forEachParticleSystem(func(entry *donburi.Entry) {
 		data := chirashi.Component.Get(entry)
 		activeCount += data.ActiveCount
 		totalSpawned += data.Metrics.SpawnCount
@@ -766,7 +807,7 @@ func (s *ParticleEditorScene) drawFileContents(ctx *debugui.Context) {
 					// Reset attractor target to screen center for new configs
 					s.attractorX = editorCenterX
 					s.attractorY = editorCenterY
-					s.recreateParticles()
+					s.applyChange(applyModeRecreate)
 					log.Printf("Loaded %s", name)
 				}
 			})
@@ -775,8 +816,7 @@ func (s *ParticleEditorScene) drawFileContents(ctx *debugui.Context) {
 }
 
 func (s *ParticleEditorScene) applyAttractorTarget() {
-	query := donburi.NewQuery(filter.Contains(chirashi.Component))
-	query.Each(s.world, func(entry *donburi.Entry) {
+	s.forEachParticleSystem(func(entry *donburi.Entry) {
 		data := chirashi.Component.Get(entry)
 		data.AttractorX = s.attractorX
 		data.AttractorY = s.attractorY
@@ -793,20 +833,36 @@ func (s *ParticleEditorScene) refreshFileList() {
 }
 
 func (s *ParticleEditorScene) sliderControl(ctx *debugui.Context, label string, value *float64, min, max, step float64) {
+	s.sliderControlWithMode(ctx, label, value, min, max, step, applyModeLive)
+}
+
+func (s *ParticleEditorScene) sliderControlWithMode(ctx *debugui.Context, label string, value *float64, min, max, step float64, mode applyMode) {
+	s.numericControl(ctx, label, value, min, max, step, 2, mode)
+}
+
+func (s *ParticleEditorScene) sliderControl32(ctx *debugui.Context, label string, value *float32, min, max, step float64) {
+	ctx.IDScope(label, func() {
+		floatVal := float64(*value)
+		s.numericControl(ctx, label, &floatVal, min, max, step, 2, applyModeLive)
+		*value = float32(floatVal)
+	})
+}
+
+func (s *ParticleEditorScene) numericControl(ctx *debugui.Context, label string, value *float64, min, max, step float64, precision int, mode applyMode) {
 	ctx.IDScope(label, func() {
 		ctx.SetGridLayout([]int{140, 30, -1, 30}, nil)
-		ctx.Text(fmt.Sprintf("%s: %.2f", label, *value))
+		ctx.Text(fmt.Sprintf("%s: %.*f", label, precision, *value))
 
 		ctx.Button("-").On(func() {
 			*value -= step
 			if *value < min {
 				*value = min
 			}
-			s.applyConfigLive()
+			s.applyChange(mode)
 		})
 
-		ctx.SliderF(value, min, max, step, 2).On(func() {
-			s.applyConfigLive()
+		ctx.SliderF(value, min, max, step, precision).On(func() {
+			s.applyChange(mode)
 		})
 
 		ctx.Button("+").On(func() {
@@ -814,38 +870,7 @@ func (s *ParticleEditorScene) sliderControl(ctx *debugui.Context, label string, 
 			if *value > max {
 				*value = max
 			}
-			s.applyConfigLive()
-		})
-
-		ctx.SetGridLayout([]int{-1}, nil)
-	})
-}
-
-func (s *ParticleEditorScene) sliderControl32(ctx *debugui.Context, label string, value *float32, min, max, step float64) {
-	ctx.IDScope(label, func() {
-		floatVal := float64(*value)
-		ctx.SetGridLayout([]int{140, 30, -1, 30}, nil)
-		ctx.Text(fmt.Sprintf("%s: %.2f", label, floatVal))
-
-		ctx.Button("-").On(func() {
-			*value -= float32(step)
-			if float64(*value) < min {
-				*value = float32(min)
-			}
-			s.applyConfigLive()
-		})
-
-		ctx.SliderF(&floatVal, min, max, step, 2).On(func() {
-			*value = float32(floatVal)
-			s.applyConfigLive()
-		})
-
-		ctx.Button("+").On(func() {
-			*value += float32(step)
-			if float64(*value) > max {
-				*value = float32(max)
-			}
-			s.applyConfigLive()
+			s.applyChange(mode)
 		})
 
 		ctx.SetGridLayout([]int{-1}, nil)
@@ -853,6 +878,14 @@ func (s *ParticleEditorScene) sliderControl32(ctx *debugui.Context, label string
 }
 
 func (s *ParticleEditorScene) rangeControl(ctx *debugui.Context, label string, r *chirashi.RangeFloat, min, max, step float64) {
+	s.rangeControlWithMode(ctx, label, r, min, max, step, 1, applyModeLive)
+}
+
+func (s *ParticleEditorScene) rangeControlCompact(ctx *debugui.Context, label string, r *chirashi.RangeFloat, min, max, step float64) {
+	s.rangeControlWithMode(ctx, label+"_compact", r, min, max, step, 2, applyModeLive)
+}
+
+func (s *ParticleEditorScene) rangeControlWithMode(ctx *debugui.Context, label string, r *chirashi.RangeFloat, min, max, step float64, precision int, mode applyMode) {
 	if r == nil {
 		return
 	}
@@ -860,77 +893,28 @@ func (s *ParticleEditorScene) rangeControl(ctx *debugui.Context, label string, r
 		minVal := float64(r.Min)
 		maxVal := float64(r.Max)
 
-		ctx.Text(fmt.Sprintf("  %s Min: %.1f", label, minVal))
-		ctx.SetGridLayout([]int{30, -1, 30}, nil)
-		ctx.Button("-##min").On(func() {
-			r.Min -= float32(step)
-			s.applyConfigLive()
-		})
-		ctx.SliderF(&minVal, min, max, step, 1).On(func() {
-			r.Min = float32(minVal)
-			s.applyConfigLive()
-		})
-		ctx.Button("+##min").On(func() {
-			r.Min += float32(step)
-			s.applyConfigLive()
-		})
-		ctx.SetGridLayout([]int{-1}, nil)
+		s.rangeBoundControl(ctx, label, "Min", &minVal, min, max, step, precision, mode)
+		r.Min = float32(minVal)
 
-		ctx.Text(fmt.Sprintf("  %s Max: %.1f", label, maxVal))
-		ctx.SetGridLayout([]int{30, -1, 30}, nil)
-		ctx.Button("-##max").On(func() {
-			r.Max -= float32(step)
-			s.applyConfigLive()
-		})
-		ctx.SliderF(&maxVal, min, max, step, 1).On(func() {
-			r.Max = float32(maxVal)
-			s.applyConfigLive()
-		})
-		ctx.Button("+##max").On(func() {
-			r.Max += float32(step)
-			s.applyConfigLive()
-		})
-		ctx.SetGridLayout([]int{-1}, nil)
+		s.rangeBoundControl(ctx, label, "Max", &maxVal, min, max, step, precision, mode)
+		r.Max = float32(maxVal)
 	})
 }
 
-func (s *ParticleEditorScene) rangeControlCompact(ctx *debugui.Context, label string, r *chirashi.RangeFloat, min, max, step float64) {
-	if r == nil {
-		return
-	}
-	ctx.IDScope(label+"_compact", func() {
-		minVal := float64(r.Min)
-		maxVal := float64(r.Max)
-
-		ctx.SetGridLayout([]int{140, 30, -1, 30}, nil)
-		ctx.Text(fmt.Sprintf("%s Min: %.2f", label, minVal))
-		ctx.Button("-##min").On(func() {
-			r.Min -= float32(step)
-			s.applyConfigLive()
+func (s *ParticleEditorScene) rangeBoundControl(ctx *debugui.Context, label, bound string, value *float64, min, max, step float64, precision int, mode applyMode) {
+	ctx.IDScope(label+"_"+bound, func() {
+		ctx.Text(fmt.Sprintf("%s %s: %.*f", label, bound, precision, *value))
+		ctx.SetGridLayout([]int{30, -1, 30}, nil)
+		ctx.Button("-##" + bound).On(func() {
+			*value -= step
+			s.applyChange(mode)
 		})
-		ctx.SliderF(&minVal, min, max, step, 2).On(func() {
-			r.Min = float32(minVal)
-			s.applyConfigLive()
+		ctx.SliderF(value, min, max, step, precision).On(func() {
+			s.applyChange(mode)
 		})
-		ctx.Button("+##min").On(func() {
-			r.Min += float32(step)
-			s.applyConfigLive()
-		})
-		ctx.SetGridLayout([]int{-1}, nil)
-
-		ctx.SetGridLayout([]int{140, 30, -1, 30}, nil)
-		ctx.Text(fmt.Sprintf("%s Max: %.2f", label, maxVal))
-		ctx.Button("-##max").On(func() {
-			r.Max -= float32(step)
-			s.applyConfigLive()
-		})
-		ctx.SliderF(&maxVal, min, max, step, 2).On(func() {
-			r.Max = float32(maxVal)
-			s.applyConfigLive()
-		})
-		ctx.Button("+##max").On(func() {
-			r.Max += float32(step)
-			s.applyConfigLive()
+		ctx.Button("+##" + bound).On(func() {
+			*value += step
+			s.applyChange(mode)
 		})
 		ctx.SetGridLayout([]int{-1}, nil)
 	})
@@ -954,7 +938,7 @@ func (s *ParticleEditorScene) sequenceControls(ctx *debugui.Context, label strin
 					} else {
 						step.FromRange = &chirashi.RangeFloat{Min: step.From, Max: step.From}
 					}
-					s.applyConfigLive()
+					s.applyChange(applyModeLive)
 				})
 
 				if step.FromRange != nil {
@@ -978,7 +962,7 @@ func (s *ParticleEditorScene) sequenceControls(ctx *debugui.Context, label strin
 					} else {
 						step.ToRange = &chirashi.RangeFloat{Min: step.To, Max: step.To}
 					}
-					s.applyConfigLive()
+					s.applyChange(applyModeLive)
 				})
 
 				if step.ToRange != nil {
@@ -1001,7 +985,7 @@ func (s *ParticleEditorScene) sequenceControls(ctx *debugui.Context, label strin
 				ctx.Text("  Easing: " + step.Easing)
 				ctx.Button("  Cycle Easing").On(func() {
 					step.Easing = s.cycleEasing(step.Easing)
-					s.applyConfigLive()
+					s.applyChange(applyModeLive)
 				})
 
 				ctx.Button("  Remove Step").On(func() {
@@ -1009,7 +993,7 @@ func (s *ParticleEditorScene) sequenceControls(ctx *debugui.Context, label strin
 					if len(config.Steps) == 0 {
 						config.Type = ""
 					}
-					s.applyConfigLive()
+					s.applyChange(applyModeLive)
 				})
 
 				ctx.Text("----------------")
@@ -1024,7 +1008,7 @@ func (s *ParticleEditorScene) sequenceControls(ctx *debugui.Context, label strin
 				newStep.To = lastStep.To
 			}
 			config.Steps = append(config.Steps, newStep)
-			s.applyConfigLive()
+			s.applyChange(applyModeLive)
 		})
 	})
 }
@@ -1045,7 +1029,7 @@ func (s *ParticleEditorScene) propertyModeToggle(ctx *debugui.Context, label str
 				{From: config.Start, To: config.End, Duration: 1.0, Easing: config.Easing},
 			}
 		}
-		s.applyConfigLive()
+		s.applyChange(applyModeLive)
 	})
 }
 
