@@ -18,7 +18,7 @@ func ApplyConfigLive(world donburi.World, entity donburi.Entity, config *Particl
 	prevEmitterY := data.EmitterY
 	data.EmitterX = x + config.Emitter.X
 	data.EmitterY = y + config.Emitter.Y
-	data.EmitterLocalSpace = config.Emitter.Space != "world"
+	data.EmitterLocalSpace = config.Emitter.Space != EmitterSpaceWorld
 	data.EmitterShape = buildEmitterShapeParams(config.Emitter.Shape)
 	data.SpawnInterval = config.Spawn.Interval
 	data.ParticlesPerSpawn = config.Spawn.ParticlesPerSpawn

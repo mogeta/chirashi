@@ -338,16 +338,16 @@ func (s *ParticleEditorScene) drawEmitterControls(ctx *debugui.Context) {
 	ctx.SetGridLayout([]int{-1}, nil)
 
 	space := s.config.Emitter.Space
-	if space == "" {
-		space = "local"
+	if space == chirashi.EmitterSpaceDefault {
+		space = chirashi.EmitterSpaceLocal
 	}
 	ctx.SetGridLayout([]int{180, 180}, nil)
-	ctx.Text("Particle Space: " + space)
+	ctx.Text("Particle Space: " + string(space))
 	ctx.Button("Toggle Space").On(func() {
-		if s.config.Emitter.Space == "world" {
-			s.config.Emitter.Space = "local"
+		if s.config.Emitter.Space == chirashi.EmitterSpaceWorld {
+			s.config.Emitter.Space = chirashi.EmitterSpaceLocal
 		} else {
-			s.config.Emitter.Space = "world"
+			s.config.Emitter.Space = chirashi.EmitterSpaceWorld
 		}
 		s.applyChange(applyModeLive)
 	})

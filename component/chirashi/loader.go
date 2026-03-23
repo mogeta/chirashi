@@ -153,7 +153,7 @@ func (l *ConfigLoader) validateConfig(config *ParticleConfig) error {
 		return fmt.Errorf("emitter.shape.type must be point, circle, box, or line")
 	}
 	switch config.Emitter.Space {
-	case "", "local", "world":
+	case EmitterSpaceDefault, EmitterSpaceLocal, EmitterSpaceWorld:
 	default:
 		return fmt.Errorf("emitter.space must be local or world")
 	}
