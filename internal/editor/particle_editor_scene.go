@@ -105,10 +105,8 @@ func (s *ParticleEditorScene) Update() error {
 
 	// Update DebugUI
 	if _, err := s.debugui.Update(func(ctx *debugui.Context) error {
-		s.drawGeneralSettingsWindow(ctx)
-		s.drawAnimationWindow(ctx)
-		s.drawDebugWindow(ctx)
-		s.drawFileWindow(ctx)
+		s.drawLeftSidebarWindow(ctx)
+		s.drawRightSidebarWindow(ctx)
 		return nil
 	}); err != nil {
 		return err
@@ -123,6 +121,42 @@ func (s *ParticleEditorScene) Update() error {
 
 	s.container.Update()
 	return nil
+}
+
+func (s *ParticleEditorScene) drawLeftSidebarWindow(ctx *debugui.Context) {
+	ctx.Window("Left Sidebar", image.Rect(20, 20, 380, 1060), func(layout debugui.ContainerLayout) {
+		ctx.Header("General", false, func() {
+			s.drawGeneralSettingsContents(ctx)
+		})
+		ctx.Header("Motion", false, func() {
+			s.drawMotionContents(ctx)
+		})
+		ctx.Header("Files", false, func() {
+			s.drawFileContents(ctx)
+		})
+	})
+}
+
+func (s *ParticleEditorScene) drawRightSidebarWindow(ctx *debugui.Context) {
+	ctx.Window("Right Sidebar", image.Rect(1540, 20, 1900, 1060), func(layout debugui.ContainerLayout) {
+		ctx.Header("Debug", false, func() {
+			s.drawDebugContents(ctx)
+		})
+		ctx.Header("Alpha", false, func() {
+			s.drawPropertyWindow(ctx, "Alpha", &s.config.Animation.Alpha, 0.0, 1.0, 0.05, "alpha")
+		})
+		ctx.Header("Scale", false, func() {
+			s.drawPropertyWindow(ctx, "Scale", &s.config.Animation.Scale, 0.0, 5.0, 0.1, "scale")
+		})
+		ctx.Header("Rotation", false, func() {
+			s.drawPropertyWindow(ctx, "Rotation", &s.config.Animation.Rotation, -6.28, 6.28, 0.1, "rotation")
+		})
+		if s.config.Animation.Color != nil {
+			ctx.Header("Color", false, func() {
+				s.drawColorControls(ctx)
+			})
+		}
+	})
 }
 
 func (s *ParticleEditorScene) Draw(screen *ebiten.Image) {
@@ -181,6 +215,17 @@ func (s *ParticleEditorScene) recreateParticles() {
 	}
 }
 
+func (s *ParticleEditorScene) applyConfigLive() {
+	query := donburi.NewQuery(filter.Contains(chirashi.Component))
+	query.Each(s.world, func(entry *donburi.Entry) {
+		chirashi.ApplyConfigLive(s.world, entry.Entity(), s.config, editorCenterX, editorCenterY)
+	})
+
+	if s.config.Animation.Position.Type == "attractor" {
+		s.applyAttractorTarget()
+	}
+}
+
 func (s *ParticleEditorScene) Layout(outsideWidth, outsideHeight int) (int, int) {
 	if s.offscreen != nil && (s.offscreen.Bounds().Dx() != outsideWidth || s.offscreen.Bounds().Dy() != outsideHeight) {
 		s.offscreen.Deallocate()
@@ -189,98 +234,121 @@ func (s *ParticleEditorScene) Layout(outsideWidth, outsideHeight int) (int, int)
 	return editorScreenWidth, editorScreenHeight
 }
 
-func (s *ParticleEditorScene) drawGeneralSettingsWindow(ctx *debugui.Context) {
-	ctx.Window("General Settings", image.Rect(20, 20, 560, 420), func(layout debugui.ContainerLayout) {
-		ctx.Text("Spawn Config")
+func (s *ParticleEditorScene) drawGeneralSettingsContents(ctx *debugui.Context) {
+	ctx.Text("Spawn Config")
 
-		ctx.SetGridLayout([]int{140, 60, 60}, nil)
-		ctx.Text(fmt.Sprintf("Interval: %d", s.config.Spawn.Interval))
-		ctx.Button("I+").On(func() { s.config.Spawn.Interval++; s.recreateParticles() })
-		ctx.Button("I-").On(func() {
-			if s.config.Spawn.Interval > 1 {
-				s.config.Spawn.Interval--
-			}
-			s.recreateParticles()
-		})
-
-		ctx.Text(fmt.Sprintf("Per Spawn: %d", s.config.Spawn.ParticlesPerSpawn))
-		ctx.Button("P+").On(func() { s.config.Spawn.ParticlesPerSpawn += 10; s.recreateParticles() })
-		ctx.Button("P-").On(func() {
-			if s.config.Spawn.ParticlesPerSpawn > 1 {
-				s.config.Spawn.ParticlesPerSpawn -= 10
-			}
-			s.recreateParticles()
-		})
-
-		ctx.Text(fmt.Sprintf("Max Particles: %d", s.config.Spawn.MaxParticles))
-		ctx.Button("M+").On(func() { s.config.Spawn.MaxParticles += 1000; s.recreateParticles() })
-		ctx.Button("M-").On(func() {
-			if s.config.Spawn.MaxParticles > 100 {
-				s.config.Spawn.MaxParticles -= 1000
-			}
-			s.recreateParticles()
-		})
-		ctx.SetGridLayout([]int{-1}, nil)
-
-		loopLabel := "Loop: ON"
-		if !s.config.Spawn.IsLoop {
-			loopLabel = "Loop: OFF"
+	ctx.SetGridLayout([]int{140, 60, 60}, nil)
+	ctx.Text(fmt.Sprintf("Interval: %d", s.config.Spawn.Interval))
+	ctx.Button("I+").On(func() { s.config.Spawn.Interval++; s.applyConfigLive() })
+	ctx.Button("I-").On(func() {
+		if s.config.Spawn.Interval > 1 {
+			s.config.Spawn.Interval--
 		}
-		ctx.Button(loopLabel).On(func() {
-			s.config.Spawn.IsLoop = !s.config.Spawn.IsLoop
-			s.recreateParticles()
-		})
-
-		if !s.config.Spawn.IsLoop {
-			ctx.SetGridLayout([]int{140, 60, 60}, nil)
-			ctx.Text(fmt.Sprintf("LifeTime: %d", s.config.Spawn.LifeTime))
-			ctx.Button("L+").On(func() { s.config.Spawn.LifeTime += 60; s.recreateParticles() })
-			ctx.Button("L-").On(func() {
-				if s.config.Spawn.LifeTime > 60 {
-					s.config.Spawn.LifeTime -= 60
-				}
-				s.recreateParticles()
-			})
-			ctx.SetGridLayout([]int{-1}, nil)
-		}
-
-		ctx.Text("----------------")
-		ctx.Text("Emitter")
-
-		ctx.SetGridLayout([]int{140, 60, 60}, nil)
-		ctx.Text(fmt.Sprintf("X: %.1f", s.config.Emitter.X))
-		ctx.Button("X+").On(func() { s.config.Emitter.X += 10; s.recreateParticles() })
-		ctx.Button("X-").On(func() { s.config.Emitter.X -= 10; s.recreateParticles() })
-
-		ctx.Text(fmt.Sprintf("Y: %.1f", s.config.Emitter.Y))
-		ctx.Button("Y+").On(func() { s.config.Emitter.Y += 10; s.recreateParticles() })
-		ctx.Button("Y-").On(func() { s.config.Emitter.Y -= 10; s.recreateParticles() })
-		ctx.SetGridLayout([]int{-1}, nil)
-
-		ctx.Text("----------------")
-		s.drawEmitterShapeControls(ctx)
-		ctx.Text("----------------")
-
-		// Glitch Intensity
-		s.sliderControl(ctx, "Glitch Intensity", &s.glitchIntensity, 0.0, 1.0, 0.01)
-
-		mode := "Default"
-		if s.useBlurShader {
-			mode = "Blur"
-		}
-		ctx.SetGridLayout([]int{180, 180}, nil)
-		ctx.Text("Particle Shader: " + mode)
-		ctx.Button("Toggle Blur").On(func() {
-			s.useBlurShader = !s.useBlurShader
-			if s.useBlurShader {
-				s.shader = s.blurShader
-			} else {
-				s.shader = s.defaultShader
-			}
-			s.recreateParticles()
-		})
-		ctx.SetGridLayout([]int{-1}, nil)
+		s.applyConfigLive()
 	})
+
+	ctx.Text(fmt.Sprintf("Per Spawn: %d", s.config.Spawn.ParticlesPerSpawn))
+	ctx.Button("P+").On(func() { s.config.Spawn.ParticlesPerSpawn += 10; s.applyConfigLive() })
+	ctx.Button("P-").On(func() {
+		if s.config.Spawn.ParticlesPerSpawn > 1 {
+			s.config.Spawn.ParticlesPerSpawn -= 10
+		}
+		s.applyConfigLive()
+	})
+
+	ctx.Text(fmt.Sprintf("Max Particles: %d", s.config.Spawn.MaxParticles))
+	ctx.Button("M+").On(func() { s.config.Spawn.MaxParticles += 1000; s.recreateParticles() })
+	ctx.Button("M-").On(func() {
+		if s.config.Spawn.MaxParticles > 100 {
+			s.config.Spawn.MaxParticles -= 1000
+		}
+		s.recreateParticles()
+	})
+	ctx.SetGridLayout([]int{-1}, nil)
+
+	loopLabel := "Loop: ON"
+	if !s.config.Spawn.IsLoop {
+		loopLabel = "Loop: OFF"
+	}
+	ctx.Button(loopLabel).On(func() {
+		s.config.Spawn.IsLoop = !s.config.Spawn.IsLoop
+		s.applyConfigLive()
+	})
+
+	if !s.config.Spawn.IsLoop {
+		ctx.SetGridLayout([]int{140, 60, 60}, nil)
+		ctx.Text(fmt.Sprintf("LifeTime: %d", s.config.Spawn.LifeTime))
+		ctx.Button("L+").On(func() { s.config.Spawn.LifeTime += 60; s.applyConfigLive() })
+		ctx.Button("L-").On(func() {
+			if s.config.Spawn.LifeTime > 60 {
+				s.config.Spawn.LifeTime -= 60
+			}
+			s.applyConfigLive()
+		})
+		ctx.SetGridLayout([]int{-1}, nil)
+	}
+
+	ctx.Text("----------------")
+	ctx.Text("Emitter")
+
+	ctx.SetGridLayout([]int{140, 60, 60}, nil)
+	ctx.Text(fmt.Sprintf("X: %.1f", s.config.Emitter.X))
+	ctx.Button("X+").On(func() { s.config.Emitter.X += 10; s.applyConfigLive() })
+	ctx.Button("X-").On(func() { s.config.Emitter.X -= 10; s.applyConfigLive() })
+
+	ctx.Text(fmt.Sprintf("Y: %.1f", s.config.Emitter.Y))
+	ctx.Button("Y+").On(func() { s.config.Emitter.Y += 10; s.applyConfigLive() })
+	ctx.Button("Y-").On(func() { s.config.Emitter.Y -= 10; s.applyConfigLive() })
+	ctx.SetGridLayout([]int{-1}, nil)
+
+	ctx.Text("----------------")
+	s.drawEmitterShapeControls(ctx)
+	ctx.Text("----------------")
+
+	ctx.Text("Visual Features")
+	ctx.SetGridLayout([]int{180, 180}, nil)
+	colorState := "Color Window: OFF"
+	colorButton := "Enable Color"
+	if s.config.Animation.Color != nil {
+		colorState = "Color Window: ON"
+		colorButton = "Disable Color"
+	}
+	ctx.Text(colorState)
+	ctx.Button(colorButton).On(func() {
+		if s.config.Animation.Color == nil {
+			s.config.Animation.Color = &chirashi.ColorConfig{
+				StartR: 1.0, StartG: 1.0, StartB: 1.0,
+				EndR: 1.0, EndG: 0.2, EndB: 0.0,
+				Easing: "Linear",
+			}
+		} else {
+			s.config.Animation.Color = nil
+		}
+		s.applyConfigLive()
+	})
+	ctx.SetGridLayout([]int{-1}, nil)
+
+	ctx.Text("----------------")
+
+	// Glitch Intensity
+	s.sliderControl(ctx, "Glitch Intensity", &s.glitchIntensity, 0.0, 1.0, 0.01)
+
+	mode := "Default"
+	if s.useBlurShader {
+		mode = "Blur"
+	}
+	ctx.SetGridLayout([]int{180, 180}, nil)
+	ctx.Text("Particle Shader: " + mode)
+	ctx.Button("Toggle Blur").On(func() {
+		s.useBlurShader = !s.useBlurShader
+		if s.useBlurShader {
+			s.shader = s.blurShader
+		} else {
+			s.shader = s.defaultShader
+		}
+		s.recreateParticles()
+	})
+	ctx.SetGridLayout([]int{-1}, nil)
 }
 
 func (s *ParticleEditorScene) drawEmitterShapeControls(ctx *debugui.Context) {
@@ -309,7 +377,7 @@ func (s *ParticleEditorScene) drawEmitterShapeControls(ctx *debugui.Context) {
 		ctx.Button("Full Arc").On(func() {
 			shape.StartAngle = 0
 			shape.EndAngle = 6.2831855
-			s.recreateParticles()
+			s.applyConfigLive()
 		})
 		edgeLabel := "Area"
 		if shape.FromEdge {
@@ -399,361 +467,311 @@ func (s *ParticleEditorScene) setPositionMode(mode string) {
 	s.recreateParticles()
 }
 
-func (s *ParticleEditorScene) drawAnimationWindow(ctx *debugui.Context) {
-	ctx.Window("Animation", image.Rect(20, 360, 500, 1060), func(layout debugui.ContainerLayout) {
-		// Duration
-		if s.config.Animation.Duration.Range != nil {
-			ctx.SetGridLayout([]int{180, 180}, nil)
-			ctx.Text("Duration")
-			ctx.Button("Mode: Range").On(func() {
-				s.config.Animation.Duration.Range = nil
-				if s.config.Animation.Duration.Value <= 0 {
-					s.config.Animation.Duration.Value = 1.0
-				}
-				s.recreateParticles()
-			})
-			ctx.SetGridLayout([]int{-1}, nil)
-			s.rangeControlCompact(ctx, "Duration", s.config.Animation.Duration.Range, 0.1, 10.0, 0.1)
-		} else {
-			ctx.SetGridLayout([]int{180, 180}, nil)
-			ctx.Text("Duration")
-			ctx.Button("Mode: Fixed").On(func() {
-				base := s.config.Animation.Duration.Value
-				if base <= 0 {
-					base = 1.0
-				}
-				minVal := base * 0.5
-				if minVal < 0.1 {
-					minVal = 0.1
-				}
-				s.config.Animation.Duration.Range = &chirashi.RangeFloat{Min: minVal, Max: base * 1.5}
-				s.recreateParticles()
-			})
-			ctx.SetGridLayout([]int{-1}, nil)
-			dv := float64(s.config.Animation.Duration.Value)
-			s.sliderControl(ctx, "Value", &dv, 0.1, 10.0, 0.1)
-			s.config.Animation.Duration.Value = float32(dv)
-		}
-
-		ctx.Text("----------------")
-
-		// Position mode toggle: cartesian → polar → attractor → cartesian
-		posType := s.config.Animation.Position.Type
-		if posType == "" {
-			posType = "cartesian"
-		}
-		ctx.SetGridLayout([]int{180, 90, 90, 90}, nil)
-		ctx.Text("Position Mode: " + posType)
-		ctx.Button("Cartesian").On(func() { s.setPositionMode("cartesian") })
-		ctx.Button("Polar").On(func() { s.setPositionMode("polar") })
-		ctx.Button("Attractor").On(func() { s.setPositionMode("attractor") })
-		ctx.SetGridLayout([]int{-1}, nil)
-
-		switch s.config.Animation.Position.Type {
-		case "polar":
-			s.rangeControl(ctx, "Angle", s.config.Animation.Position.Angle, 0, 6.283185, 0.1)
-			s.rangeControl(ctx, "Distance", s.config.Animation.Position.Distance, 0, 500, 10)
-		case "attractor":
-			s.rangeControl(ctx, "Control X", s.config.Animation.Position.ControlX, -500, 500, 10)
-			s.rangeControl(ctx, "Control Y", s.config.Animation.Position.ControlY, -500, 500, 10)
-			ctx.Text("Attractor Target")
-			ctx.SetGridLayout([]int{180, 60, 60}, nil)
-			ctx.Text(fmt.Sprintf("Target X: %.0f", s.attractorX))
-			ctx.Button("TX+").On(func() {
-				s.attractorX += 10
-				s.applyAttractorTarget()
-			})
-			ctx.Button("TX-").On(func() {
-				s.attractorX -= 10
-				s.applyAttractorTarget()
-			})
-			ctx.Text(fmt.Sprintf("Target Y: %.0f", s.attractorY))
-			ctx.Button("TY+").On(func() {
-				s.attractorY += 10
-				s.applyAttractorTarget()
-			})
-			ctx.Button("TY-").On(func() {
-				s.attractorY -= 10
-				s.applyAttractorTarget()
-			})
-			ctx.SetGridLayout([]int{-1}, nil)
-		default:
-			s.rangeControl(ctx, "End X", s.config.Animation.Position.EndX, -500, 500, 10)
-			s.rangeControl(ctx, "End Y", s.config.Animation.Position.EndY, -500, 500, 10)
-		}
-
-		ctx.SetGridLayout([]int{200, 180}, nil)
-		ctx.Text("Easing: " + s.config.Animation.Position.Easing)
-		ctx.Button("Cycle Easing").On(func() {
-			s.config.Animation.Position.Easing = s.cycleEasing(s.config.Animation.Position.Easing)
-			s.recreateParticles()
-		})
-		ctx.SetGridLayout([]int{-1}, nil)
-
-		ctx.Text("Flow")
-		ctx.SetGridLayout([]int{200, 180}, nil)
-		if s.config.Animation.Position.Flow == nil {
-			ctx.Text("State: Off")
-			ctx.Button("Enable Flow").On(func() {
-				s.config.Animation.Position.Flow = &chirashi.FlowConfig{
-					Type:        "curl",
-					Strength:    &chirashi.RangeFloat{Min: 8, Max: 18},
-					Scale:       180,
-					Octaves:     2,
-					Persistence: 0.5,
-					TimeScale:   0.2,
-					Drag:        0.96,
-					Space:       "local",
-				}
-				s.recreateParticles()
-			})
-		} else {
-			ctx.Text("State: On")
-			ctx.Button("Disable Flow").On(func() {
-				s.config.Animation.Position.Flow = nil
-				s.recreateParticles()
-			})
-		}
-		ctx.SetGridLayout([]int{-1}, nil)
-		if flow := s.config.Animation.Position.Flow; flow != nil {
-			if flow.Strength == nil {
-				flow.Strength = &chirashi.RangeFloat{Min: 8, Max: 18}
-			}
-			ctx.Text("Type: curl")
-			s.rangeControl(ctx, "Flow Strength", flow.Strength, 0, 80, 1)
-			s.sliderControl32(ctx, "Flow Scale", &flow.Scale, 32, 480, 4)
-			octaves := float64(flow.Octaves)
-			s.sliderControl(ctx, "Flow Octaves", &octaves, 1, 3, 1)
-			flow.Octaves = int(octaves)
-			s.sliderControl32(ctx, "Flow Persistence", &flow.Persistence, 0, 1, 0.05)
-			s.sliderControl32(ctx, "Flow Time Scale", &flow.TimeScale, 0, 2, 0.05)
-			s.sliderControl32(ctx, "Flow Drag", &flow.Drag, 0.80, 1.0, 0.01)
-			s.sliderControl32(ctx, "Flow Bounds", &flow.BoundRadius, 0, 1200, 10)
-			ctx.SetGridLayout([]int{200, 180}, nil)
-			ctx.Text("Flow Space: " + flow.Space)
-			ctx.Button("Toggle Flow Space").On(func() {
-				if flow.Space == "world" {
-					flow.Space = "local"
-				} else {
-					flow.Space = "world"
-				}
-				s.recreateParticles()
-			})
-			respawnLabel := "Respawn On Escape: OFF"
-			if flow.RespawnOnEscape {
-				respawnLabel = "Respawn On Escape: ON"
-			}
-			ctx.Button(respawnLabel).On(func() {
-				flow.RespawnOnEscape = !flow.RespawnOnEscape
-				s.recreateParticles()
-			})
-			ctx.SetGridLayout([]int{-1}, nil)
-		}
-
-		ctx.Text("----------------")
-
-		// Alpha
-		ctx.Text("Alpha")
-		s.propertyModeToggle(ctx, "Alpha", &s.config.Animation.Alpha)
-		if s.config.Animation.Alpha.IsSequence() {
-			s.sequenceControls(ctx, "Alpha", &s.config.Animation.Alpha, 0.0, 1.0, 0.05)
-		} else {
-			startAlpha := float64(s.config.Animation.Alpha.Start)
-			endAlpha := float64(s.config.Animation.Alpha.End)
-			s.sliderControl(ctx, "Start", &startAlpha, 0.0, 1.0, 0.05)
-			s.sliderControl(ctx, "End", &endAlpha, 0.0, 1.0, 0.05)
-			s.config.Animation.Alpha.Start = float32(startAlpha)
-			s.config.Animation.Alpha.End = float32(endAlpha)
-			ctx.SetGridLayout([]int{200, 180}, nil)
-			ctx.Text("Easing: " + s.config.Animation.Alpha.Easing)
-			ctx.Button("Cycle Easing##alpha").On(func() {
-				s.config.Animation.Alpha.Easing = s.cycleEasing(s.config.Animation.Alpha.Easing)
-				s.recreateParticles()
-			})
-			ctx.SetGridLayout([]int{-1}, nil)
-		}
-
-		ctx.Text("----------------")
-
-		// Scale
-		ctx.Text("Scale")
-		s.propertyModeToggle(ctx, "Scale", &s.config.Animation.Scale)
-		if s.config.Animation.Scale.IsSequence() {
-			s.sequenceControls(ctx, "Scale", &s.config.Animation.Scale, 0.0, 5.0, 0.1)
-		} else {
-			startScale := float64(s.config.Animation.Scale.Start)
-			endScale := float64(s.config.Animation.Scale.End)
-			s.sliderControl(ctx, "Start##scale", &startScale, 0.0, 5.0, 0.1)
-			s.sliderControl(ctx, "End##scale", &endScale, 0.0, 5.0, 0.1)
-			s.config.Animation.Scale.Start = float32(startScale)
-			s.config.Animation.Scale.End = float32(endScale)
-			ctx.SetGridLayout([]int{200, 180}, nil)
-			ctx.Text("Easing: " + s.config.Animation.Scale.Easing)
-			ctx.Button("Cycle Easing##scale").On(func() {
-				s.config.Animation.Scale.Easing = s.cycleEasing(s.config.Animation.Scale.Easing)
-				s.recreateParticles()
-			})
-			ctx.SetGridLayout([]int{-1}, nil)
-		}
-
-		ctx.Text("----------------")
-
-		// Rotation
-		ctx.Text("Rotation")
-		s.propertyModeToggle(ctx, "Rotation", &s.config.Animation.Rotation)
-		if s.config.Animation.Rotation.IsSequence() {
-			s.sequenceControls(ctx, "Rotation", &s.config.Animation.Rotation, -6.28, 6.28, 0.1)
-		} else {
-			startRot := float64(s.config.Animation.Rotation.Start)
-			endRot := float64(s.config.Animation.Rotation.End)
-			s.sliderControl(ctx, "Start##rot", &startRot, -6.28, 6.28, 0.1)
-			s.sliderControl(ctx, "End##rot", &endRot, -6.28, 6.28, 0.1)
-			s.config.Animation.Rotation.Start = float32(startRot)
-			s.config.Animation.Rotation.End = float32(endRot)
-			ctx.SetGridLayout([]int{200, 180}, nil)
-			ctx.Text("Easing: " + s.config.Animation.Rotation.Easing)
-			ctx.Button("Cycle Easing##rot").On(func() {
-				s.config.Animation.Rotation.Easing = s.cycleEasing(s.config.Animation.Rotation.Easing)
-				s.recreateParticles()
-			})
-			ctx.SetGridLayout([]int{-1}, nil)
-		}
-
-		ctx.Text("----------------")
-
-		// Color
-		ctx.Text("Color")
-		// Initialize color config if nil
-		if s.config.Animation.Color == nil {
-			ctx.Button("Enable Color").On(func() {
-				s.config.Animation.Color = &chirashi.ColorConfig{
-					StartR: 1.0, StartG: 1.0, StartB: 1.0,
-					EndR: 1.0, EndG: 0.2, EndB: 0.0,
-					Easing: "Linear",
-				}
-				s.recreateParticles()
-			})
-		} else {
-			ctx.Button("Disable Color").On(func() {
-				s.config.Animation.Color = nil
-				s.recreateParticles()
-			})
-			startR := float64(s.config.Animation.Color.StartR)
-			startG := float64(s.config.Animation.Color.StartG)
-			startB := float64(s.config.Animation.Color.StartB)
-			endR := float64(s.config.Animation.Color.EndR)
-			endG := float64(s.config.Animation.Color.EndG)
-			endB := float64(s.config.Animation.Color.EndB)
-			s.sliderControl(ctx, "Start R", &startR, 0.0, 1.0, 0.05)
-			s.sliderControl(ctx, "Start G", &startG, 0.0, 1.0, 0.05)
-			s.sliderControl(ctx, "Start B", &startB, 0.0, 1.0, 0.05)
-			s.sliderControl(ctx, "End R", &endR, 0.0, 1.0, 0.05)
-			s.sliderControl(ctx, "End G", &endG, 0.0, 1.0, 0.05)
-			s.sliderControl(ctx, "End B", &endB, 0.0, 1.0, 0.05)
-			s.config.Animation.Color.StartR = float32(startR)
-			s.config.Animation.Color.StartG = float32(startG)
-			s.config.Animation.Color.StartB = float32(startB)
-			s.config.Animation.Color.EndR = float32(endR)
-			s.config.Animation.Color.EndG = float32(endG)
-			s.config.Animation.Color.EndB = float32(endB)
-			ctx.SetGridLayout([]int{200, 180}, nil)
-			ctx.Text("Easing: " + s.config.Animation.Color.Easing)
-			ctx.Button("Cycle Easing##color").On(func() {
-				s.config.Animation.Color.Easing = s.cycleEasing(s.config.Animation.Color.Easing)
-				s.recreateParticles()
-			})
-			ctx.SetGridLayout([]int{-1}, nil)
-		}
-	})
+func (s *ParticleEditorScene) drawMotionContents(ctx *debugui.Context) {
+	s.drawDurationControls(ctx)
+	ctx.Text("----------------")
+	s.drawPositionControls(ctx)
+	ctx.Text("----------------")
+	s.drawFlowControls(ctx)
 }
 
-func (s *ParticleEditorScene) drawDebugWindow(ctx *debugui.Context) {
-	ctx.Window("Debug Info", image.Rect(1560, 20, 1900, 220), func(layout debugui.ContainerLayout) {
-		fps := ebiten.ActualFPS()
-		ctx.Text(fmt.Sprintf("FPS: %.2f", fps))
-
-		// Collect metrics from all particle systems
-		var activeCount, totalSpawned, totalDeactivated int
-		var updateTimeUs, drawTimeUs int64
-		query := donburi.NewQuery(filter.Contains(chirashi.Component))
-		query.Each(s.world, func(entry *donburi.Entry) {
-			data := chirashi.Component.Get(entry)
-			activeCount += data.ActiveCount
-			totalSpawned += data.Metrics.SpawnCount
-			totalDeactivated += data.Metrics.DeactivateCount
-			updateTimeUs += data.Metrics.UpdateTimeUs
-			drawTimeUs += data.Metrics.DrawTimeUs
+func (s *ParticleEditorScene) drawDurationControls(ctx *debugui.Context) {
+	if s.config.Animation.Duration.Range != nil {
+		ctx.SetGridLayout([]int{180, 180}, nil)
+		ctx.Text("Duration")
+		ctx.Button("Mode: Range").On(func() {
+			s.config.Animation.Duration.Range = nil
+			if s.config.Animation.Duration.Value <= 0 {
+				s.config.Animation.Duration.Value = 1.0
+			}
+			s.applyConfigLive()
 		})
+		ctx.SetGridLayout([]int{-1}, nil)
+		s.rangeControlCompact(ctx, "Duration", s.config.Animation.Duration.Range, 0.1, 10.0, 0.1)
+		return
+	}
 
-		ctx.Text(fmt.Sprintf("Active: %d", activeCount))
-		ctx.Text(fmt.Sprintf("Spawned: %d", totalSpawned))
-		ctx.Text(fmt.Sprintf("Deactivated: %d", totalDeactivated))
-		ctx.Text(fmt.Sprintf("Update: %d us", updateTimeUs))
-		ctx.Text(fmt.Sprintf("Draw: %d us", drawTimeUs))
-		ctx.Text(fmt.Sprintf("Total: %.2f ms", float64(updateTimeUs+drawTimeUs)/1000.0))
-		ctx.Text("GPU Batch: 1 draw call")
+	ctx.SetGridLayout([]int{180, 180}, nil)
+	ctx.Text("Duration")
+	ctx.Button("Mode: Fixed").On(func() {
+		base := s.config.Animation.Duration.Value
+		if base <= 0 {
+			base = 1.0
+		}
+		minVal := base * 0.5
+		if minVal < 0.1 {
+			minVal = 0.1
+		}
+		s.config.Animation.Duration.Range = &chirashi.RangeFloat{Min: minVal, Max: base * 1.5}
+		s.applyConfigLive()
 	})
+	ctx.SetGridLayout([]int{-1}, nil)
+
+	dv := float64(s.config.Animation.Duration.Value)
+	s.sliderControl(ctx, "Value", &dv, 0.1, 10.0, 0.1)
+	s.config.Animation.Duration.Value = float32(dv)
 }
 
-func (s *ParticleEditorScene) drawFileWindow(ctx *debugui.Context) {
-	ctx.Window("File Operations", image.Rect(1560, 240, 1900, 920), func(layout debugui.ContainerLayout) {
-		// Save
-		ctx.Button("Save " + s.config.Name + ".yaml").On(func() {
-			path := filepath.Join("assets", "particles", s.config.Name+".yaml")
-			err := s.loader.SaveConfig(path, s.config)
-			if err != nil {
-				log.Println("Save error:", err)
-			} else {
-				log.Println("Saved to", path)
-				s.refreshFileList()
-			}
+func (s *ParticleEditorScene) drawPositionControls(ctx *debugui.Context) {
+	posType := s.config.Animation.Position.Type
+	if posType == "" {
+		posType = "cartesian"
+	}
+	ctx.SetGridLayout([]int{180, 110, 110, 110}, nil)
+	ctx.Text("Position: " + posType)
+	ctx.Button("Cartesian").On(func() { s.setPositionMode("cartesian") })
+	ctx.Button("Polar").On(func() { s.setPositionMode("polar") })
+	ctx.Button("Attractor").On(func() { s.setPositionMode("attractor") })
+	ctx.SetGridLayout([]int{-1}, nil)
+
+	switch s.config.Animation.Position.Type {
+	case "polar":
+		s.rangeControl(ctx, "Angle", s.config.Animation.Position.Angle, 0, 6.283185, 0.1)
+		s.rangeControl(ctx, "Distance", s.config.Animation.Position.Distance, 0, 500, 10)
+	case "attractor":
+		s.rangeControl(ctx, "Control X", s.config.Animation.Position.ControlX, -500, 500, 10)
+		s.rangeControl(ctx, "Control Y", s.config.Animation.Position.ControlY, -500, 500, 10)
+		ctx.Text("Attractor Target")
+		ctx.SetGridLayout([]int{180, 60, 60}, nil)
+		ctx.Text(fmt.Sprintf("Target X: %.0f", s.attractorX))
+		ctx.Button("TX+").On(func() {
+			s.attractorX += 10
+			s.applyAttractorTarget()
 		})
-
-		// Save As New
-		ctx.Button("Save As New").On(func() {
-			timestamp := time.Now().Format("20060102_150405")
-			newName := "particle_" + timestamp
-			s.config.Name = newName
-			path := filepath.Join("assets", "particles", newName+".yaml")
-			err := s.loader.SaveConfig(path, s.config)
-			if err != nil {
-				log.Println("Save error:", err)
-			} else {
-				log.Println("Saved to", path)
-				s.refreshFileList()
-			}
+		ctx.Button("TX-").On(func() {
+			s.attractorX -= 10
+			s.applyAttractorTarget()
 		})
+		ctx.Text(fmt.Sprintf("Target Y: %.0f", s.attractorY))
+		ctx.Button("TY+").On(func() {
+			s.attractorY += 10
+			s.applyAttractorTarget()
+		})
+		ctx.Button("TY-").On(func() {
+			s.attractorY -= 10
+			s.applyAttractorTarget()
+		})
+		ctx.SetGridLayout([]int{-1}, nil)
+	default:
+		s.rangeControl(ctx, "End X", s.config.Animation.Position.EndX, -500, 500, 10)
+		s.rangeControl(ctx, "End Y", s.config.Animation.Position.EndY, -500, 500, 10)
+	}
 
-		ctx.Text("----------------")
-		ctx.Text("Load File:")
+	ctx.SetGridLayout([]int{200, 180}, nil)
+	ctx.Text("Easing: " + s.config.Animation.Position.Easing)
+	ctx.Button("Cycle Easing").On(func() {
+		s.config.Animation.Position.Easing = s.cycleEasing(s.config.Animation.Position.Easing)
+		s.applyConfigLive()
+	})
+	ctx.SetGridLayout([]int{-1}, nil)
+}
 
-		ctx.Button("Refresh List").On(func() {
+func (s *ParticleEditorScene) drawFlowControls(ctx *debugui.Context) {
+	ctx.SetGridLayout([]int{200, 180}, nil)
+	if s.config.Animation.Position.Flow == nil {
+		ctx.Text("Flow: OFF")
+		ctx.Button("Enable Flow").On(func() {
+			s.config.Animation.Position.Flow = &chirashi.FlowConfig{
+				Type:        "curl",
+				Strength:    &chirashi.RangeFloat{Min: 8, Max: 18},
+				Scale:       180,
+				Octaves:     2,
+				Persistence: 0.5,
+				TimeScale:   0.2,
+				Drag:        0.96,
+				Space:       "local",
+			}
+			s.applyConfigLive()
+		})
+		ctx.SetGridLayout([]int{-1}, nil)
+		ctx.Text("Enable flow to show curl drift controls.")
+		return
+	}
+
+	ctx.Text("Flow: ON")
+	ctx.Button("Disable Flow").On(func() {
+		s.config.Animation.Position.Flow = nil
+		s.applyConfigLive()
+	})
+	ctx.SetGridLayout([]int{-1}, nil)
+
+	flow := s.config.Animation.Position.Flow
+	if flow.Strength == nil {
+		flow.Strength = &chirashi.RangeFloat{Min: 8, Max: 18}
+	}
+	ctx.Text("Type: curl")
+	s.rangeControl(ctx, "Flow Strength", flow.Strength, 0, 80, 1)
+	s.sliderControl32(ctx, "Flow Scale", &flow.Scale, 32, 480, 4)
+	octaves := float64(flow.Octaves)
+	s.sliderControl(ctx, "Flow Octaves", &octaves, 1, 3, 1)
+	flow.Octaves = int(octaves)
+	s.sliderControl32(ctx, "Flow Persistence", &flow.Persistence, 0, 1, 0.05)
+	s.sliderControl32(ctx, "Flow Time Scale", &flow.TimeScale, 0, 2, 0.05)
+	s.sliderControl32(ctx, "Flow Drag", &flow.Drag, 0.80, 1.0, 0.01)
+	s.sliderControl32(ctx, "Flow Bounds", &flow.BoundRadius, 0, 1200, 10)
+	ctx.SetGridLayout([]int{200, 180}, nil)
+	ctx.Text("Flow Space: " + flow.Space)
+	ctx.Button("Toggle Flow Space").On(func() {
+		if flow.Space == "world" {
+			flow.Space = "local"
+		} else {
+			flow.Space = "world"
+		}
+		s.applyConfigLive()
+	})
+	respawnLabel := "Respawn On Escape: OFF"
+	if flow.RespawnOnEscape {
+		respawnLabel = "Respawn On Escape: ON"
+	}
+	ctx.Button(respawnLabel).On(func() {
+		flow.RespawnOnEscape = !flow.RespawnOnEscape
+		s.applyConfigLive()
+	})
+	ctx.SetGridLayout([]int{-1}, nil)
+}
+
+func (s *ParticleEditorScene) drawPropertyWindow(ctx *debugui.Context, label string, config *chirashi.PropertyConfig, min, max, step float64, idSuffix string) {
+	s.propertyModeToggle(ctx, label, config)
+	if config.IsSequence() {
+		s.sequenceControls(ctx, label, config, min, max, step)
+		return
+	}
+
+	start := float64(config.Start)
+	end := float64(config.End)
+	s.sliderControl(ctx, "Start##"+idSuffix, &start, min, max, step)
+	s.sliderControl(ctx, "End##"+idSuffix, &end, min, max, step)
+	config.Start = float32(start)
+	config.End = float32(end)
+	ctx.SetGridLayout([]int{200, 180}, nil)
+	ctx.Text("Easing: " + config.Easing)
+	ctx.Button("Cycle Easing##" + idSuffix).On(func() {
+		config.Easing = s.cycleEasing(config.Easing)
+		s.applyConfigLive()
+	})
+	ctx.SetGridLayout([]int{-1}, nil)
+}
+
+func (s *ParticleEditorScene) drawColorControls(ctx *debugui.Context) {
+	if s.config.Animation.Color == nil {
+		return
+	}
+
+	ctx.Button("Disable Color").On(func() {
+		s.config.Animation.Color = nil
+		s.applyConfigLive()
+	})
+
+	startR := float64(s.config.Animation.Color.StartR)
+	startG := float64(s.config.Animation.Color.StartG)
+	startB := float64(s.config.Animation.Color.StartB)
+	endR := float64(s.config.Animation.Color.EndR)
+	endG := float64(s.config.Animation.Color.EndG)
+	endB := float64(s.config.Animation.Color.EndB)
+	s.sliderControl(ctx, "Start R", &startR, 0.0, 1.0, 0.05)
+	s.sliderControl(ctx, "Start G", &startG, 0.0, 1.0, 0.05)
+	s.sliderControl(ctx, "Start B", &startB, 0.0, 1.0, 0.05)
+	s.sliderControl(ctx, "End R", &endR, 0.0, 1.0, 0.05)
+	s.sliderControl(ctx, "End G", &endG, 0.0, 1.0, 0.05)
+	s.sliderControl(ctx, "End B", &endB, 0.0, 1.0, 0.05)
+	s.config.Animation.Color.StartR = float32(startR)
+	s.config.Animation.Color.StartG = float32(startG)
+	s.config.Animation.Color.StartB = float32(startB)
+	s.config.Animation.Color.EndR = float32(endR)
+	s.config.Animation.Color.EndG = float32(endG)
+	s.config.Animation.Color.EndB = float32(endB)
+	ctx.SetGridLayout([]int{200, 180}, nil)
+	ctx.Text("Easing: " + s.config.Animation.Color.Easing)
+	ctx.Button("Cycle Easing##color").On(func() {
+		s.config.Animation.Color.Easing = s.cycleEasing(s.config.Animation.Color.Easing)
+		s.applyConfigLive()
+	})
+	ctx.SetGridLayout([]int{-1}, nil)
+}
+
+func (s *ParticleEditorScene) drawDebugContents(ctx *debugui.Context) {
+	fps := ebiten.ActualFPS()
+	ctx.Text(fmt.Sprintf("FPS: %.2f", fps))
+
+	// Collect metrics from all particle systems
+	var activeCount, totalSpawned, totalDeactivated int
+	var updateTimeUs, drawTimeUs int64
+	query := donburi.NewQuery(filter.Contains(chirashi.Component))
+	query.Each(s.world, func(entry *donburi.Entry) {
+		data := chirashi.Component.Get(entry)
+		activeCount += data.ActiveCount
+		totalSpawned += data.Metrics.SpawnCount
+		totalDeactivated += data.Metrics.DeactivateCount
+		updateTimeUs += data.Metrics.UpdateTimeUs
+		drawTimeUs += data.Metrics.DrawTimeUs
+	})
+
+	ctx.Text(fmt.Sprintf("Active: %d", activeCount))
+	ctx.Text(fmt.Sprintf("Spawned: %d", totalSpawned))
+	ctx.Text(fmt.Sprintf("Deactivated: %d", totalDeactivated))
+	ctx.Text(fmt.Sprintf("Update: %d us", updateTimeUs))
+	ctx.Text(fmt.Sprintf("Draw: %d us", drawTimeUs))
+	ctx.Text(fmt.Sprintf("Total: %.2f ms", float64(updateTimeUs+drawTimeUs)/1000.0))
+	ctx.Text("GPU Batch: 1 draw call")
+}
+
+func (s *ParticleEditorScene) drawFileContents(ctx *debugui.Context) {
+	// Save
+	ctx.Button("Save " + s.config.Name + ".yaml").On(func() {
+		path := filepath.Join("assets", "particles", s.config.Name+".yaml")
+		err := s.loader.SaveConfig(path, s.config)
+		if err != nil {
+			log.Println("Save error:", err)
+		} else {
+			log.Println("Saved to", path)
 			s.refreshFileList()
-		})
-
-		for idx, f := range s.fileList {
-			name := filepath.Base(f)
-			filePath := f
-			ctx.IDScope(fmt.Sprintf("file_%d", idx), func() {
-				ctx.Button(name).On(func() {
-					log.Printf("Button clicked: file=%s", name)
-					s.loader.ClearCache()
-
-					cfg, err := s.loader.LoadConfig(filePath)
-					if err != nil {
-						log.Println("Load error:", err)
-					} else {
-						s.config = cfg
-						// Reset attractor target to screen center for new configs
-						s.attractorX = editorCenterX
-						s.attractorY = editorCenterY
-						s.recreateParticles()
-						log.Printf("Loaded %s", name)
-					}
-				})
-			})
 		}
 	})
+
+	// Save As New
+	ctx.Button("Save As New").On(func() {
+		timestamp := time.Now().Format("20060102_150405")
+		newName := "particle_" + timestamp
+		s.config.Name = newName
+		path := filepath.Join("assets", "particles", newName+".yaml")
+		err := s.loader.SaveConfig(path, s.config)
+		if err != nil {
+			log.Println("Save error:", err)
+		} else {
+			log.Println("Saved to", path)
+			s.refreshFileList()
+		}
+	})
+
+	ctx.Text("----------------")
+	ctx.Text("Load File:")
+
+	ctx.Button("Refresh List").On(func() {
+		s.refreshFileList()
+	})
+
+	for idx, f := range s.fileList {
+		name := filepath.Base(f)
+		filePath := f
+		ctx.IDScope(fmt.Sprintf("file_%d", idx), func() {
+			ctx.Button(name).On(func() {
+				log.Printf("Button clicked: file=%s", name)
+				s.loader.ClearCache()
+
+				cfg, err := s.loader.LoadConfig(filePath)
+				if err != nil {
+					log.Println("Load error:", err)
+				} else {
+					s.config = cfg
+					// Reset attractor target to screen center for new configs
+					s.attractorX = editorCenterX
+					s.attractorY = editorCenterY
+					s.recreateParticles()
+					log.Printf("Loaded %s", name)
+				}
+			})
+		})
+	}
 }
 
 func (s *ParticleEditorScene) applyAttractorTarget() {
@@ -784,11 +802,11 @@ func (s *ParticleEditorScene) sliderControl(ctx *debugui.Context, label string, 
 			if *value < min {
 				*value = min
 			}
-			s.recreateParticles()
+			s.applyConfigLive()
 		})
 
 		ctx.SliderF(value, min, max, step, 2).On(func() {
-			s.recreateParticles()
+			s.applyConfigLive()
 		})
 
 		ctx.Button("+").On(func() {
@@ -796,7 +814,7 @@ func (s *ParticleEditorScene) sliderControl(ctx *debugui.Context, label string, 
 			if *value > max {
 				*value = max
 			}
-			s.recreateParticles()
+			s.applyConfigLive()
 		})
 
 		ctx.SetGridLayout([]int{-1}, nil)
@@ -814,12 +832,12 @@ func (s *ParticleEditorScene) sliderControl32(ctx *debugui.Context, label string
 			if float64(*value) < min {
 				*value = float32(min)
 			}
-			s.recreateParticles()
+			s.applyConfigLive()
 		})
 
 		ctx.SliderF(&floatVal, min, max, step, 2).On(func() {
 			*value = float32(floatVal)
-			s.recreateParticles()
+			s.applyConfigLive()
 		})
 
 		ctx.Button("+").On(func() {
@@ -827,7 +845,7 @@ func (s *ParticleEditorScene) sliderControl32(ctx *debugui.Context, label string
 			if float64(*value) > max {
 				*value = float32(max)
 			}
-			s.recreateParticles()
+			s.applyConfigLive()
 		})
 
 		ctx.SetGridLayout([]int{-1}, nil)
@@ -846,15 +864,15 @@ func (s *ParticleEditorScene) rangeControl(ctx *debugui.Context, label string, r
 		ctx.SetGridLayout([]int{30, -1, 30}, nil)
 		ctx.Button("-##min").On(func() {
 			r.Min -= float32(step)
-			s.recreateParticles()
+			s.applyConfigLive()
 		})
 		ctx.SliderF(&minVal, min, max, step, 1).On(func() {
 			r.Min = float32(minVal)
-			s.recreateParticles()
+			s.applyConfigLive()
 		})
 		ctx.Button("+##min").On(func() {
 			r.Min += float32(step)
-			s.recreateParticles()
+			s.applyConfigLive()
 		})
 		ctx.SetGridLayout([]int{-1}, nil)
 
@@ -862,15 +880,15 @@ func (s *ParticleEditorScene) rangeControl(ctx *debugui.Context, label string, r
 		ctx.SetGridLayout([]int{30, -1, 30}, nil)
 		ctx.Button("-##max").On(func() {
 			r.Max -= float32(step)
-			s.recreateParticles()
+			s.applyConfigLive()
 		})
 		ctx.SliderF(&maxVal, min, max, step, 1).On(func() {
 			r.Max = float32(maxVal)
-			s.recreateParticles()
+			s.applyConfigLive()
 		})
 		ctx.Button("+##max").On(func() {
 			r.Max += float32(step)
-			s.recreateParticles()
+			s.applyConfigLive()
 		})
 		ctx.SetGridLayout([]int{-1}, nil)
 	})
@@ -888,15 +906,15 @@ func (s *ParticleEditorScene) rangeControlCompact(ctx *debugui.Context, label st
 		ctx.Text(fmt.Sprintf("%s Min: %.2f", label, minVal))
 		ctx.Button("-##min").On(func() {
 			r.Min -= float32(step)
-			s.recreateParticles()
+			s.applyConfigLive()
 		})
 		ctx.SliderF(&minVal, min, max, step, 2).On(func() {
 			r.Min = float32(minVal)
-			s.recreateParticles()
+			s.applyConfigLive()
 		})
 		ctx.Button("+##min").On(func() {
 			r.Min += float32(step)
-			s.recreateParticles()
+			s.applyConfigLive()
 		})
 		ctx.SetGridLayout([]int{-1}, nil)
 
@@ -904,15 +922,15 @@ func (s *ParticleEditorScene) rangeControlCompact(ctx *debugui.Context, label st
 		ctx.Text(fmt.Sprintf("%s Max: %.2f", label, maxVal))
 		ctx.Button("-##max").On(func() {
 			r.Max -= float32(step)
-			s.recreateParticles()
+			s.applyConfigLive()
 		})
 		ctx.SliderF(&maxVal, min, max, step, 2).On(func() {
 			r.Max = float32(maxVal)
-			s.recreateParticles()
+			s.applyConfigLive()
 		})
 		ctx.Button("+##max").On(func() {
 			r.Max += float32(step)
-			s.recreateParticles()
+			s.applyConfigLive()
 		})
 		ctx.SetGridLayout([]int{-1}, nil)
 	})
@@ -936,7 +954,7 @@ func (s *ParticleEditorScene) sequenceControls(ctx *debugui.Context, label strin
 					} else {
 						step.FromRange = &chirashi.RangeFloat{Min: step.From, Max: step.From}
 					}
-					s.recreateParticles()
+					s.applyConfigLive()
 				})
 
 				if step.FromRange != nil {
@@ -960,7 +978,7 @@ func (s *ParticleEditorScene) sequenceControls(ctx *debugui.Context, label strin
 					} else {
 						step.ToRange = &chirashi.RangeFloat{Min: step.To, Max: step.To}
 					}
-					s.recreateParticles()
+					s.applyConfigLive()
 				})
 
 				if step.ToRange != nil {
@@ -983,7 +1001,7 @@ func (s *ParticleEditorScene) sequenceControls(ctx *debugui.Context, label strin
 				ctx.Text("  Easing: " + step.Easing)
 				ctx.Button("  Cycle Easing").On(func() {
 					step.Easing = s.cycleEasing(step.Easing)
-					s.recreateParticles()
+					s.applyConfigLive()
 				})
 
 				ctx.Button("  Remove Step").On(func() {
@@ -991,7 +1009,7 @@ func (s *ParticleEditorScene) sequenceControls(ctx *debugui.Context, label strin
 					if len(config.Steps) == 0 {
 						config.Type = ""
 					}
-					s.recreateParticles()
+					s.applyConfigLive()
 				})
 
 				ctx.Text("----------------")
@@ -1006,7 +1024,7 @@ func (s *ParticleEditorScene) sequenceControls(ctx *debugui.Context, label strin
 				newStep.To = lastStep.To
 			}
 			config.Steps = append(config.Steps, newStep)
-			s.recreateParticles()
+			s.applyConfigLive()
 		})
 	})
 }
@@ -1027,7 +1045,7 @@ func (s *ParticleEditorScene) propertyModeToggle(ctx *debugui.Context, label str
 				{From: config.Start, To: config.End, Duration: 1.0, Easing: config.Easing},
 			}
 		}
-		s.recreateParticles()
+		s.applyConfigLive()
 	})
 }
 
