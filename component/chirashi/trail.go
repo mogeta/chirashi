@@ -255,15 +255,6 @@ func updateSingleParticleTrail(data *SystemData, p *Instance, currentTime float3
 	p.TrailPoints = points
 }
 
-func buildParticleTrailMesh(data *SystemData) {
-	for _, idx := range data.ActiveIndices {
-		appendTrailMeshForPoints(data, data.ParticlePool[idx].TrailPoints)
-	}
-	for _, ghost := range data.Trail.Runtime.Ghosts {
-		appendTrailMeshForPoints(data, ghost.Points)
-	}
-}
-
 func appendTrailMeshForPoints(data *SystemData, points []TrailPoint) {
 	trail := &data.Trail
 	if len(points) < 2 {
