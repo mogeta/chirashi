@@ -169,6 +169,11 @@ func (s *ParticleEditorScene) drawRightSidebarWindow(ctx *debugui.Context) {
 				s.drawColorControls(ctx)
 			})
 		}
+		if s.config.Trail != nil && s.config.Trail.Enabled {
+			ctx.Header("Trail", false, func() {
+				s.drawTrailControls(ctx)
+			})
+		}
 	})
 }
 
@@ -375,6 +380,38 @@ func (s *ParticleEditorScene) drawVisualFeatureControls(ctx *debugui.Context) {
 			}
 		} else {
 			s.config.Animation.Color = nil
+		}
+		s.applyChange(applyModeLive)
+	})
+	ctx.SetGridLayout([]int{-1}, nil)
+
+	trailState := "Trail Window: OFF"
+	trailButton := "Enable Trail"
+	if s.config.Trail != nil && s.config.Trail.Enabled {
+		trailState = "Trail Window: ON"
+		trailButton = "Disable Trail"
+	}
+	ctx.SetGridLayout([]int{180, 180}, nil)
+	ctx.Text(trailState)
+	ctx.Button(trailButton).On(func() {
+		if s.config.Trail == nil || !s.config.Trail.Enabled {
+			s.config.Trail = &chirashi.TrailConfig{
+				Enabled:          true,
+				Mode:             "particle",
+				Space:            "world",
+				MaxPoints:        12,
+				MinPointDistance: 6,
+				MaxPointAge:      0.35,
+				Width:            chirashi.TrailScalarConfig{Start: 18, End: 0, Easing: "OutQuad"},
+				Alpha:            chirashi.TrailScalarConfig{Start: 0.8, End: 0.0, Easing: "Linear"},
+				Color: &chirashi.ColorConfig{
+					StartR: 0.6, StartG: 0.9, StartB: 1.0,
+					EndR: 0.1, EndG: 0.2, EndB: 0.8,
+					Easing: "OutQuad",
+				},
+			}
+		} else {
+			s.config.Trail = nil
 		}
 		s.applyChange(applyModeLive)
 	})
@@ -757,6 +794,119 @@ func (s *ParticleEditorScene) drawColorControls(ctx *debugui.Context) {
 	ctx.SetGridLayout([]int{-1}, nil)
 }
 
+func (s *ParticleEditorScene) drawTrailControls(ctx *debugui.Context) {
+	if s.config.Trail == nil || !s.config.Trail.Enabled {
+		return
+	}
+
+	ctx.Button("Disable Trail").On(func() {
+		s.config.Trail = nil
+		s.applyChange(applyModeLive)
+	})
+
+	ctx.SetGridLayout([]int{180, 180}, nil)
+	mode := s.config.Trail.Mode
+	if mode == "" {
+		mode = "emitter"
+	}
+	ctx.Text("Trail Mode: " + mode)
+	ctx.Button("Toggle Mode").On(func() {
+		if s.config.Trail.Mode == "particle" {
+			s.config.Trail.Mode = "emitter"
+		} else {
+			s.config.Trail.Mode = "particle"
+		}
+		s.applyChange(applyModeLive)
+	})
+	ctx.SetGridLayout([]int{-1}, nil)
+
+	ctx.SetGridLayout([]int{180, 180}, nil)
+	space := s.config.Trail.Space
+	if space == "" {
+		space = "world"
+	}
+	ctx.Text("Trail Space: " + space)
+	ctx.Button("Toggle Space").On(func() {
+		if s.config.Trail.Space == "local" {
+			s.config.Trail.Space = "world"
+		} else {
+			s.config.Trail.Space = "local"
+		}
+		s.applyChange(applyModeLive)
+	})
+	ctx.SetGridLayout([]int{-1}, nil)
+
+	maxPoints := float64(s.config.Trail.MaxPoints)
+	s.sliderControl(ctx, "Max Points", &maxPoints, 2, 32, 1)
+	s.config.Trail.MaxPoints = int(maxPoints)
+	s.sliderControl32(ctx, "Point Distance", &s.config.Trail.MinPointDistance, 1, 32, 1)
+	s.sliderControl32(ctx, "Point Age", &s.config.Trail.MaxPointAge, 0.05, 1.2, 0.05)
+
+	ctx.Text("Width Gradient")
+	s.sliderScalarConfig(ctx, "Trail Width Start", &s.config.Trail.Width.Start, 0, 64, 1)
+	s.sliderScalarConfig(ctx, "Trail Width End", &s.config.Trail.Width.End, 0, 64, 1)
+	ctx.SetGridLayout([]int{200, 180}, nil)
+	ctx.Text("Width Easing: " + s.config.Trail.Width.Easing)
+	ctx.Button("Cycle Easing##trail_width").On(func() {
+		s.config.Trail.Width.Easing = s.cycleEasing(s.config.Trail.Width.Easing)
+		s.applyChange(applyModeLive)
+	})
+	ctx.SetGridLayout([]int{-1}, nil)
+
+	ctx.Text("Alpha Gradient")
+	s.sliderScalarConfig(ctx, "Trail Alpha Start", &s.config.Trail.Alpha.Start, 0, 1, 0.05)
+	s.sliderScalarConfig(ctx, "Trail Alpha End", &s.config.Trail.Alpha.End, 0, 1, 0.05)
+	ctx.SetGridLayout([]int{200, 180}, nil)
+	ctx.Text("Alpha Easing: " + s.config.Trail.Alpha.Easing)
+	ctx.Button("Cycle Easing##trail_alpha").On(func() {
+		s.config.Trail.Alpha.Easing = s.cycleEasing(s.config.Trail.Alpha.Easing)
+		s.applyChange(applyModeLive)
+	})
+	ctx.SetGridLayout([]int{-1}, nil)
+
+	if s.config.Trail.Color == nil {
+		ctx.Button("Enable Trail Color").On(func() {
+			s.config.Trail.Color = &chirashi.ColorConfig{
+				StartR: 1, StartG: 1, StartB: 1,
+				EndR: 1, EndG: 1, EndB: 1,
+				Easing: "Linear",
+			}
+			s.applyChange(applyModeLive)
+		})
+		return
+	}
+
+	ctx.Button("Disable Trail Color").On(func() {
+		s.config.Trail.Color = nil
+		s.applyChange(applyModeLive)
+	})
+	startR := float64(s.config.Trail.Color.StartR)
+	startG := float64(s.config.Trail.Color.StartG)
+	startB := float64(s.config.Trail.Color.StartB)
+	endR := float64(s.config.Trail.Color.EndR)
+	endG := float64(s.config.Trail.Color.EndG)
+	endB := float64(s.config.Trail.Color.EndB)
+	s.sliderControl(ctx, "Trail Start R", &startR, 0.0, 1.0, 0.05)
+	s.sliderControl(ctx, "Trail Start G", &startG, 0.0, 1.0, 0.05)
+	s.sliderControl(ctx, "Trail Start B", &startB, 0.0, 1.0, 0.05)
+	s.sliderControl(ctx, "Trail End R", &endR, 0.0, 1.0, 0.05)
+	s.sliderControl(ctx, "Trail End G", &endG, 0.0, 1.0, 0.05)
+	s.sliderControl(ctx, "Trail End B", &endB, 0.0, 1.0, 0.05)
+	s.config.Trail.Color.StartR = float32(startR)
+	s.config.Trail.Color.StartG = float32(startG)
+	s.config.Trail.Color.StartB = float32(startB)
+	s.config.Trail.Color.EndR = float32(endR)
+	s.config.Trail.Color.EndG = float32(endG)
+	s.config.Trail.Color.EndB = float32(endB)
+	ctx.SetGridLayout([]int{200, 180}, nil)
+	ctx.Text("Color Easing: " + s.config.Trail.Color.Easing)
+	ctx.Button("Cycle Easing##trail_color").On(func() {
+		s.config.Trail.Color.Easing = s.cycleEasing(s.config.Trail.Color.Easing)
+		s.applyChange(applyModeLive)
+	})
+	ctx.SetGridLayout([]int{-1}, nil)
+}
+
 func (s *ParticleEditorScene) drawDebugContents(ctx *debugui.Context) {
 	fps := ebiten.ActualFPS()
 	tps := ebiten.ActualTPS()
@@ -782,7 +932,7 @@ func (s *ParticleEditorScene) drawDebugContents(ctx *debugui.Context) {
 	ctx.Text(fmt.Sprintf("Update: %d us", updateTimeUs))
 	ctx.Text(fmt.Sprintf("Draw: %d us", drawTimeUs))
 	ctx.Text(fmt.Sprintf("Total: %.2f ms", float64(updateTimeUs+drawTimeUs)/1000.0))
-	ctx.Text("GPU Batch: 1 draw call")
+	ctx.Text("GPU Batch: +1 draw call when trail is enabled")
 }
 
 func (s *ParticleEditorScene) drawFileContents(ctx *debugui.Context) {
@@ -882,6 +1032,14 @@ func (s *ParticleEditorScene) sliderControlWithMode(ctx *debugui.Context, label 
 }
 
 func (s *ParticleEditorScene) sliderControl32(ctx *debugui.Context, label string, value *float32, min, max, step float64) {
+	ctx.IDScope(label, func() {
+		floatVal := float64(*value)
+		s.numericControl(ctx, label, &floatVal, min, max, step, 2, applyModeLive)
+		*value = float32(floatVal)
+	})
+}
+
+func (s *ParticleEditorScene) sliderScalarConfig(ctx *debugui.Context, label string, value *float32, min, max, step float64) {
 	ctx.IDScope(label, func() {
 		floatVal := float64(*value)
 		s.numericControl(ctx, label, &floatVal, min, max, step, 2, applyModeLive)

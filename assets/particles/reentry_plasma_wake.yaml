@@ -1,0 +1,78 @@
+name: "reentry_plasma_wake"
+description: "Orange-white plasma wake for meteors, drop pods, and high-speed atmospheric entries."
+image: { image_from: "ef1", image_id: 16 }
+
+emitter:
+  x: 0
+  y: 0
+  space: "world"
+
+animation:
+  duration:
+    range: { min: 0.6, max: 1.0 }
+  position:
+    type: "cartesian"
+    end_x: { min: 0, max: 0 }
+    end_y: { min: 0, max: 0 }
+    flow:
+      type: "curl"
+      strength: { min: 10, max: 24 }
+      scale: 140
+      octaves: 2
+      persistence: 0.5
+      time_scale: 0.24
+      drag: 0.95
+      space: "world"
+      bound_radius: 220
+      respawn_on_escape: true
+    easing: "Linear"
+  alpha:
+    start: 0.9
+    end: 0.0
+    easing: "Linear"
+  scale:
+    start: 0.5
+    end: 0.18
+    easing: "OutSine"
+  rotation:
+    start: 0.0
+    end: 2.8
+    easing: "Linear"
+  color:
+    start_r: 1.0
+    start_g: 0.95
+    start_b: 0.8
+    end_r: 1.0
+    end_g: 0.35
+    end_b: 0.05
+    easing: "OutQuad"
+
+trail:
+  enabled: true
+  mode: "emitter"
+  space: "world"
+  max_points: 16
+  min_point_distance: 7
+  max_point_age: 0.42
+  width:
+    start: 28
+    end: 2
+    easing: "OutSine"
+  alpha:
+    start: 0.78
+    end: 0.0
+    easing: "InQuad"
+  color:
+    start_r: 1.0
+    start_g: 0.85
+    start_b: 0.35
+    end_r: 0.6
+    end_g: 0.1
+    end_b: 0.0
+    easing: "OutQuad"
+
+spawn:
+  interval: 2
+  particles_per_spawn: 4
+  max_particles: 128
+  is_loop: true

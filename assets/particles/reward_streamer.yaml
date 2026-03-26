@@ -1,0 +1,67 @@
+name: "reward_streamer"
+description: "Celebratory ribbon trail for reward fly-ins, score pop routes, and premium UI streaks."
+image: { image_from: "ef1", image_id: 5 }
+
+emitter:
+  x: 0
+  y: 0
+  space: "world"
+
+animation:
+  duration:
+    value: 0.8
+  position:
+    type: "cartesian"
+    end_x: { min: -24, max: 24 }
+    end_y: { min: -18, max: 18 }
+    easing: "OutSine"
+  alpha:
+    start: 0.7
+    end: 0.0
+    easing: "Linear"
+  scale:
+    start: 0.28
+    end: 0.08
+    easing: "OutQuad"
+  rotation:
+    start: 0.0
+    end: 1.8
+    easing: "Linear"
+  color:
+    start_r: 1.0
+    start_g: 0.95
+    start_b: 0.55
+    end_r: 1.0
+    end_g: 0.45
+    end_b: 0.15
+    easing: "OutQuad"
+
+trail:
+  enabled: true
+  mode: "particle"
+  space: "world"
+  max_points: 10
+  min_point_distance: 8
+  max_point_age: 0.5
+  width:
+    start: 16
+    end: 0
+    easing: "InOutSine"
+  alpha:
+    start: 0.65
+    end: 0.0
+    easing: "Linear"
+  color:
+    start_r: 1.0
+    start_g: 0.92
+    start_b: 0.35
+    end_r: 1.0
+    end_g: 0.3
+    end_b: 0.1
+    easing: "OutSine"
+
+spawn:
+  interval: 3
+  particles_per_spawn: 2
+  max_particles: 72
+  is_loop: true

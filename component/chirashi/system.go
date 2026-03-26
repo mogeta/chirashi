@@ -68,6 +68,7 @@ func (sys *System) Update(ecs *ecs.ECS) {
 
 		// Deactivate expired particles
 		sys.updateParticles(data, deltaTime)
+		updateTrail(data)
 
 		// Update metrics
 		data.Metrics.UpdateTimeUs = time.Since(startTime).Microseconds()
@@ -78,7 +79,7 @@ func (sys *System) Update(ecs *ecs.ECS) {
 			if data.LifeTime > 0 {
 				data.LifeTime--
 			}
-			if data.LifeTime <= 0 && data.ActiveCount == 0 {
+			if data.LifeTime <= 0 && data.ActiveCount == 0 && !trailHasVisiblePoints(data) {
 				ecs.World.Remove(entry.Entity())
 			}
 		}
@@ -110,6 +111,7 @@ func (sys *System) spawn(data *SystemData) {
 		data.FreeIndices = data.FreeIndices[:len(data.FreeIndices)-1]
 
 		particle := &data.ParticlePool[freeIdx]
+		particle.TrailPoints = particle.TrailPoints[:0]
 
 		spawnX, spawnY := sampleEmitterPosition(data.EmitterX, data.EmitterY, data.EmitterShape)
 
@@ -325,6 +327,10 @@ func (sys *System) updateParticles(data *SystemData, deltaTime float32) {
 		}
 		if elapsed >= particle.Duration {
 			particle.Active = false
+			if data.Trail.Mode == "particle" {
+				detachParticleTrail(&data.Trail, particle.TrailPoints)
+			}
+			particle.TrailPoints = particle.TrailPoints[:0]
 			indicesToRemove = append(indicesToRemove, i)
 			data.ActiveCount--
 			data.Metrics.DeactivateCount++
@@ -346,6 +352,10 @@ func (sys *System) updateParticles(data *SystemData, deltaTime float32) {
 func (sys *System) Draw(ecs *ecs.ECS, screen *ebiten.Image) {
 	for entry := range sys.query.Iter(ecs.World) {
 		data := Component.Get(entry)
+
+		if data.Trail.Enabled {
+			drawTrail(screen, data)
+		}
 
 		if data.SourceImage == nil || data.Shader == nil {
 			continue

@@ -1,0 +1,67 @@
+name: "plasma_dash"
+description: "Fast cyan dash streak with a bright emitter ribbon for player movement and blink skills."
+image: { image_from: "ef1", image_id: 7 }
+
+emitter:
+  x: 0
+  y: 0
+  space: "world"
+
+animation:
+  duration:
+    value: 0.45
+  position:
+    type: "cartesian"
+    end_x: { min: -8, max: 8 }
+    end_y: { min: -8, max: 8 }
+    easing: "OutQuad"
+  alpha:
+    start: 0.85
+    end: 0.0
+    easing: "Linear"
+  scale:
+    start: 0.45
+    end: 0.10
+    easing: "OutQuad"
+  rotation:
+    start: 0.0
+    end: 1.2
+    easing: "Linear"
+  color:
+    start_r: 0.8
+    start_g: 1.0
+    start_b: 1.0
+    end_r: 0.2
+    end_g: 0.6
+    end_b: 1.0
+    easing: "OutQuad"
+
+trail:
+  enabled: true
+  mode: "particle"
+  space: "world"
+  max_points: 14
+  min_point_distance: 5
+  max_point_age: 0.28
+  width:
+    start: 22
+    end: 0
+    easing: "OutQuad"
+  alpha:
+    start: 0.85
+    end: 0.0
+    easing: "Linear"
+  color:
+    start_r: 0.5
+    start_g: 1.0
+    start_b: 1.0
+    end_r: 0.1
+    end_g: 0.3
+    end_b: 0.9
+    easing: "OutQuad"
+
+spawn:
+  interval: 2
+  particles_per_spawn: 3
+  max_particles: 96
+  is_loop: true

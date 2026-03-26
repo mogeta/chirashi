@@ -77,7 +77,7 @@ func buildSystemDataFromConfig(shader *ebiten.Shader, image *ebiten.Image, confi
 		imgHeight = float32(bounds.Dy())
 	}
 
-	return SystemData{
+	data := SystemData{
 		ParticlePool:      make([]Instance, config.Spawn.MaxParticles),
 		ActiveIndices:     make([]int, 0, config.Spawn.MaxParticles),
 		FreeIndices:       freeIndices,
@@ -95,11 +95,22 @@ func buildSystemDataFromConfig(shader *ebiten.Shader, image *ebiten.Image, confi
 		SourceImage:       image,
 		ImageWidth:        imgWidth,
 		ImageHeight:       imgHeight,
+		Trail:             buildTrailData(config.Trail),
 		ActiveCount:       0,
 		IsLoop:            config.Spawn.IsLoop,
 		LifeTime:          config.Spawn.LifeTime,
 		AnimParams:        animParams,
 	}
+	if data.Trail.Enabled && data.Trail.Mode == "particle" {
+		maxTrailVertices := config.Spawn.MaxParticles * data.Trail.MaxPoints * 2
+		maxTrailIndices := config.Spawn.MaxParticles * (data.Trail.MaxPoints - 1) * 6
+		data.Trail.Vertices = make([]ebiten.Vertex, 0, maxTrailVertices)
+		data.Trail.Indices = make([]uint16, 0, maxTrailIndices)
+		for i := range data.ParticlePool {
+			data.ParticlePool[i].TrailPoints = make([]TrailPoint, 0, data.Trail.MaxPoints)
+		}
+	}
+	return data
 }
 
 func normalizeParticleConfig(config *ParticleConfig) {

@@ -7,6 +7,7 @@ type ParticleConfig struct {
 	Image       ImageConfig     `yaml:"image"`
 	Emitter     EmitterConfig   `yaml:"emitter"`
 	Animation   AnimationConfig `yaml:"animation"`
+	Trail       *TrailConfig    `yaml:"trail,omitempty"`
 	Spawn       SpawnConfig     `yaml:"spawn"`
 }
 
@@ -152,6 +153,26 @@ type ColorConfig struct {
 	EndR   float32 `yaml:"end_r"`
 	EndG   float32 `yaml:"end_g"`
 	EndB   float32 `yaml:"end_b"`
+	Easing string  `yaml:"easing"`
+}
+
+// TrailConfig defines an optional ribbon trail emitted from the emitter position.
+type TrailConfig struct {
+	Enabled          bool              `yaml:"enabled,omitempty"`
+	Mode             string            `yaml:"mode,omitempty"` // emitter
+	Space            string            `yaml:"space,omitempty"`
+	MaxPoints        int               `yaml:"max_points,omitempty"`
+	MinPointDistance float32           `yaml:"min_point_distance,omitempty"`
+	MaxPointAge      float32           `yaml:"max_point_age,omitempty"`
+	Width            TrailScalarConfig `yaml:"width"`
+	Alpha            TrailScalarConfig `yaml:"alpha"`
+	Color            *ColorConfig      `yaml:"color,omitempty"`
+}
+
+// TrailScalarConfig defines a simple scalar gradient across trail point age.
+type TrailScalarConfig struct {
+	Start  float32 `yaml:"start"`
+	End    float32 `yaml:"end"`
 	Easing string  `yaml:"easing"`
 }
 

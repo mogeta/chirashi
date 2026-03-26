@@ -216,6 +216,158 @@ func TestUpdateRemovesExpiredOneShotEntity(t *testing.T) {
 	}
 }
 
+func TestUpdateTrailTracksEmitterHistory(t *testing.T) {
+	data := &SystemData{
+		CurrentTime: 0,
+		EmitterX:    10,
+		EmitterY:    20,
+		Trail: TrailData{
+			Enabled:          true,
+			Mode:             "emitter",
+			MaxPoints:        3,
+			MinPointDistance: 5,
+			MaxPointAge:      0.25,
+		},
+	}
+
+	updateTrail(data)
+	if got := len(data.Trail.Points); got != 1 {
+		t.Fatalf("initial point count got %d, want 1", got)
+	}
+
+	data.CurrentTime = 0.05
+	data.EmitterX = 12
+	data.EmitterY = 22
+	updateTrail(data)
+	if got := len(data.Trail.Points); got != 1 {
+		t.Fatalf("short move should update head in place, got %d points", got)
+	}
+	if data.Trail.Points[0].X != 12 || data.Trail.Points[0].CapturedAt != 0.05 {
+		t.Fatalf("expected updated head point, got %+v", data.Trail.Points[0])
+	}
+
+	data.CurrentTime = 0.10
+	data.EmitterX = 20
+	data.EmitterY = 22
+	updateTrail(data)
+	if got := len(data.Trail.Points); got != 2 {
+		t.Fatalf("large move should append point, got %d", got)
+	}
+
+	data.CurrentTime = 0.40
+	data.EmitterX = 30
+	data.EmitterY = 22
+	updateTrail(data)
+	if got := len(data.Trail.Points); got != 1 {
+		t.Fatalf("expired points should be pruned before appending, got %d", got)
+	}
+	if data.Trail.Points[0].X != 30 {
+		t.Fatalf("expected newest point to remain after prune, got %+v", data.Trail.Points[0])
+	}
+}
+
+func TestBuildTrailDataDefaults(t *testing.T) {
+	trail := buildTrailData(&TrailConfig{Enabled: true})
+	if !trail.Enabled {
+		t.Fatal("expected trail to be enabled")
+	}
+	if trail.MaxPoints != defaultTrailMaxPoints || trail.MinPointDistance != defaultTrailMinPointDistance || trail.MaxPointAge != defaultTrailMaxPointAge {
+		t.Fatalf("unexpected trail defaults: %+v", trail)
+	}
+	if trail.Mode != "" {
+		t.Fatalf("expected empty trail mode to preserve emitter default behavior, got %q", trail.Mode)
+	}
+	if trail.WidthStart != 0 || trail.AlphaStart != 0 {
+		t.Fatalf("expected zero width/alpha when omitted, got width=%v alpha=%v", trail.WidthStart, trail.AlphaStart)
+	}
+}
+
+func TestUpdateTrailTracksParticleHistory(t *testing.T) {
+	data := &SystemData{
+		CurrentTime:   0.10,
+		ActiveIndices: []int{0},
+		ParticlePool: []Instance{
+			{
+				Active:         true,
+				SpawnTime:      0,
+				Duration:       1,
+				StartX:         0,
+				EndX:           20,
+				StartY:         0,
+				EndY:           0,
+				PositionEasing: EasingLinear,
+				TrailPoints:    make([]TrailPoint, 0, 4),
+			},
+		},
+		Trail: TrailData{
+			Enabled:          true,
+			Mode:             "particle",
+			MaxPoints:        4,
+			MinPointDistance: 3,
+			MaxPointAge:      0.3,
+			WidthStart:       8,
+			AlphaStart:       1,
+		},
+	}
+
+	updateTrail(data)
+	if got := len(data.ParticlePool[0].TrailPoints); got != 1 {
+		t.Fatalf("expected first particle trail sample, got %d", got)
+	}
+
+	data.CurrentTime = 0.30
+	updateTrail(data)
+	if got := len(data.ParticlePool[0].TrailPoints); got != 2 {
+		t.Fatalf("expected second particle trail sample after movement, got %d", got)
+	}
+
+	data.CurrentTime = 0.70
+	updateTrail(data)
+	if got := len(data.ParticlePool[0].TrailPoints); got != 1 {
+		t.Fatalf("expected old particle trail samples to prune, got %d", got)
+	}
+}
+
+func TestExpiredParticleTrailBecomesGhostUntilFadeCompletes(t *testing.T) {
+	sys := &System{}
+	data := &SystemData{
+		CurrentTime: 0.6,
+		ParticlePool: []Instance{
+			{
+				Active:      true,
+				SpawnTime:   0,
+				Duration:    0.5,
+				TrailPoints: []TrailPoint{{X: 0, Y: 0, CapturedAt: 0.2}, {X: 10, Y: 0, CapturedAt: 0.5}},
+			},
+		},
+		ActiveIndices: []int{0},
+		ActiveCount:   1,
+		Trail: TrailData{
+			Enabled:     true,
+			Mode:        "particle",
+			MaxPoints:   4,
+			MaxPointAge: 0.4,
+		},
+	}
+
+	sys.updateParticles(data, 1.0/60.0)
+	if data.ActiveCount != 0 {
+		t.Fatalf("expected particle to deactivate, got activeCount=%d", data.ActiveCount)
+	}
+	if got := len(data.Trail.Ghosts); got != 1 {
+		t.Fatalf("expected one detached trail ghost, got %d", got)
+	}
+	if !trailHasVisiblePoints(data) {
+		t.Fatal("expected detached trail ghost to remain visible after particle expiry")
+	}
+
+	data.CurrentTime = 1.0
+	updateTrail(data)
+	if trailHasVisiblePoints(data) {
+		t.Fatal("expected detached trail ghost to disappear after max_point_age")
+	}
+}
+
 func TestSpawnCircleEmitterSamplesInsideRadius(t *testing.T) {
 	sys := &System{cnt: 0}
 	data := &SystemData{

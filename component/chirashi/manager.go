@@ -114,6 +114,33 @@ func SetAttractor(world donburi.World, entity donburi.Entity, x, y float32) {
 	data.AttractorY = y
 }
 
+// SetEmitterPosition updates the emitter origin for a particle entity.
+// In local emitter space, active particles move with the emitter.
+func SetEmitterPosition(world donburi.World, entity donburi.Entity, x, y float32) {
+	if !world.Valid(entity) {
+		return
+	}
+	entry := world.Entry(entity)
+	data := Component.Get(entry)
+	dx := x - data.EmitterX
+	dy := y - data.EmitterY
+	data.EmitterX = x
+	data.EmitterY = y
+	shiftActiveParticlesForEmitterDelta(data, dx, dy)
+	if data.Trail.Enabled && data.Trail.LocalSpace {
+		if data.Trail.Mode == "particle" {
+			for i := range data.ParticlePool {
+				shiftTrailPoints(data.ParticlePool[i].TrailPoints, dx, dy)
+			}
+			for i := range data.Trail.Ghosts {
+				shiftTrailPoints(data.Trail.Ghosts[i].Points, dx, dy)
+			}
+		} else {
+			shiftTrailPoints(data.Trail.Points, dx, dy)
+		}
+	}
+}
+
 // copyConfig creates a deep copy of ParticleConfig
 func copyConfig(src *ParticleConfig) *ParticleConfig {
 	dst := *src
@@ -131,6 +158,14 @@ func copyConfig(src *ParticleConfig) *ParticleConfig {
 	if src.Animation.Color != nil {
 		c := *src.Animation.Color
 		dst.Animation.Color = &c
+	}
+	if src.Trail != nil {
+		trail := *src.Trail
+		if src.Trail.Color != nil {
+			c := *src.Trail.Color
+			trail.Color = &c
+		}
+		dst.Trail = &trail
 	}
 
 	dst.Emitter = copyEmitterConfig(src.Emitter)
