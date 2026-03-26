@@ -12,10 +12,6 @@ const (
 	defaultTrailMaxPoints        = 12
 	defaultTrailMinPointDistance = float32(6)
 	defaultTrailMaxPointAge      = float32(0.35)
-	defaultTrailWidthStart       = float32(18)
-	defaultTrailWidthEnd         = float32(0)
-	defaultTrailAlphaStart       = float32(0.8)
-	defaultTrailAlphaEnd         = float32(0)
 	maxTrailBatchVertices        = 65535
 )
 
@@ -42,20 +38,6 @@ func buildTrailData(config *TrailConfig) TrailData {
 		maxPointAge = defaultTrailMaxPointAge
 	}
 
-	widthStart := config.Width.Start
-	widthEnd := config.Width.End
-	if widthStart == 0 && widthEnd == 0 {
-		widthStart = defaultTrailWidthStart
-		widthEnd = defaultTrailWidthEnd
-	}
-
-	alphaStart := config.Alpha.Start
-	alphaEnd := config.Alpha.End
-	if alphaStart == 0 && alphaEnd == 0 {
-		alphaStart = defaultTrailAlphaStart
-		alphaEnd = defaultTrailAlphaEnd
-	}
-
 	trail := TrailData{
 		Enabled:          true,
 		Mode:             config.Mode,
@@ -63,11 +45,11 @@ func buildTrailData(config *TrailConfig) TrailData {
 		MaxPoints:        maxPoints,
 		MinPointDistance: minPointDistance,
 		MaxPointAge:      maxPointAge,
-		WidthStart:       widthStart,
-		WidthEnd:         widthEnd,
+		WidthStart:       config.Width.Start,
+		WidthEnd:         config.Width.End,
 		WidthEasing:      ParseEasing(config.Width.Easing),
-		AlphaStart:       alphaStart,
-		AlphaEnd:         alphaEnd,
+		AlphaStart:       config.Alpha.Start,
+		AlphaEnd:         config.Alpha.End,
 		AlphaEasing:      ParseEasing(config.Alpha.Easing),
 		ColorStartR:      1,
 		ColorStartG:      1,

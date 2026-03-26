@@ -131,7 +131,7 @@ Validation is performed by `ConfigLoader`:
 - `emitter.space` must be `local` or `world`.
 - `trail.mode` must be `emitter` or `particle`.
 - `trail.space` must be `local` or `world`.
-- `trail.max_points` must be `>= 0`.
+- `trail.max_points` must be `2+`, or `0` to use the default.
 - `trail.min_point_distance` must be `>= 0`.
 - `trail.max_point_age` must be `>= 0`.
 - `animation.position.flow.type` must be `curl`.
@@ -166,8 +166,7 @@ If validation fails, loading returns an error.
 - `trail.max_points` defaults to `12`.
 - `trail.min_point_distance` defaults to `6`.
 - `trail.max_point_age` defaults to `0.35`.
-- `trail.width` defaults to `18 -> 0` when omitted.
-- `trail.alpha` defaults to `0.8 -> 0` when omitted.
+- omitted `trail.width` and `trail.alpha` stay at zero values, so define them explicitly for visible trails.
 - `trail.color` omitted means white -> white.
 - `trail.mode: "particle"` keeps the tail visible until sampled points exceed `max_point_age`, even after the source particle expires.
 - `circle` shape defaults to a full 0..2π arc when `start_angle`/`end_angle` are omitted.

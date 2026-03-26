@@ -277,8 +277,8 @@ func TestBuildTrailDataDefaults(t *testing.T) {
 	if trail.Mode != "" {
 		t.Fatalf("expected empty trail mode to preserve emitter default behavior, got %q", trail.Mode)
 	}
-	if trail.WidthStart != defaultTrailWidthStart || trail.AlphaStart != defaultTrailAlphaStart {
-		t.Fatalf("expected default width/alpha values, got width=%v alpha=%v", trail.WidthStart, trail.AlphaStart)
+	if trail.WidthStart != 0 || trail.AlphaStart != 0 {
+		t.Fatalf("expected zero width/alpha when omitted, got width=%v alpha=%v", trail.WidthStart, trail.AlphaStart)
 	}
 }
 

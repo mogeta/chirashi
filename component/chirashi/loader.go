@@ -168,8 +168,8 @@ func (l *ConfigLoader) validateConfig(config *ParticleConfig) error {
 		default:
 			return fmt.Errorf("trail.space must be local or world")
 		}
-		if trail.MaxPoints < 0 {
-			return fmt.Errorf("trail.max_points must be greater than or equal to 0")
+		if trail.MaxPoints != 0 && trail.MaxPoints < 2 {
+			return fmt.Errorf("trail.max_points must be 2 or greater, or 0 to use the default")
 		}
 		if trail.MinPointDistance < 0 {
 			return fmt.Errorf("trail.min_point_distance must be greater than or equal to 0")

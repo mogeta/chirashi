@@ -139,6 +139,13 @@ func TestValidateConfigRejectsInvalidValues(t *testing.T) {
 			},
 			wantErr: "animation.position.flow.drag",
 		},
+		{
+			name: "invalid trail max points",
+			mutate: func(c *ParticleConfig) {
+				c.Trail = &TrailConfig{Enabled: true, MaxPoints: 1}
+			},
+			wantErr: "trail.max_points",
+		},
 	}
 
 	loader := NewConfigLoader()
