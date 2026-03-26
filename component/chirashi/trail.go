@@ -195,7 +195,6 @@ func drawTrail(screen *ebiten.Image, data *SystemData) {
 	}
 
 	op := &ebiten.DrawTrianglesOptions{}
-	op.AntiAlias = true
 	drawTrailBatch(screen, trail.Vertices, trail.Indices, op)
 }
 
@@ -411,7 +410,6 @@ func drawParticleTrails(screen *ebiten.Image, data *SystemData) {
 	trail.Indices = trail.Indices[:0]
 
 	op := &ebiten.DrawTrianglesOptions{}
-	op.AntiAlias = true
 
 	flush := func() {
 		drawTrailBatch(screen, trail.Vertices, trail.Indices, op)
