@@ -47,6 +47,8 @@ func shiftActiveParticlesForEmitterDelta(data *SystemData, dx, dy float32) {
 		p.EndY += dy
 		p.ControlX += dx
 		p.ControlY += dy
+		p.CurrentX += dx
+		p.CurrentY += dy
 	}
 }
 
@@ -163,40 +165,42 @@ func applyLiveFlow(p *Instance, pos PositionParams) {
 }
 
 func applyTrailConfigLive(data *SystemData, config *TrailConfig, dx, dy float32) {
-	prevLocalSpace := data.Trail.LocalSpace
-	prevMode := data.Trail.Mode
-	points := data.Trail.Points
+	prevLocalSpace := data.Trail.Params.LocalSpace
+	prevMode := data.Trail.Params.Mode
+	points := data.Trail.Runtime.Points
+	ghosts := data.Trail.Runtime.Ghosts
 	data.Trail = buildTrailData(config)
-	if !data.Trail.Enabled {
+	if !data.Trail.Params.Enabled {
 		for i := range data.ParticlePool {
 			data.ParticlePool[i].TrailPoints = data.ParticlePool[i].TrailPoints[:0]
 		}
-		data.Trail.Ghosts = nil
+		data.Trail.Runtime.Ghosts = nil
 		return
 	}
-	if data.Trail.Mode == "particle" {
+	if data.Trail.Params.Mode == "particle" {
 		for i := range data.ParticlePool {
 			p := &data.ParticlePool[i]
-			if cap(p.TrailPoints) < data.Trail.MaxPoints {
-				p.TrailPoints = make([]TrailPoint, 0, data.Trail.MaxPoints)
+			if cap(p.TrailPoints) < data.Trail.Params.MaxPoints {
+				p.TrailPoints = make([]TrailPoint, 0, data.Trail.Params.MaxPoints)
 				continue
 			}
-			p.TrailPoints = trimTrailPoints(p.TrailPoints, data.Trail.MaxPoints)
+			p.TrailPoints = trimTrailPoints(p.TrailPoints, data.Trail.Params.MaxPoints)
 		}
-		data.Trail.Points = nil
-		if prevLocalSpace && prevMode == "particle" && data.Trail.LocalSpace {
+		data.Trail.Runtime.Points = nil
+		data.Trail.Runtime.Ghosts = ghosts
+		if prevLocalSpace && prevMode == "particle" && data.Trail.Params.LocalSpace {
 			for i := range data.ParticlePool {
 				shiftTrailPoints(data.ParticlePool[i].TrailPoints, dx, dy)
 			}
-			for i := range data.Trail.Ghosts {
-				shiftTrailPoints(data.Trail.Ghosts[i].Points, dx, dy)
+			for i := range data.Trail.Runtime.Ghosts {
+				shiftTrailPoints(data.Trail.Runtime.Ghosts[i].Points, dx, dy)
 			}
 		}
 		return
 	}
-	data.Trail.Points = trimTrailPoints(points, data.Trail.MaxPoints)
-	if prevLocalSpace && data.Trail.LocalSpace {
-		shiftTrailPoints(data.Trail.Points, dx, dy)
+	data.Trail.Runtime.Points = trimTrailPoints(points, data.Trail.Params.MaxPoints)
+	if prevLocalSpace && data.Trail.Params.LocalSpace {
+		shiftTrailPoints(data.Trail.Runtime.Points, dx, dy)
 	}
 	if prevMode == "particle" {
 		for i := range data.ParticlePool {

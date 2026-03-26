@@ -150,6 +150,10 @@ func (sys *System) spawn(data *SystemData) {
 			particle.EndY = spawnY + rangeFloat32(pos.EndYMin, pos.EndYMax)
 			particle.HasAttractor = false
 		}
+		particle.CurrentX = particle.StartX
+		particle.CurrentY = particle.StartY
+		particle.CurrentPosValid = true
+		particle.CurrentPosTime = currentTime
 		particle.PositionEasing = pos.Easing
 		particle.HasFlow = pos.HasFlow
 		if pos.HasFlow {
@@ -325,9 +329,10 @@ func (sys *System) updateParticles(data *SystemData, deltaTime float32) {
 			}
 			updateParticleFlow(data, particle, elapsed, normalizedT, deltaTime)
 		}
+		cacheParticleCurrentPosition(data, particle, elapsed)
 		if elapsed >= particle.Duration {
 			particle.Active = false
-			if data.Trail.Mode == "particle" {
+			if data.Trail.Params.Mode == "particle" {
 				detachParticleTrail(&data.Trail, particle.TrailPoints)
 			}
 			particle.TrailPoints = particle.TrailPoints[:0]
@@ -353,7 +358,7 @@ func (sys *System) Draw(ecs *ecs.ECS, screen *ebiten.Image) {
 	for entry := range sys.query.Iter(ecs.World) {
 		data := Component.Get(entry)
 
-		if data.Trail.Enabled {
+		if data.Trail.Params.Enabled {
 			drawTrail(screen, data)
 		}
 
@@ -387,13 +392,8 @@ func (sys *System) Draw(ecs *ecs.ECS, screen *ebiten.Image) {
 				normalizedT = 1
 			}
 
-			// Calculate position, scale, rotation (per-property sequence or lerp)
-			posT := ApplyEasing(normalizedT, p.PositionEasing)
-			x, y := evaluateParticleBasePosition(data, p, elapsed, posT)
-			if p.HasFlow {
-				x += p.FlowOffsetX
-				y += p.FlowOffsetY
-			}
+			// Position is cached during update for draw/trail reuse.
+			x, y := currentParticlePosition(data, p, elapsed)
 
 			var scale float32
 			if p.HasScaleSeq {
@@ -572,6 +572,34 @@ func updateParticleFlow(data *SystemData, p *Instance, elapsed, normalizedT, del
 			resetParticleFlowState(p, true)
 		}
 	}
+}
+
+func cacheParticleCurrentPosition(data *SystemData, p *Instance, elapsed float32) {
+	normalizedT := elapsed / p.Duration
+	if normalizedT < 0 {
+		normalizedT = 0
+	}
+	if normalizedT > 1 {
+		normalizedT = 1
+	}
+	posT := ApplyEasing(normalizedT, p.PositionEasing)
+	x, y := evaluateParticleBasePosition(data, p, elapsed, posT)
+	if p.HasFlow {
+		x += p.FlowOffsetX
+		y += p.FlowOffsetY
+	}
+	p.CurrentX = x
+	p.CurrentY = y
+	p.CurrentPosValid = true
+	p.CurrentPosTime = data.CurrentTime
+}
+
+func currentParticlePosition(data *SystemData, p *Instance, elapsed float32) (float32, float32) {
+	if p.CurrentPosValid && p.CurrentPosTime == data.CurrentTime {
+		return p.CurrentX, p.CurrentY
+	}
+	cacheParticleCurrentPosition(data, p, elapsed)
+	return p.CurrentX, p.CurrentY
 }
 
 func resetParticleFlowState(p *Instance, randomizeSeed bool) {

@@ -20,6 +20,12 @@ var (
 	trailWhiteImageOnce sync.Once
 )
 
+type particleTrailBatchBuilder struct {
+	screen *ebiten.Image
+	trail  *TrailRuntime
+	opts   ebiten.DrawTrianglesOptions
+}
+
 func buildTrailData(config *TrailConfig) TrailData {
 	if config == nil || !config.Enabled {
 		return TrailData{}
@@ -39,44 +45,48 @@ func buildTrailData(config *TrailConfig) TrailData {
 	}
 
 	trail := TrailData{
-		Enabled:          true,
-		Mode:             config.Mode,
-		LocalSpace:       config.Space == "local",
-		MaxPoints:        maxPoints,
-		MinPointDistance: minPointDistance,
-		MaxPointAge:      maxPointAge,
-		WidthStart:       config.Width.Start,
-		WidthEnd:         config.Width.End,
-		WidthEasing:      ParseEasing(config.Width.Easing),
-		AlphaStart:       config.Alpha.Start,
-		AlphaEnd:         config.Alpha.End,
-		AlphaEasing:      ParseEasing(config.Alpha.Easing),
-		ColorStartR:      1,
-		ColorStartG:      1,
-		ColorStartB:      1,
-		ColorEndR:        1,
-		ColorEndG:        1,
-		ColorEndB:        1,
-		ColorEasing:      EasingLinear,
-		Points:           make([]TrailPoint, 0, maxPoints),
-		Ghosts:           make([]TrailGhost, 0),
-		Vertices:         make([]ebiten.Vertex, 0, maxPoints*2),
-		Indices:          make([]uint16, 0, (maxPoints-1)*6),
+		Params: TrailParams{
+			Enabled:          true,
+			Mode:             config.Mode,
+			LocalSpace:       config.Space == "local",
+			MaxPoints:        maxPoints,
+			MinPointDistance: minPointDistance,
+			MaxPointAge:      maxPointAge,
+			WidthStart:       config.Width.Start,
+			WidthEnd:         config.Width.End,
+			WidthEasing:      ParseEasing(config.Width.Easing),
+			AlphaStart:       config.Alpha.Start,
+			AlphaEnd:         config.Alpha.End,
+			AlphaEasing:      ParseEasing(config.Alpha.Easing),
+			ColorStartR:      1,
+			ColorStartG:      1,
+			ColorStartB:      1,
+			ColorEndR:        1,
+			ColorEndG:        1,
+			ColorEndB:        1,
+			ColorEasing:      EasingLinear,
+		},
+		Runtime: TrailRuntime{
+			Points:   make([]TrailPoint, 0, maxPoints),
+			Ghosts:   make([]TrailGhost, 0),
+			Vertices: make([]ebiten.Vertex, 0, maxPoints*2),
+			Indices:  make([]uint16, 0, (maxPoints-1)*6),
+		},
 	}
 	if config.Color != nil {
-		trail.ColorStartR = config.Color.StartR
-		trail.ColorStartG = config.Color.StartG
-		trail.ColorStartB = config.Color.StartB
-		trail.ColorEndR = config.Color.EndR
-		trail.ColorEndG = config.Color.EndG
-		trail.ColorEndB = config.Color.EndB
-		trail.ColorEasing = ParseEasing(config.Color.Easing)
+		trail.Params.ColorStartR = config.Color.StartR
+		trail.Params.ColorStartG = config.Color.StartG
+		trail.Params.ColorStartB = config.Color.StartB
+		trail.Params.ColorEndR = config.Color.EndR
+		trail.Params.ColorEndG = config.Color.EndG
+		trail.Params.ColorEndB = config.Color.EndB
+		trail.Params.ColorEasing = ParseEasing(config.Color.Easing)
 	}
 	return trail
 }
 
 func isParticleTrail(trail *TrailData) bool {
-	return trail.Enabled && trail.Mode == "particle"
+	return trail.Params.Enabled && trail.Params.Mode == "particle"
 }
 
 func trimTrailPoints(points []TrailPoint, maxPoints int) []TrailPoint {
@@ -99,41 +109,45 @@ func shiftTrailPoints(points []TrailPoint, dx, dy float32) {
 
 func updateTrail(data *SystemData) {
 	trail := &data.Trail
-	if !trail.Enabled || trail.MaxPoints < 2 {
+	if !trail.Params.Enabled || trail.Params.MaxPoints < 2 {
 		return
 	}
 	if isParticleTrail(trail) {
 		updateParticleTrails(data)
 		return
 	}
+	updateEmitterTrail(data)
+}
 
+func updateEmitterTrail(data *SystemData) {
+	trail := &data.Trail
 	currentTime := data.CurrentTime
-	pruneBefore := currentTime - trail.MaxPointAge
+	pruneBefore := currentTime - trail.Params.MaxPointAge
 	keepFrom := 0
-	for keepFrom < len(trail.Points) && trail.Points[keepFrom].CapturedAt < pruneBefore {
+	for keepFrom < len(trail.Runtime.Points) && trail.Runtime.Points[keepFrom].CapturedAt < pruneBefore {
 		keepFrom++
 	}
 	if keepFrom > 0 {
-		copy(trail.Points, trail.Points[keepFrom:])
-		trail.Points = trail.Points[:len(trail.Points)-keepFrom]
+		copy(trail.Runtime.Points, trail.Runtime.Points[keepFrom:])
+		trail.Runtime.Points = trail.Runtime.Points[:len(trail.Runtime.Points)-keepFrom]
 	}
 
 	head := TrailPoint{X: data.EmitterX, Y: data.EmitterY, CapturedAt: currentTime}
-	if len(trail.Points) == 0 {
-		trail.Points = append(trail.Points, head)
+	if len(trail.Runtime.Points) == 0 {
+		trail.Runtime.Points = append(trail.Runtime.Points, head)
 		return
 	}
 
-	last := &trail.Points[len(trail.Points)-1]
+	last := &trail.Runtime.Points[len(trail.Runtime.Points)-1]
 	dx := head.X - last.X
 	dy := head.Y - last.Y
-	if dx*dx+dy*dy >= trail.MinPointDistance*trail.MinPointDistance {
-		if len(trail.Points) == trail.MaxPoints {
-			copy(trail.Points, trail.Points[1:])
-			trail.Points[len(trail.Points)-1] = head
+	if dx*dx+dy*dy >= trail.Params.MinPointDistance*trail.Params.MinPointDistance {
+		if len(trail.Runtime.Points) == trail.Params.MaxPoints {
+			copy(trail.Runtime.Points, trail.Runtime.Points[1:])
+			trail.Runtime.Points[len(trail.Runtime.Points)-1] = head
 			return
 		}
-		trail.Points = append(trail.Points, head)
+		trail.Runtime.Points = append(trail.Runtime.Points, head)
 		return
 	}
 
@@ -142,7 +156,7 @@ func updateTrail(data *SystemData) {
 }
 
 func trailHasVisiblePoints(data *SystemData) bool {
-	if !data.Trail.Enabled {
+	if !data.Trail.Params.Enabled {
 		return false
 	}
 	if isParticleTrail(&data.Trail) {
@@ -151,14 +165,14 @@ func trailHasVisiblePoints(data *SystemData) bool {
 				return true
 			}
 		}
-		for _, ghost := range data.Trail.Ghosts {
+		for _, ghost := range data.Trail.Runtime.Ghosts {
 			if len(ghost.Points) >= 2 {
 				return true
 			}
 		}
 		return false
 	}
-	return len(data.Trail.Points) >= 2
+	return len(data.Trail.Runtime.Points) >= 2
 }
 
 func drawTrail(screen *ebiten.Image, data *SystemData) {
@@ -171,87 +185,33 @@ func drawTrail(screen *ebiten.Image, data *SystemData) {
 		return
 	}
 
-	buildTrailMesh(data)
-	if len(trail.Indices) == 0 {
+	buildEmitterTrailMesh(data)
+	if len(trail.Runtime.Indices) == 0 {
 		return
 	}
 
 	op := &ebiten.DrawTrianglesOptions{}
-	drawTrailBatch(screen, trail.Vertices, trail.Indices, op)
+	drawTrailBatch(screen, trail.Runtime.Vertices, trail.Runtime.Indices, op)
 }
 
-func buildTrailMesh(data *SystemData) {
+func buildEmitterTrailMesh(data *SystemData) {
 	trail := &data.Trail
-	trail.Vertices = trail.Vertices[:0]
-	trail.Indices = trail.Indices[:0]
+	trail.Runtime.Vertices = trail.Runtime.Vertices[:0]
+	trail.Runtime.Indices = trail.Runtime.Indices[:0]
 
-	if trail.MaxPointAge <= 0 {
+	if trail.Params.MaxPointAge <= 0 {
 		return
 	}
-	if isParticleTrail(trail) {
-		buildParticleTrailMesh(data)
-		return
-	}
-	if len(trail.Points) < 2 {
+	if len(trail.Runtime.Points) < 2 {
 		return
 	}
 
-	var fallbackNX, fallbackNY float32 = 0, -1
-	lastIndex := len(trail.Points) - 1
-	for i := range trail.Points {
-		p := trail.Points[i]
-		nx, ny := trailNormal(trail.Points, i, fallbackNX, fallbackNY)
-		fallbackNX, fallbackNY = nx, ny
-
-		ageNorm := clamp01((data.CurrentTime - p.CapturedAt) / trail.MaxPointAge)
-		width := lerp(trail.WidthStart, trail.WidthEnd, ApplyEasing(ageNorm, trail.WidthEasing))
-		alpha := lerp(trail.AlphaStart, trail.AlphaEnd, ApplyEasing(ageNorm, trail.AlphaEasing))
-		colorT := ApplyEasing(ageNorm, trail.ColorEasing)
-		r := lerp(trail.ColorStartR, trail.ColorEndR, colorT)
-		g := lerp(trail.ColorStartG, trail.ColorEndG, colorT)
-		b := lerp(trail.ColorStartB, trail.ColorEndB, colorT)
-
-		halfWidth := width * 0.5
-		ox := nx * halfWidth
-		oy := ny * halfWidth
-		v := float32(i) / float32(lastIndex)
-
-		trail.Vertices = append(trail.Vertices,
-			ebiten.Vertex{
-				DstX:   p.X - ox,
-				DstY:   p.Y - oy,
-				SrcX:   0,
-				SrcY:   v,
-				ColorR: r,
-				ColorG: g,
-				ColorB: b,
-				ColorA: alpha,
-			},
-			ebiten.Vertex{
-				DstX:   p.X + ox,
-				DstY:   p.Y + oy,
-				SrcX:   1,
-				SrcY:   v,
-				ColorR: r,
-				ColorG: g,
-				ColorB: b,
-				ColorA: alpha,
-			},
-		)
-	}
-
-	for i := 0; i < lastIndex; i++ {
-		base := uint16(i * 2)
-		trail.Indices = append(trail.Indices,
-			base, base+1, base+2,
-			base+1, base+3, base+2,
-		)
-	}
+	appendTrailMeshForPoints(data, trail.Runtime.Points)
 }
 
 func updateParticleTrails(data *SystemData) {
 	currentTime := data.CurrentTime
-	pruneTrailGhosts(&data.Trail, currentTime)
+	pruneTrailGhosts(&data.Trail.Runtime, data.Trail.Params.MaxPointAge, currentTime)
 	for _, idx := range data.ActiveIndices {
 		p := &data.ParticlePool[idx]
 		updateSingleParticleTrail(data, p, currentTime)
@@ -260,7 +220,7 @@ func updateParticleTrails(data *SystemData) {
 
 func updateSingleParticleTrail(data *SystemData, p *Instance, currentTime float32) {
 	points := p.TrailPoints
-	pruneBefore := currentTime - data.Trail.MaxPointAge
+	pruneBefore := currentTime - data.Trail.Params.MaxPointAge
 	keepFrom := 0
 	for keepFrom < len(points) && points[keepFrom].CapturedAt < pruneBefore {
 		keepFrom++
@@ -270,7 +230,7 @@ func updateSingleParticleTrail(data *SystemData, p *Instance, currentTime float3
 		points = points[:len(points)-keepFrom]
 	}
 
-	x, y := evaluateTrailAnchorPosition(data, p, currentTime)
+	x, y := currentParticlePosition(data, p, currentTime-p.SpawnTime)
 	head := TrailPoint{X: x, Y: y, CapturedAt: currentTime}
 	if len(points) == 0 {
 		p.TrailPoints = append(points, head)
@@ -280,8 +240,8 @@ func updateSingleParticleTrail(data *SystemData, p *Instance, currentTime float3
 	last := &points[len(points)-1]
 	dx := head.X - last.X
 	dy := head.Y - last.Y
-	if dx*dx+dy*dy >= data.Trail.MinPointDistance*data.Trail.MinPointDistance {
-		if len(points) == data.Trail.MaxPoints {
+	if dx*dx+dy*dy >= data.Trail.Params.MinPointDistance*data.Trail.Params.MinPointDistance {
+		if len(points) == data.Trail.Params.MaxPoints {
 			copy(points, points[1:])
 			points[len(points)-1] = head
 			p.TrailPoints = points
@@ -295,21 +255,12 @@ func updateSingleParticleTrail(data *SystemData, p *Instance, currentTime float3
 	p.TrailPoints = points
 }
 
-func buildParticleTrailMesh(data *SystemData) {
-	for _, idx := range data.ActiveIndices {
-		appendTrailMeshForPoints(data, data.ParticlePool[idx].TrailPoints)
-	}
-	for _, ghost := range data.Trail.Ghosts {
-		appendTrailMeshForPoints(data, ghost.Points)
-	}
-}
-
 func appendTrailMeshForPoints(data *SystemData, points []TrailPoint) {
 	trail := &data.Trail
 	if len(points) < 2 {
 		return
 	}
-	vertexStart := len(trail.Vertices)
+	vertexStart := len(trail.Runtime.Vertices)
 	var fallbackNX, fallbackNY float32 = 0, -1
 	lastIndex := len(points) - 1
 	for i := range points {
@@ -317,20 +268,20 @@ func appendTrailMeshForPoints(data *SystemData, points []TrailPoint) {
 		nx, ny := trailNormal(points, i, fallbackNX, fallbackNY)
 		fallbackNX, fallbackNY = nx, ny
 
-		ageNorm := clamp01((data.CurrentTime - p.CapturedAt) / trail.MaxPointAge)
-		width := lerp(trail.WidthStart, trail.WidthEnd, ApplyEasing(ageNorm, trail.WidthEasing))
-		alpha := lerp(trail.AlphaStart, trail.AlphaEnd, ApplyEasing(ageNorm, trail.AlphaEasing))
-		colorT := ApplyEasing(ageNorm, trail.ColorEasing)
-		r := lerp(trail.ColorStartR, trail.ColorEndR, colorT)
-		g := lerp(trail.ColorStartG, trail.ColorEndG, colorT)
-		b := lerp(trail.ColorStartB, trail.ColorEndB, colorT)
+		ageNorm := clamp01((data.CurrentTime - p.CapturedAt) / trail.Params.MaxPointAge)
+		width := lerp(trail.Params.WidthStart, trail.Params.WidthEnd, ApplyEasing(ageNorm, trail.Params.WidthEasing))
+		alpha := lerp(trail.Params.AlphaStart, trail.Params.AlphaEnd, ApplyEasing(ageNorm, trail.Params.AlphaEasing))
+		colorT := ApplyEasing(ageNorm, trail.Params.ColorEasing)
+		r := lerp(trail.Params.ColorStartR, trail.Params.ColorEndR, colorT)
+		g := lerp(trail.Params.ColorStartG, trail.Params.ColorEndG, colorT)
+		b := lerp(trail.Params.ColorStartB, trail.Params.ColorEndB, colorT)
 
 		halfWidth := width * 0.5
 		ox := nx * halfWidth
 		oy := ny * halfWidth
 		v := float32(i) / float32(lastIndex)
 
-		trail.Vertices = append(trail.Vertices,
+		trail.Runtime.Vertices = append(trail.Runtime.Vertices,
 			ebiten.Vertex{DstX: p.X - ox, DstY: p.Y - oy, SrcX: 0, SrcY: v, ColorR: r, ColorG: g, ColorB: b, ColorA: alpha},
 			ebiten.Vertex{DstX: p.X + ox, DstY: p.Y + oy, SrcX: 1, SrcY: v, ColorR: r, ColorG: g, ColorB: b, ColorA: alpha},
 		)
@@ -338,21 +289,50 @@ func appendTrailMeshForPoints(data *SystemData, points []TrailPoint) {
 
 	for i := 0; i < lastIndex; i++ {
 		base := uint16(vertexStart + i*2)
-		trail.Indices = append(trail.Indices,
+		trail.Runtime.Indices = append(trail.Runtime.Indices,
 			base, base+1, base+2,
 			base+1, base+3, base+2,
 		)
 	}
 }
 
-func pruneTrailGhosts(trail *TrailData, currentTime float32) {
+func pruneTrailGhosts(trail *TrailRuntime, maxPointAge, currentTime float32) {
 	if len(trail.Ghosts) == 0 {
 		return
 	}
+	pruneBefore := currentTime - maxPointAge
+
+	// Ghosts are appended in detach order, so fully expired ghosts accumulate at the front.
+	firstAlive := 0
+	for firstAlive < len(trail.Ghosts) {
+		points := trail.Ghosts[firstAlive].Points
+		if len(points) >= 2 && points[len(points)-1].CapturedAt >= pruneBefore {
+			break
+		}
+		firstAlive++
+	}
+	if firstAlive > 0 {
+		copy(trail.Ghosts, trail.Ghosts[firstAlive:])
+		trail.Ghosts = trail.Ghosts[:len(trail.Ghosts)-firstAlive]
+	}
+	if len(trail.Ghosts) == 0 {
+		return
+	}
+
 	writeIdx := 0
-	pruneBefore := currentTime - trail.MaxPointAge
-	for _, ghost := range trail.Ghosts {
-		points := ghost.Points
+	for i := range trail.Ghosts {
+		points := trail.Ghosts[i].Points
+		if len(points) < 2 {
+			continue
+		}
+		if points[0].CapturedAt >= pruneBefore {
+			if writeIdx != i {
+				copy(trail.Ghosts[writeIdx:], trail.Ghosts[i:])
+			}
+			writeIdx += len(trail.Ghosts) - i
+			break
+		}
+
 		keepFrom := 0
 		for keepFrom < len(points) && points[keepFrom].CapturedAt < pruneBefore {
 			keepFrom++
@@ -371,12 +351,12 @@ func pruneTrailGhosts(trail *TrailData, currentTime float32) {
 }
 
 func detachParticleTrail(trail *TrailData, points []TrailPoint) {
-	if len(points) < 2 || trail.MaxPointAge <= 0 {
+	if len(points) < 2 || trail.Params.MaxPointAge <= 0 {
 		return
 	}
 	copied := make([]TrailPoint, len(points))
 	copy(copied, points)
-	trail.Ghosts = append(trail.Ghosts, TrailGhost{Points: copied})
+	trail.Runtime.Ghosts = append(trail.Runtime.Ghosts, TrailGhost{Points: copied})
 }
 
 func drawTrailBatch(screen *ebiten.Image, vertices []ebiten.Vertex, indices []uint16, op *ebiten.DrawTrianglesOptions) {
@@ -388,53 +368,41 @@ func drawTrailBatch(screen *ebiten.Image, vertices []ebiten.Vertex, indices []ui
 
 func drawParticleTrails(screen *ebiten.Image, data *SystemData) {
 	trail := &data.Trail
-	trail.Vertices = trail.Vertices[:0]
-	trail.Indices = trail.Indices[:0]
-
-	op := &ebiten.DrawTrianglesOptions{}
-
-	flush := func() {
-		drawTrailBatch(screen, trail.Vertices, trail.Indices, op)
-		trail.Vertices = trail.Vertices[:0]
-		trail.Indices = trail.Indices[:0]
-	}
-
-	appendPoints := func(points []TrailPoint) {
-		if len(points) < 2 {
-			return
-		}
-		neededVertices := len(points) * 2
-		if len(trail.Vertices) > 0 && len(trail.Vertices)+neededVertices > maxTrailBatchVertices {
-			flush()
-		}
-		appendTrailMeshForPoints(data, points)
-	}
+	builder := newParticleTrailBatchBuilder(screen, &trail.Runtime)
 
 	for _, idx := range data.ActiveIndices {
-		appendPoints(data.ParticlePool[idx].TrailPoints)
+		builder.Append(data, data.ParticlePool[idx].TrailPoints)
 	}
-	for _, ghost := range trail.Ghosts {
-		appendPoints(ghost.Points)
+	for _, ghost := range trail.Runtime.Ghosts {
+		builder.Append(data, ghost.Points)
 	}
-	flush()
+	builder.Flush()
 }
 
-func evaluateTrailAnchorPosition(data *SystemData, p *Instance, currentTime float32) (float32, float32) {
-	elapsed := currentTime - p.SpawnTime
-	normalizedT := elapsed / p.Duration
-	if normalizedT < 0 {
-		normalizedT = 0
+func newParticleTrailBatchBuilder(screen *ebiten.Image, runtime *TrailRuntime) particleTrailBatchBuilder {
+	runtime.Vertices = runtime.Vertices[:0]
+	runtime.Indices = runtime.Indices[:0]
+	return particleTrailBatchBuilder{
+		screen: screen,
+		trail:  runtime,
 	}
-	if normalizedT > 1 {
-		normalizedT = 1
+}
+
+func (b *particleTrailBatchBuilder) Append(data *SystemData, points []TrailPoint) {
+	if len(points) < 2 {
+		return
 	}
-	posT := ApplyEasing(normalizedT, p.PositionEasing)
-	x, y := evaluateParticleBasePosition(data, p, elapsed, posT)
-	if p.HasFlow {
-		x += p.FlowOffsetX
-		y += p.FlowOffsetY
+	neededVertices := len(points) * 2
+	if len(b.trail.Vertices) > 0 && len(b.trail.Vertices)+neededVertices > maxTrailBatchVertices {
+		b.Flush()
 	}
-	return x, y
+	appendTrailMeshForPoints(data, points)
+}
+
+func (b *particleTrailBatchBuilder) Flush() {
+	drawTrailBatch(b.screen, b.trail.Vertices, b.trail.Indices, &b.opts)
+	b.trail.Vertices = b.trail.Vertices[:0]
+	b.trail.Indices = b.trail.Indices[:0]
 }
 
 func trailNormal(points []TrailPoint, idx int, fallbackX, fallbackY float32) (float32, float32) {

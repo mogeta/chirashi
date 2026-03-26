@@ -127,16 +127,16 @@ func SetEmitterPosition(world donburi.World, entity donburi.Entity, x, y float32
 	data.EmitterX = x
 	data.EmitterY = y
 	shiftActiveParticlesForEmitterDelta(data, dx, dy)
-	if data.Trail.Enabled && data.Trail.LocalSpace {
-		if data.Trail.Mode == "particle" {
+	if data.Trail.Params.Enabled && data.Trail.Params.LocalSpace {
+		if data.Trail.Params.Mode == "particle" {
 			for i := range data.ParticlePool {
 				shiftTrailPoints(data.ParticlePool[i].TrailPoints, dx, dy)
 			}
-			for i := range data.Trail.Ghosts {
-				shiftTrailPoints(data.Trail.Ghosts[i].Points, dx, dy)
+			for i := range data.Trail.Runtime.Ghosts {
+				shiftTrailPoints(data.Trail.Runtime.Ghosts[i].Points, dx, dy)
 			}
 		} else {
-			shiftTrailPoints(data.Trail.Points, dx, dy)
+			shiftTrailPoints(data.Trail.Runtime.Points, dx, dy)
 		}
 	}
 }

@@ -585,12 +585,16 @@ func TestSetEmitterPositionShiftsLocalParticlesAndTrail(t *testing.T) {
 			},
 		},
 		Trail: TrailData{
-			Enabled:    true,
-			Mode:       "emitter",
-			LocalSpace: true,
-			Points: []TrailPoint{
-				{X: 8, Y: 18},
-				{X: 10, Y: 20},
+			Params: TrailParams{
+				Enabled:    true,
+				Mode:       "emitter",
+				LocalSpace: true,
+			},
+			Runtime: TrailRuntime{
+				Points: []TrailPoint{
+					{X: 8, Y: 18},
+					{X: 10, Y: 20},
+				},
 			},
 		},
 	})
@@ -605,8 +609,8 @@ func TestSetEmitterPositionShiftsLocalParticlesAndTrail(t *testing.T) {
 	if p.ControlX != 29 || p.ControlY != 31 {
 		t.Fatalf("expected control point to shift with emitter, got (%v,%v)", p.ControlX, p.ControlY)
 	}
-	if data.Trail.Points[0].X != 23 || data.Trail.Points[0].Y != 33 {
-		t.Fatalf("expected local-space trail point to shift, got (%v,%v)", data.Trail.Points[0].X, data.Trail.Points[0].Y)
+	if data.Trail.Runtime.Points[0].X != 23 || data.Trail.Runtime.Points[0].Y != 33 {
+		t.Fatalf("expected local-space trail point to shift, got (%v,%v)", data.Trail.Runtime.Points[0].X, data.Trail.Runtime.Points[0].Y)
 	}
 }
 
@@ -620,9 +624,11 @@ func TestSetEmitterPositionShiftsLocalParticleTrails(t *testing.T) {
 		EmitterY:          20,
 		EmitterLocalSpace: true,
 		Trail: TrailData{
-			Enabled:    true,
-			Mode:       "particle",
-			LocalSpace: true,
+			Params: TrailParams{
+				Enabled:    true,
+				Mode:       "particle",
+				LocalSpace: true,
+			},
 		},
 		ParticlePool: []Instance{
 			{TrailPoints: []TrailPoint{{X: 10, Y: 20}, {X: 14, Y: 24}}},
