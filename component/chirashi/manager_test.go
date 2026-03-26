@@ -169,6 +169,33 @@ func TestCopyConfigDeepCopiesEmitterShape(t *testing.T) {
 	}
 }
 
+func TestCopyConfigDeepCopiesTrail(t *testing.T) {
+	src := &ParticleConfig{
+		Trail: &TrailConfig{
+			Enabled:          true,
+			Mode:             "emitter",
+			Space:            "world",
+			MaxPoints:        8,
+			MinPointDistance: 4,
+			MaxPointAge:      0.5,
+			Width:            TrailScalarConfig{Start: 16, End: 0, Easing: "OutQuad"},
+			Alpha:            TrailScalarConfig{Start: 0.8, End: 0, Easing: "Linear"},
+			Color:            &ColorConfig{StartR: 1, StartG: 0.8, StartB: 0.3, EndR: 1, EndG: 0.1, EndB: 0.0, Easing: "OutQuad"},
+		},
+	}
+
+	dst := copyConfig(src)
+	dst.Trail.Space = "local"
+	dst.Trail.Color.StartR = 99
+
+	if src.Trail.Space != "world" {
+		t.Error("Trail.Space: src was modified by dst change")
+	}
+	if src.Trail.Color.StartR == 99 {
+		t.Error("Trail.Color: src was modified by dst change")
+	}
+}
+
 func TestApplyConfigLiveUpdatesActiveParticles(t *testing.T) {
 	world := donburi.NewWorld()
 	entity := world.Create(Component)
@@ -532,5 +559,83 @@ func TestAttractorParticleHasControlPoint(t *testing.T) {
 		if p.ControlY < 200-100 || p.ControlY > 200-10 {
 			t.Errorf("particle[%d]: ControlY %v outside expected range", idx, p.ControlY)
 		}
+	}
+}
+
+func TestSetEmitterPositionShiftsLocalParticlesAndTrail(t *testing.T) {
+	world := donburi.NewWorld()
+	entity := world.Create(Component)
+	entry := world.Entry(entity)
+
+	donburi.SetValue(entry, Component, SystemData{
+		EmitterX:          10,
+		EmitterY:          20,
+		EmitterLocalSpace: true,
+		ActiveIndices:     []int{0},
+		ActiveCount:       1,
+		ParticlePool: []Instance{
+			{
+				Active:   true,
+				StartX:   12,
+				EndX:     18,
+				StartY:   24,
+				EndY:     30,
+				ControlX: 14,
+				ControlY: 16,
+			},
+		},
+		Trail: TrailData{
+			Enabled:    true,
+			Mode:       "emitter",
+			LocalSpace: true,
+			Points: []TrailPoint{
+				{X: 8, Y: 18},
+				{X: 10, Y: 20},
+			},
+		},
+	})
+
+	SetEmitterPosition(world, entity, 25, 35)
+
+	data := Component.Get(entry)
+	p := data.ParticlePool[0]
+	if p.StartX != 27 || p.EndX != 33 || p.StartY != 39 || p.EndY != 45 {
+		t.Fatalf("expected particle path to shift with emitter, got start=(%v,%v) end=(%v,%v)", p.StartX, p.StartY, p.EndX, p.EndY)
+	}
+	if p.ControlX != 29 || p.ControlY != 31 {
+		t.Fatalf("expected control point to shift with emitter, got (%v,%v)", p.ControlX, p.ControlY)
+	}
+	if data.Trail.Points[0].X != 23 || data.Trail.Points[0].Y != 33 {
+		t.Fatalf("expected local-space trail point to shift, got (%v,%v)", data.Trail.Points[0].X, data.Trail.Points[0].Y)
+	}
+}
+
+func TestSetEmitterPositionShiftsLocalParticleTrails(t *testing.T) {
+	world := donburi.NewWorld()
+	entity := world.Create(Component)
+	entry := world.Entry(entity)
+
+	donburi.SetValue(entry, Component, SystemData{
+		EmitterX:          10,
+		EmitterY:          20,
+		EmitterLocalSpace: true,
+		Trail: TrailData{
+			Enabled:    true,
+			Mode:       "particle",
+			LocalSpace: true,
+		},
+		ParticlePool: []Instance{
+			{TrailPoints: []TrailPoint{{X: 10, Y: 20}, {X: 14, Y: 24}}},
+		},
+	})
+
+	SetEmitterPosition(world, entity, 20, 35)
+
+	data := Component.Get(entry)
+	if data.ParticlePool[0].TrailPoints[0].X != 20 || data.ParticlePool[0].TrailPoints[0].Y != 35 {
+		t.Fatalf("expected first particle trail point to shift with local emitter, got (%v,%v)", data.ParticlePool[0].TrailPoints[0].X, data.ParticlePool[0].TrailPoints[0].Y)
+	}
+	if data.ParticlePool[0].TrailPoints[1].X != 24 || data.ParticlePool[0].TrailPoints[1].Y != 39 {
+		t.Fatalf("expected second particle trail point to shift with local emitter, got (%v,%v)", data.ParticlePool[0].TrailPoints[1].X, data.ParticlePool[0].TrailPoints[1].Y)
 	}
 }

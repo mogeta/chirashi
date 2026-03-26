@@ -31,6 +31,7 @@ func ApplyConfigLive(world donburi.World, entity donburi.Entity, config *Particl
 	buildSequenceConfigs(config, data)
 
 	shiftActiveParticlesForEmitterDelta(data, data.EmitterX-prevEmitterX, data.EmitterY-prevEmitterY)
+	applyTrailConfigLive(data, config.Trail, data.EmitterX-prevEmitterX, data.EmitterY-prevEmitterY)
 	applyAnimationParamsToActiveParticles(data)
 }
 
@@ -159,4 +160,47 @@ func applyLiveFlow(p *Instance, pos PositionParams) {
 	}
 	p.FlowGain = 0
 	resetParticleFlowState(p, false)
+}
+
+func applyTrailConfigLive(data *SystemData, config *TrailConfig, dx, dy float32) {
+	prevLocalSpace := data.Trail.LocalSpace
+	prevMode := data.Trail.Mode
+	points := data.Trail.Points
+	data.Trail = buildTrailData(config)
+	if !data.Trail.Enabled {
+		for i := range data.ParticlePool {
+			data.ParticlePool[i].TrailPoints = data.ParticlePool[i].TrailPoints[:0]
+		}
+		data.Trail.Ghosts = nil
+		return
+	}
+	if data.Trail.Mode == "particle" {
+		for i := range data.ParticlePool {
+			p := &data.ParticlePool[i]
+			if cap(p.TrailPoints) < data.Trail.MaxPoints {
+				p.TrailPoints = make([]TrailPoint, 0, data.Trail.MaxPoints)
+				continue
+			}
+			p.TrailPoints = trimTrailPoints(p.TrailPoints, data.Trail.MaxPoints)
+		}
+		data.Trail.Points = nil
+		if prevLocalSpace && prevMode == "particle" && data.Trail.LocalSpace {
+			for i := range data.ParticlePool {
+				shiftTrailPoints(data.ParticlePool[i].TrailPoints, dx, dy)
+			}
+			for i := range data.Trail.Ghosts {
+				shiftTrailPoints(data.Trail.Ghosts[i].Points, dx, dy)
+			}
+		}
+		return
+	}
+	data.Trail.Points = trimTrailPoints(points, data.Trail.MaxPoints)
+	if prevLocalSpace && data.Trail.LocalSpace {
+		shiftTrailPoints(data.Trail.Points, dx, dy)
+	}
+	if prevMode == "particle" {
+		for i := range data.ParticlePool {
+			data.ParticlePool[i].TrailPoints = data.ParticlePool[i].TrailPoints[:0]
+		}
+	}
 }

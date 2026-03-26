@@ -24,6 +24,7 @@ You can try it in your browser:
 - Built-in editor for real-time parameter tuning and YAML save/load
 - Position modes: `cartesian`, `polar`, `attractor`
 - Emitter shapes: `point`, `circle`, `box`, `line`
+- Optional emitter or per-particle ribbon trails with width/alpha/color gradients
 - Property animation with easing and multi-step sequences
 - Runtime attractor target updates for UI/item-collection effects
 - Save/load particle configs as YAML
@@ -117,6 +118,24 @@ animation:
     end: 3.14
     easing: "Linear"
 
+trail:
+  enabled: true
+  mode: "particle"
+  space: "world"
+  max_points: 12
+  min_point_distance: 6
+  max_point_age: 0.35
+  width: { start: 18, end: 0, easing: "OutQuad" }
+  alpha: { start: 0.8, end: 0.0, easing: "Linear" }
+  color:
+    start_r: 0.6
+    start_g: 0.9
+    start_b: 1.0
+    end_r: 0.1
+    end_g: 0.2
+    end_b: 0.8
+    easing: "OutQuad"
+
 spawn:
   interval: 1
   particles_per_spawn: 10
@@ -130,6 +149,7 @@ Config highlights:
 - `emitter.space: world` lets emitted particles keep their world position when the emitter moves later.
 - `animation.position.type: attractor` curves particles toward a runtime target.
 - `animation.position.flow` adds low-cost curl flow on top of the base path for drifting smoke, space dust, and magic ambience.
+- `trail` adds optional `emitter` or `particle` ribbon trails in world or local space.
 - `PropertyConfig` supports both simple `start/end/easing` and multi-step `sequence` mode.
 - Example effects are available under `assets/particles/`.
 
@@ -148,8 +168,12 @@ Notable samples:
 - The library is optimized around spawn-time randomization and batched draw submission.
 - Shape sampling happens when particles spawn; it does not add per-frame draw cost.
 - `animation.position.flow` adds update-time CPU cost proportional to active particles and `octaves`; keep `octaves` low for mobile targets.
+- `trail.mode: emitter` adds CPU cost proportional to `trail.max_points`.
+- `trail.mode: particle` adds CPU and memory cost proportional to `active_particles * trail.max_points`.
+- `trail.mode: particle` keeps detached tail ghosts alive until `trail.max_point_age` expires.
 - `ParticleManager.SpawnLoop` returns an entity so the effect can be removed manually later.
 - `SetAttractor` can be called each frame for moving attractor targets.
+- `SetEmitterPosition` can be called each frame for moving emitters and ribbon trails.
 
 ## Public API
 

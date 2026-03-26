@@ -56,6 +56,9 @@ type Instance struct {
 	HasAlphaSeq bool
 	AlphaSnap   SequenceSnapshot
 
+	// Particle trail history (used only when trail.mode == "particle")
+	TrailPoints []TrailPoint
+
 	// State
 	Active bool
 }
@@ -93,6 +96,7 @@ type SystemData struct {
 	SourceImage *ebiten.Image
 	ImageWidth  float32 // Cached image width
 	ImageHeight float32 // Cached image height
+	Trail       TrailData
 
 	// Internal state
 	ActiveCount int
@@ -214,6 +218,44 @@ type Metrics struct {
 	SpawnCount      int   // Total particles spawned (cumulative)
 	DeactivateCount int   // Total particles deactivated (cumulative)
 	FrameCount      int   // Frame counter
+}
+
+// TrailPoint stores one sampled emitter position for ribbon trail rendering.
+type TrailPoint struct {
+	X, Y       float32
+	CapturedAt float32
+}
+
+// TrailGhost stores a detached particle trail after the source particle expires.
+type TrailGhost struct {
+	Points []TrailPoint
+}
+
+// TrailData stores runtime ribbon trail state.
+type TrailData struct {
+	Enabled          bool
+	Mode             string
+	LocalSpace       bool
+	MaxPoints        int
+	MinPointDistance float32
+	MaxPointAge      float32
+	WidthStart       float32
+	WidthEnd         float32
+	WidthEasing      EasingType
+	AlphaStart       float32
+	AlphaEnd         float32
+	AlphaEasing      EasingType
+	ColorStartR      float32
+	ColorStartG      float32
+	ColorStartB      float32
+	ColorEndR        float32
+	ColorEndG        float32
+	ColorEndB        float32
+	ColorEasing      EasingType
+	Points           []TrailPoint
+	Ghosts           []TrailGhost
+	Vertices         []ebiten.Vertex
+	Indices          []uint16
 }
 
 // Component is the Donburi component type for GPU particle systems

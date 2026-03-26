@@ -68,6 +68,30 @@ animation:
     end_b: float
     easing: string
 
+trail: # optional
+  enabled: bool
+  mode: "emitter" | "particle"
+  space: "local" | "world" # optional
+  max_points: int
+  min_point_distance: float
+  max_point_age: float
+  width:
+    start: float
+    end: float
+    easing: string
+  alpha:
+    start: float
+    end: float
+    easing: string
+  color: # optional
+    start_r: float
+    start_g: float
+    start_b: float
+    end_r: float
+    end_g: float
+    end_b: float
+    easing: string
+
 spawn:
   interval: int
   particles_per_spawn: int
@@ -105,6 +129,11 @@ Validation is performed by `ConfigLoader`:
 - `spawn.interval` must be `> 0`.
 - `animation.duration.value` must be `> 0`.
 - `emitter.space` must be `local` or `world`.
+- `trail.mode` must be `emitter` or `particle`.
+- `trail.space` must be `local` or `world`.
+- `trail.max_points` must be `>= 0`.
+- `trail.min_point_distance` must be `>= 0`.
+- `trail.max_point_age` must be `>= 0`.
 - `animation.position.flow.type` must be `curl`.
 - `animation.position.flow.strength.min` must be `<= max`.
 - `animation.position.flow.scale` must be `>= 0`.
@@ -132,6 +161,15 @@ If validation fails, loading returns an error.
 - `emitter.space` defaults to `"local"`.
 - `emitter.space: "local"` keeps active particles attached to emitter movement after they spawn.
 - `emitter.space: "world"` leaves already-spawned particles in world space when the emitter moves.
+- `trail.space` defaults to `"world"` so emitter trails stay behind moving objects.
+- `trail.mode` defaults to `emitter` behavior when omitted.
+- `trail.max_points` defaults to `12`.
+- `trail.min_point_distance` defaults to `6`.
+- `trail.max_point_age` defaults to `0.35`.
+- `trail.width` defaults to `18 -> 0` when omitted.
+- `trail.alpha` defaults to `0.8 -> 0` when omitted.
+- `trail.color` omitted means white -> white.
+- `trail.mode: "particle"` keeps the tail visible until sampled points exceed `max_point_age`, even after the source particle expires.
 - `circle` shape defaults to a full 0..2π arc when `start_angle`/`end_angle` are omitted.
 - If cartesian ranges are omitted, values default to `0`, so particles can stay at emitter position.
 - If both `scale.start` and `scale.end` are `0`, runtime forces both to `1.0`.
@@ -399,6 +437,47 @@ spawn:
   interval: 2
   particles_per_spawn: 10
   max_particles: 600
+  is_loop: true
+```
+
+## Example: Particle ribbon trail
+
+```yaml
+name: "plasma_dash"
+description: "moving particles with individual cyan ribbon trails"
+image: { image_from: "ef1", image_id: 7 }
+emitter: { x: 0, y: 0, space: "world" }
+animation:
+  duration: { value: 0.5 }
+  position:
+    type: "cartesian"
+    end_x: { min: 0, max: 0 }
+    end_y: { min: 0, max: 0 }
+    easing: "Linear"
+  alpha: { start: 0.7, end: 0.0, easing: "Linear" }
+  scale: { start: 0.4, end: 0.1, easing: "OutQuad" }
+  rotation: { start: 0.0, end: 0.0, easing: "Linear" }
+trail:
+  enabled: true
+  mode: "particle"
+  space: "world"
+  max_points: 12
+  min_point_distance: 6
+  max_point_age: 0.35
+  width: { start: 18, end: 0, easing: "OutQuad" }
+  alpha: { start: 0.8, end: 0.0, easing: "Linear" }
+  color:
+    start_r: 0.5
+    start_g: 0.95
+    start_b: 1.0
+    end_r: 0.1
+    end_g: 0.2
+    end_b: 0.8
+    easing: "OutQuad"
+spawn:
+  interval: 2
+  particles_per_spawn: 3
+  max_particles: 96
   is_loop: true
 ```
 

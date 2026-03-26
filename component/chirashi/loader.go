@@ -157,6 +157,27 @@ func (l *ConfigLoader) validateConfig(config *ParticleConfig) error {
 	default:
 		return fmt.Errorf("emitter.space must be local or world")
 	}
+	if trail := config.Trail; trail != nil {
+		switch trail.Mode {
+		case "", "emitter", "particle":
+		default:
+			return fmt.Errorf("trail.mode must be emitter or particle")
+		}
+		switch trail.Space {
+		case "", "local", "world":
+		default:
+			return fmt.Errorf("trail.space must be local or world")
+		}
+		if trail.MaxPoints < 0 {
+			return fmt.Errorf("trail.max_points must be greater than or equal to 0")
+		}
+		if trail.MinPointDistance < 0 {
+			return fmt.Errorf("trail.min_point_distance must be greater than or equal to 0")
+		}
+		if trail.MaxPointAge < 0 {
+			return fmt.Errorf("trail.max_point_age must be greater than or equal to 0")
+		}
+	}
 
 	if flow := config.Animation.Position.Flow; flow != nil {
 		switch flow.Type {

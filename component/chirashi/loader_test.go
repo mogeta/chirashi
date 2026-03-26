@@ -1,6 +1,7 @@
 package chirashi
 
 import (
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -154,5 +155,21 @@ func TestValidateConfigRejectsInvalidValues(t *testing.T) {
 				t.Fatalf("expected error containing %q, got %q", tt.wantErr, err.Error())
 			}
 		})
+	}
+}
+
+func TestLoadReentryPlasmaWakeSample(t *testing.T) {
+	loader := NewConfigLoader()
+	path := filepath.Join("..", "..", "assets", "particles", "reentry_plasma_wake.yaml")
+
+	cfg, err := loader.LoadConfig(path)
+	if err != nil {
+		t.Fatalf("expected reentry_plasma_wake sample to load, got: %v", err)
+	}
+	if cfg.Emitter.Space != EmitterSpaceWorld {
+		t.Fatalf("expected reentry_plasma_wake to use world-space emitter, got: %v", cfg.Emitter.Space)
+	}
+	if cfg.Animation.Position.Flow == nil || cfg.Animation.Position.Flow.Type != "curl" {
+		t.Fatalf("expected reentry_plasma_wake sample to use curl flow, got: %+v", cfg.Animation.Position.Flow)
 	}
 }

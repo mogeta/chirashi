@@ -238,6 +238,8 @@ pm.SpawnLoop(world, name string, x, y float32) (donburi.Entity, error)
 // 設定変更
 pm.SetShader(shader *ebiten.Shader)
 pm.SetImage(image *ebiten.Image)
+aburi.SetEmitterPosition(world, entity, x, y)
+aburi.SetAttractor(world, entity, x, y)
 ```
 
 ### 直接生成（低レベルAPI）
@@ -261,7 +263,7 @@ go run . -aburi
 
 | 項目 | 実装 |
 |------|------|
-| 描画 | 1回のDrawTrianglesShader |
+| 描画 | パーティクル本体は1回のDrawTrianglesShader、trail有効時は追加で1回 |
 | 位置/スケール/回転 | CPU（spawn時 or 毎フレーム） |
 | アルファ/色 | GPU（シェーダー内で補間） |
 | 極座標変換 | spawn時のみ（毎フレームコストなし） |
