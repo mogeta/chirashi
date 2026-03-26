@@ -101,13 +101,13 @@ func buildSystemDataFromConfig(shader *ebiten.Shader, image *ebiten.Image, confi
 		LifeTime:          config.Spawn.LifeTime,
 		AnimParams:        animParams,
 	}
-	if data.Trail.Enabled && data.Trail.Mode == "particle" {
-		maxTrailVertices := config.Spawn.MaxParticles * data.Trail.MaxPoints * 2
-		maxTrailIndices := config.Spawn.MaxParticles * (data.Trail.MaxPoints - 1) * 6
-		data.Trail.Vertices = make([]ebiten.Vertex, 0, maxTrailVertices)
-		data.Trail.Indices = make([]uint16, 0, maxTrailIndices)
+	if data.Trail.Params.Enabled && data.Trail.Params.Mode == "particle" {
+		maxTrailVertices := config.Spawn.MaxParticles * data.Trail.Params.MaxPoints * 2
+		maxTrailIndices := config.Spawn.MaxParticles * (data.Trail.Params.MaxPoints - 1) * 6
+		data.Trail.Runtime.Vertices = make([]ebiten.Vertex, 0, maxTrailVertices)
+		data.Trail.Runtime.Indices = make([]uint16, 0, maxTrailIndices)
 		for i := range data.ParticlePool {
-			data.ParticlePool[i].TrailPoints = make([]TrailPoint, 0, data.Trail.MaxPoints)
+			data.ParticlePool[i].TrailPoints = make([]TrailPoint, 0, data.Trail.Params.MaxPoints)
 		}
 	}
 	return data

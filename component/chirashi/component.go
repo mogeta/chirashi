@@ -26,6 +26,10 @@ type Instance struct {
 	FlowVelY           float32
 	FlowSeedX          float32
 	FlowSeedY          float32
+	CurrentX           float32
+	CurrentY           float32
+	CurrentPosValid    bool
+	CurrentPosTime     float32
 
 	// Appearance animation
 	StartAlpha, EndAlpha       float32
@@ -231,8 +235,8 @@ type TrailGhost struct {
 	Points []TrailPoint
 }
 
-// TrailData stores runtime ribbon trail state.
-type TrailData struct {
+// TrailParams stores normalized trail configuration values.
+type TrailParams struct {
 	Enabled          bool
 	Mode             string
 	LocalSpace       bool
@@ -252,10 +256,20 @@ type TrailData struct {
 	ColorEndG        float32
 	ColorEndB        float32
 	ColorEasing      EasingType
-	Points           []TrailPoint
-	Ghosts           []TrailGhost
-	Vertices         []ebiten.Vertex
-	Indices          []uint16
+}
+
+// TrailRuntime stores mutable trail history and draw buffers.
+type TrailRuntime struct {
+	Points   []TrailPoint
+	Ghosts   []TrailGhost
+	Vertices []ebiten.Vertex
+	Indices  []uint16
+}
+
+// TrailData stores ribbon trail configuration and runtime state.
+type TrailData struct {
+	Params  TrailParams
+	Runtime TrailRuntime
 }
 
 // Component is the Donburi component type for GPU particle systems

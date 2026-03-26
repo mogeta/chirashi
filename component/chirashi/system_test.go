@@ -222,16 +222,18 @@ func TestUpdateTrailTracksEmitterHistory(t *testing.T) {
 		EmitterX:    10,
 		EmitterY:    20,
 		Trail: TrailData{
-			Enabled:          true,
-			Mode:             "emitter",
-			MaxPoints:        3,
-			MinPointDistance: 5,
-			MaxPointAge:      0.25,
+			Params: TrailParams{
+				Enabled:          true,
+				Mode:             "emitter",
+				MaxPoints:        3,
+				MinPointDistance: 5,
+				MaxPointAge:      0.25,
+			},
 		},
 	}
 
 	updateTrail(data)
-	if got := len(data.Trail.Points); got != 1 {
+	if got := len(data.Trail.Runtime.Points); got != 1 {
 		t.Fatalf("initial point count got %d, want 1", got)
 	}
 
@@ -239,18 +241,18 @@ func TestUpdateTrailTracksEmitterHistory(t *testing.T) {
 	data.EmitterX = 12
 	data.EmitterY = 22
 	updateTrail(data)
-	if got := len(data.Trail.Points); got != 1 {
+	if got := len(data.Trail.Runtime.Points); got != 1 {
 		t.Fatalf("short move should update head in place, got %d points", got)
 	}
-	if data.Trail.Points[0].X != 12 || data.Trail.Points[0].CapturedAt != 0.05 {
-		t.Fatalf("expected updated head point, got %+v", data.Trail.Points[0])
+	if data.Trail.Runtime.Points[0].X != 12 || data.Trail.Runtime.Points[0].CapturedAt != 0.05 {
+		t.Fatalf("expected updated head point, got %+v", data.Trail.Runtime.Points[0])
 	}
 
 	data.CurrentTime = 0.10
 	data.EmitterX = 20
 	data.EmitterY = 22
 	updateTrail(data)
-	if got := len(data.Trail.Points); got != 2 {
+	if got := len(data.Trail.Runtime.Points); got != 2 {
 		t.Fatalf("large move should append point, got %d", got)
 	}
 
@@ -258,27 +260,27 @@ func TestUpdateTrailTracksEmitterHistory(t *testing.T) {
 	data.EmitterX = 30
 	data.EmitterY = 22
 	updateTrail(data)
-	if got := len(data.Trail.Points); got != 1 {
+	if got := len(data.Trail.Runtime.Points); got != 1 {
 		t.Fatalf("expired points should be pruned before appending, got %d", got)
 	}
-	if data.Trail.Points[0].X != 30 {
-		t.Fatalf("expected newest point to remain after prune, got %+v", data.Trail.Points[0])
+	if data.Trail.Runtime.Points[0].X != 30 {
+		t.Fatalf("expected newest point to remain after prune, got %+v", data.Trail.Runtime.Points[0])
 	}
 }
 
 func TestBuildTrailDataDefaults(t *testing.T) {
 	trail := buildTrailData(&TrailConfig{Enabled: true})
-	if !trail.Enabled {
+	if !trail.Params.Enabled {
 		t.Fatal("expected trail to be enabled")
 	}
-	if trail.MaxPoints != defaultTrailMaxPoints || trail.MinPointDistance != defaultTrailMinPointDistance || trail.MaxPointAge != defaultTrailMaxPointAge {
+	if trail.Params.MaxPoints != defaultTrailMaxPoints || trail.Params.MinPointDistance != defaultTrailMinPointDistance || trail.Params.MaxPointAge != defaultTrailMaxPointAge {
 		t.Fatalf("unexpected trail defaults: %+v", trail)
 	}
-	if trail.Mode != "" {
-		t.Fatalf("expected empty trail mode to preserve emitter default behavior, got %q", trail.Mode)
+	if trail.Params.Mode != "" {
+		t.Fatalf("expected empty trail mode to preserve emitter default behavior, got %q", trail.Params.Mode)
 	}
-	if trail.WidthStart != 0 || trail.AlphaStart != 0 {
-		t.Fatalf("expected zero width/alpha when omitted, got width=%v alpha=%v", trail.WidthStart, trail.AlphaStart)
+	if trail.Params.WidthStart != 0 || trail.Params.AlphaStart != 0 {
+		t.Fatalf("expected zero width/alpha when omitted, got width=%v alpha=%v", trail.Params.WidthStart, trail.Params.AlphaStart)
 	}
 }
 
@@ -300,13 +302,15 @@ func TestUpdateTrailTracksParticleHistory(t *testing.T) {
 			},
 		},
 		Trail: TrailData{
-			Enabled:          true,
-			Mode:             "particle",
-			MaxPoints:        4,
-			MinPointDistance: 3,
-			MaxPointAge:      0.3,
-			WidthStart:       8,
-			AlphaStart:       1,
+			Params: TrailParams{
+				Enabled:          true,
+				Mode:             "particle",
+				MaxPoints:        4,
+				MinPointDistance: 3,
+				MaxPointAge:      0.3,
+				WidthStart:       8,
+				AlphaStart:       1,
+			},
 		},
 	}
 
@@ -343,10 +347,12 @@ func TestExpiredParticleTrailBecomesGhostUntilFadeCompletes(t *testing.T) {
 		ActiveIndices: []int{0},
 		ActiveCount:   1,
 		Trail: TrailData{
-			Enabled:     true,
-			Mode:        "particle",
-			MaxPoints:   4,
-			MaxPointAge: 0.4,
+			Params: TrailParams{
+				Enabled:     true,
+				Mode:        "particle",
+				MaxPoints:   4,
+				MaxPointAge: 0.4,
+			},
 		},
 	}
 
@@ -354,7 +360,7 @@ func TestExpiredParticleTrailBecomesGhostUntilFadeCompletes(t *testing.T) {
 	if data.ActiveCount != 0 {
 		t.Fatalf("expected particle to deactivate, got activeCount=%d", data.ActiveCount)
 	}
-	if got := len(data.Trail.Ghosts); got != 1 {
+	if got := len(data.Trail.Runtime.Ghosts); got != 1 {
 		t.Fatalf("expected one detached trail ghost, got %d", got)
 	}
 	if !trailHasVisiblePoints(data) {
