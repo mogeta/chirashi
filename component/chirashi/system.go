@@ -307,13 +307,7 @@ func sampleRectVectorPosition(emitterX, emitterY float32, rect EmitterVectorRect
 		}
 	default:
 		cols := int(math.Ceil(math.Sqrt(float64(float32(maxInt(spawnTotal, 1)) * rect.Width / rect.Height))))
-		if cols < 1 {
-			cols = 1
-		}
 		rows := (maxInt(spawnTotal, 1) + cols - 1) / cols
-		if rows < 1 {
-			rows = 1
-		}
 		col := spawnIndex % cols
 		row := spawnIndex / cols
 		if row >= rows {

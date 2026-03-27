@@ -954,34 +954,7 @@ func defaultEditorPolylineVector() *chirashi.EmitterVectorConfig {
 }
 
 func previewPolylinePoints(polyline *chirashi.EmitterVectorPolylineConfig) []chirashi.EmitterVectorPoint {
-	if polyline == nil || len(polyline.Points) == 0 {
-		return nil
-	}
-	if polyline.Interpolation != "quadratic" {
-		points := make([]chirashi.EmitterVectorPoint, len(polyline.Points))
-		copy(points, polyline.Points)
-		return points
-	}
-	curveSteps := polyline.CurveSteps
-	if curveSteps <= 0 {
-		curveSteps = 12
-	}
-	points := make([]chirashi.EmitterVectorPoint, 0, ((len(polyline.Points)-1)/2)*curveSteps+1)
-	points = append(points, polyline.Points[0])
-	for i := 0; i+2 < len(polyline.Points); i += 2 {
-		a := polyline.Points[i]
-		control := polyline.Points[i+1]
-		b := polyline.Points[i+2]
-		for step := 1; step <= curveSteps; step++ {
-			t := float32(step) / float32(curveSteps)
-			u := 1 - t
-			points = append(points, chirashi.EmitterVectorPoint{
-				X: u*u*a.X + 2*u*t*control.X + t*t*b.X,
-				Y: u*u*a.Y + 2*u*t*control.Y + t*t*b.Y,
-			})
-		}
-	}
-	return points
+	return chirashi.CompileEmitterVectorPolylinePoints(polyline)
 }
 
 func rotatePreviewPoint(point chirashi.EmitterVectorPoint, rotation float32) chirashi.EmitterVectorPoint {

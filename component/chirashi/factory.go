@@ -186,9 +186,13 @@ func buildEmitterVectorPolylineParams(config *EmitterVectorPolylineConfig) Emitt
 		Closed:         config.Closed,
 		Interpolation:  emitterVectorPolylineInterpolation(config),
 		CurveSteps:     emitterVectorPolylineCurveSteps(config),
-		SegmentLengths: make([]float32, 0, len(config.Points)),
+		SegmentLengths: nil,
 	}
-	params.Points = compileEmitterVectorPolylinePoints(config, params.CurveSteps)
+	compiledPoints := CompileEmitterVectorPolylinePoints(config)
+	params.Points = make([]EmitterVectorPointParams, len(compiledPoints))
+	for i, point := range compiledPoints {
+		params.Points[i] = EmitterVectorPointParams(point)
+	}
 
 	segmentCount := len(params.Points) - 1
 	if params.Closed && len(params.Points) > 1 {
@@ -213,23 +217,23 @@ func buildEmitterVectorPolylineParams(config *EmitterVectorPolylineConfig) Emitt
 	return params
 }
 
-func compileEmitterVectorPolylinePoints(config *EmitterVectorPolylineConfig, curveSteps int) []EmitterVectorPointParams {
+// CompileEmitterVectorPolylinePoints expands a configured polyline into sampled points.
+func CompileEmitterVectorPolylinePoints(config *EmitterVectorPolylineConfig) []EmitterVectorPoint {
 	if config == nil || len(config.Points) == 0 {
 		return nil
 	}
 	if emitterVectorPolylineInterpolation(config) != "quadratic" {
-		points := make([]EmitterVectorPointParams, len(config.Points))
-		for i, point := range config.Points {
-			points[i] = EmitterVectorPointParams(point)
-		}
+		points := make([]EmitterVectorPoint, len(config.Points))
+		copy(points, config.Points)
 		return points
 	}
 
+	curveSteps := emitterVectorPolylineCurveSteps(config)
 	if curveSteps < 1 {
 		curveSteps = defaultEmitterVectorCurveSteps
 	}
-	points := make([]EmitterVectorPointParams, 0, ((len(config.Points)-1)/2)*curveSteps+1)
-	start := EmitterVectorPointParams(config.Points[0])
+	points := make([]EmitterVectorPoint, 0, ((len(config.Points)-1)/2)*curveSteps+1)
+	start := config.Points[0]
 	points = append(points, start)
 	for i := 0; i+2 < len(config.Points); i += 2 {
 		a := EmitterVectorPointParams(config.Points[i])
@@ -237,7 +241,7 @@ func compileEmitterVectorPolylinePoints(config *EmitterVectorPolylineConfig, cur
 		b := EmitterVectorPointParams(config.Points[i+2])
 		for step := 1; step <= curveSteps; step++ {
 			t := float32(step) / float32(curveSteps)
-			points = append(points, quadraticBezierPoint(a, control, b, t))
+			points = append(points, EmitterVectorPoint(quadraticBezierPoint(a, control, b, t)))
 		}
 	}
 	return points
