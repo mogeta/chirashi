@@ -699,7 +699,7 @@ func (s *ParticleEditorScene) drawEmitterVectorPreview(screen *ebiten.Image) {
 	previewColor := color.RGBA{0x5c, 0xd7, 0xff, 0xc0}
 	handleColor := color.RGBA{0xff, 0xf0, 0x94, 0xd8}
 
-	vector.DrawFilledCircle(screen, originX, originY, 4, handleColor, true)
+	vector.FillCircle(screen, originX, originY, 4, handleColor, true)
 
 	switch s.config.Emitter.Vector.Type {
 	case "rect":
@@ -757,7 +757,7 @@ func (s *ParticleEditorScene) drawEmitterVectorPreview(screen *ebiten.Image) {
 				radius = 5
 				pointColor = color.RGBA{0xff, 0xff, 0xff, 0xff}
 			}
-			vector.DrawFilledCircle(screen, originX+point.X, originY+point.Y, radius, pointColor, true)
+			vector.FillCircle(screen, originX+point.X, originY+point.Y, radius, pointColor, true)
 		}
 	}
 }

@@ -220,7 +220,7 @@ func compileEmitterVectorPolylinePoints(config *EmitterVectorPolylineConfig, cur
 	if emitterVectorPolylineInterpolation(config) != "quadratic" {
 		points := make([]EmitterVectorPointParams, len(config.Points))
 		for i, point := range config.Points {
-			points[i] = EmitterVectorPointParams{X: point.X, Y: point.Y}
+			points[i] = EmitterVectorPointParams(point)
 		}
 		return points
 	}
@@ -229,12 +229,12 @@ func compileEmitterVectorPolylinePoints(config *EmitterVectorPolylineConfig, cur
 		curveSteps = defaultEmitterVectorCurveSteps
 	}
 	points := make([]EmitterVectorPointParams, 0, ((len(config.Points)-1)/2)*curveSteps+1)
-	start := EmitterVectorPointParams{X: config.Points[0].X, Y: config.Points[0].Y}
+	start := EmitterVectorPointParams(config.Points[0])
 	points = append(points, start)
 	for i := 0; i+2 < len(config.Points); i += 2 {
-		a := EmitterVectorPointParams{X: config.Points[i].X, Y: config.Points[i].Y}
-		control := EmitterVectorPointParams{X: config.Points[i+1].X, Y: config.Points[i+1].Y}
-		b := EmitterVectorPointParams{X: config.Points[i+2].X, Y: config.Points[i+2].Y}
+		a := EmitterVectorPointParams(config.Points[i])
+		control := EmitterVectorPointParams(config.Points[i+1])
+		b := EmitterVectorPointParams(config.Points[i+2])
 		for step := 1; step <= curveSteps; step++ {
 			t := float32(step) / float32(curveSteps)
 			points = append(points, quadraticBezierPoint(a, control, b, t))
