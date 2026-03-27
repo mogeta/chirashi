@@ -26,6 +26,13 @@ emitter:
     length: float  # line only
     rotation: float # box/line only, radians
     from_edge: bool # circle/box only
+  vector: # optional
+    type: "rect"
+    placement: "fill" | "surface" # optional
+    rect:
+      width: float
+      height: float
+      rotation: float # optional, radians
 
 animation:
   duration:
@@ -129,6 +136,15 @@ Validation is performed by `ConfigLoader`:
 - `spawn.interval` must be `> 0`.
 - `animation.duration.value` must be `> 0`.
 - `emitter.space` must be `local` or `world`.
+- `emitter.vector.type` must be `rect` or `polyline`.
+- `emitter.vector.placement` must be `fill` or `surface`.
+- `emitter.vector.rect.width` must be `> 0`.
+- `emitter.vector.rect.height` must be `> 0`.
+- `emitter.vector.polyline.points` must contain at least 2 points.
+- `emitter.vector.polyline` only supports `placement: surface`.
+- `emitter.vector.polyline.interpolation` must be `linear` or `quadratic`.
+- `emitter.vector.polyline.curve_steps` must be `>= 0`.
+- quadratic polyline points must use `anchor, control, anchor, ...`.
 - `trail.mode` must be `emitter` or `particle`.
 - `trail.space` must be `local` or `world`.
 - `trail.max_points` must be `2+`, or `0` to use the default.
@@ -158,6 +174,9 @@ If validation fails, loading returns an error.
   - `space` defaults to `local`.
   - flow is applied as a continuously integrated offset on top of the configured base path.
 - `emitter.shape.type` defaults to `"point"`.
+- `emitter.vector.placement` defaults to `"fill"` for rect and `"surface"` for polyline.
+- `emitter.vector.polyline.interpolation` defaults to `"linear"`.
+- `emitter.vector.polyline.curve_steps` defaults to `12` for quadratic interpolation.
 - `emitter.space` defaults to `"local"`.
 - `emitter.space: "local"` keeps active particles attached to emitter movement after they spawn.
 - `emitter.space: "world"` leaves already-spawned particles in world space when the emitter moves.

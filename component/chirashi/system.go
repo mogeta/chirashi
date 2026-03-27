@@ -113,7 +113,7 @@ func (sys *System) spawn(data *SystemData) {
 		particle := &data.ParticlePool[freeIdx]
 		particle.TrailPoints = particle.TrailPoints[:0]
 
-		spawnX, spawnY := sampleEmitterPosition(data.EmitterX, data.EmitterY, data.EmitterShape)
+		spawnX, spawnY := sampleEmitterPosition(data.EmitterX, data.EmitterY, data.EmitterShape, data.EmitterVector, i, data.ParticlesPerSpawn)
 
 		// Initialize particle with randomized values
 		particle.SpawnTime = currentTime
@@ -214,7 +214,10 @@ func (sys *System) spawn(data *SystemData) {
 	}
 }
 
-func sampleEmitterPosition(emitterX, emitterY float32, shape EmitterShapeParams) (float32, float32) {
+func sampleEmitterPosition(emitterX, emitterY float32, shape EmitterShapeParams, vector EmitterVectorParams, spawnIndex, spawnTotal int) (float32, float32) {
+	if vector.Enabled {
+		return sampleEmitterVectorPosition(emitterX, emitterY, vector, spawnIndex, spawnTotal)
+	}
 	switch shape.Type {
 	case EmitterShapeCircle:
 		angle := sampleCircleAngle(shape.StartAngle, shape.EndAngle)
@@ -264,6 +267,115 @@ func sampleEmitterPosition(emitterX, emitterY float32, shape EmitterShapeParams)
 	default:
 		return emitterX, emitterY
 	}
+}
+
+func sampleEmitterVectorPosition(emitterX, emitterY float32, vector EmitterVectorParams, spawnIndex, spawnTotal int) (float32, float32) {
+	switch vector.Type {
+	case EmitterVectorRect:
+		return sampleRectVectorPosition(emitterX, emitterY, vector.Rect, vector.Placement, spawnIndex, spawnTotal)
+	case EmitterVectorPolyline:
+		return samplePolylineVectorPosition(emitterX, emitterY, vector.Polyline, spawnIndex, spawnTotal)
+	default:
+		return emitterX, emitterY
+	}
+}
+
+func sampleRectVectorPosition(emitterX, emitterY float32, rect EmitterVectorRectParams, placement EmitterVectorPlacement, spawnIndex, spawnTotal int) (float32, float32) {
+	halfW := rect.Width / 2
+	halfH := rect.Height / 2
+	if halfW <= 0 || halfH <= 0 {
+		return emitterX, emitterY
+	}
+
+	switch placement {
+	case EmitterVectorSurface:
+		perimeter := 2 * (rect.Width + rect.Height)
+		if perimeter <= 0 {
+			return emitterX, emitterY
+		}
+		t := stratifiedSampleRatio(spawnIndex, spawnTotal)
+		d := t * perimeter
+		switch {
+		case d < rect.Width:
+			return rotateOffset(emitterX, emitterY, d-halfW, -halfH, rect.Rotation)
+		case d < rect.Width+rect.Height:
+			return rotateOffset(emitterX, emitterY, halfW, d-rect.Width-halfH, rect.Rotation)
+		case d < 2*rect.Width+rect.Height:
+			return rotateOffset(emitterX, emitterY, halfW-(d-rect.Width-rect.Height), halfH, rect.Rotation)
+		default:
+			return rotateOffset(emitterX, emitterY, -halfW, halfH-(d-2*rect.Width-rect.Height), rect.Rotation)
+		}
+	default:
+		cols := int(math.Ceil(math.Sqrt(float64(float32(maxInt(spawnTotal, 1)) * rect.Width / rect.Height))))
+		if cols < 1 {
+			cols = 1
+		}
+		rows := (maxInt(spawnTotal, 1) + cols - 1) / cols
+		if rows < 1 {
+			rows = 1
+		}
+		col := spawnIndex % cols
+		row := spawnIndex / cols
+		if row >= rows {
+			row = rows - 1
+		}
+		x := ((float32(col)+0.5)/float32(cols))*rect.Width - halfW
+		y := ((float32(row)+0.5)/float32(rows))*rect.Height - halfH
+		return rotateOffset(emitterX, emitterY, x, y, rect.Rotation)
+	}
+}
+
+func samplePolylineVectorPosition(emitterX, emitterY float32, polyline EmitterVectorPolylineParams, spawnIndex, spawnTotal int) (float32, float32) {
+	if len(polyline.Points) < 2 || polyline.TotalLength <= 0 {
+		return emitterX, emitterY
+	}
+
+	target := stratifiedSampleRatio(spawnIndex, spawnTotal) * polyline.TotalLength
+	accumulated := float32(0)
+	for i, segmentLength := range polyline.SegmentLengths {
+		if segmentLength <= 0 {
+			continue
+		}
+		next := accumulated + segmentLength
+		if target <= next || i == len(polyline.SegmentLengths)-1 {
+			start, end := polylineSegmentEndpoints(polyline, i)
+			localT := (target - accumulated) / segmentLength
+			if localT < 0 {
+				localT = 0
+			} else if localT > 1 {
+				localT = 1
+			}
+			x := start.X + (end.X-start.X)*localT
+			y := start.Y + (end.Y-start.Y)*localT
+			return emitterX + x, emitterY + y
+		}
+		accumulated = next
+	}
+
+	last := polyline.Points[len(polyline.Points)-1]
+	return emitterX + last.X, emitterY + last.Y
+}
+
+func polylineSegmentEndpoints(polyline EmitterVectorPolylineParams, index int) (EmitterVectorPointParams, EmitterVectorPointParams) {
+	start := polyline.Points[index]
+	if index == len(polyline.Points)-1 {
+		return start, polyline.Points[0]
+	}
+	return start, polyline.Points[index+1]
+}
+
+func stratifiedSampleRatio(index, total int) float32 {
+	if total <= 1 {
+		return 0.5
+	}
+	return (float32(index) + 0.5) / float32(total)
+}
+
+func maxInt(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
 }
 
 func sampleCircleAngle(startAngle, endAngle float32) float32 {

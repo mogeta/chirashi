@@ -27,10 +27,11 @@ const (
 
 // EmitterConfig defines the emitter properties
 type EmitterConfig struct {
-	X     float32            `yaml:"x"`
-	Y     float32            `yaml:"y"`
-	Space EmitterSpaceMode   `yaml:"space,omitempty"` // local (default) or world
-	Shape EmitterShapeConfig `yaml:"shape,omitempty"`
+	X      float32              `yaml:"x"`
+	Y      float32              `yaml:"y"`
+	Space  EmitterSpaceMode     `yaml:"space,omitempty"` // local (default) or world
+	Shape  EmitterShapeConfig   `yaml:"shape,omitempty"`
+	Vector *EmitterVectorConfig `yaml:"vector,omitempty"`
 }
 
 // EmitterShapeConfig defines where particles are spawned relative to the emitter origin.
@@ -44,6 +45,35 @@ type EmitterShapeConfig struct {
 	Length     float32     `yaml:"length,omitempty"`
 	Rotation   float32     `yaml:"rotation,omitempty"` // Radians, used by box/line
 	FromEdge   bool        `yaml:"from_edge,omitempty"`
+}
+
+// EmitterVectorConfig defines a vector-based placement source for one-shot style bursts.
+type EmitterVectorConfig struct {
+	Type      string                       `yaml:"type,omitempty"`      // rect, polyline
+	Placement string                       `yaml:"placement,omitempty"` // fill or surface
+	Rect      *EmitterVectorRectConfig     `yaml:"rect,omitempty"`
+	Polyline  *EmitterVectorPolylineConfig `yaml:"polyline,omitempty"`
+}
+
+// EmitterVectorRectConfig defines a rectangle placement source centered on the emitter.
+type EmitterVectorRectConfig struct {
+	Width    float32 `yaml:"width"`
+	Height   float32 `yaml:"height"`
+	Rotation float32 `yaml:"rotation,omitempty"`
+}
+
+// EmitterVectorPolylineConfig defines an open or closed line strip centered on the emitter.
+type EmitterVectorPolylineConfig struct {
+	Closed        bool                 `yaml:"closed,omitempty"`
+	Interpolation string               `yaml:"interpolation,omitempty"` // linear (default) or quadratic
+	CurveSteps    int                  `yaml:"curve_steps,omitempty"`   // Samples per quadratic segment
+	Points        []EmitterVectorPoint `yaml:"points"`
+}
+
+// EmitterVectorPoint defines a 2D point for vector placement.
+type EmitterVectorPoint struct {
+	X float32 `yaml:"x"`
+	Y float32 `yaml:"y"`
 }
 
 // AnimationConfig defines all animation parameters with simplified lerp-based approach

@@ -179,6 +179,21 @@ func copyEmitterConfig(src EmitterConfig) EmitterConfig {
 		r := *src.Shape.Radius
 		dst.Shape.Radius = &r
 	}
+	if src.Vector != nil {
+		vector := *src.Vector
+		if src.Vector.Rect != nil {
+			rect := *src.Vector.Rect
+			vector.Rect = &rect
+		}
+		if src.Vector.Polyline != nil {
+			polyline := *src.Vector.Polyline
+			if len(src.Vector.Polyline.Points) > 0 {
+				polyline.Points = append([]EmitterVectorPoint(nil), src.Vector.Polyline.Points...)
+			}
+			vector.Polyline = &polyline
+		}
+		dst.Vector = &vector
+	}
 	return dst
 }
 

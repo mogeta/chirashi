@@ -476,6 +476,186 @@ func TestSpawnLineEmitterRespectsRotation(t *testing.T) {
 	}
 }
 
+func TestSpawnRectVectorFillDistributesAcrossArea(t *testing.T) {
+	sys := &System{cnt: 0}
+	data := &SystemData{
+		ParticlePool:      make([]Instance, 9),
+		ActiveIndices:     make([]int, 0, 9),
+		FreeIndices:       make([]int, 9),
+		SpawnInterval:     1,
+		ParticlesPerSpawn: 9,
+		MaxParticles:      9,
+		IsLoop:            true,
+		EmitterX:          100,
+		EmitterY:          200,
+		EmitterVector: EmitterVectorParams{
+			Enabled:   true,
+			Type:      EmitterVectorRect,
+			Placement: EmitterVectorFill,
+			Rect:      EmitterVectorRectParams{Width: 90, Height: 60},
+		},
+		AnimParams: AnimationParams{
+			Duration: DurationParams{Base: 1.0},
+			Appearance: AppearanceParams{
+				StartScale:     1.0,
+				EndScale:       1.0,
+				AlphaEasing:    EasingLinear,
+				ScaleEasing:    EasingLinear,
+				RotationEasing: EasingLinear,
+			},
+			Color:    ColorParams{StartR: 1, StartG: 1, StartB: 1, EndR: 1, EndG: 1, EndB: 1, Easing: EasingLinear},
+			Position: PositionParams{Easing: EasingLinear},
+		},
+	}
+	for i := range data.FreeIndices {
+		data.FreeIndices[i] = len(data.FreeIndices) - 1 - i
+	}
+
+	sys.spawn(data)
+
+	seenCols := map[int]bool{}
+	seenRows := map[int]bool{}
+	for _, idx := range data.ActiveIndices {
+		p := data.ParticlePool[idx]
+		dx := p.StartX - data.EmitterX
+		dy := p.StartY - data.EmitterY
+		if dx < -45 || dx > 45 || dy < -30 || dy > 30 {
+			t.Fatalf("vector fill spawn out of bounds: (%v,%v)", dx, dy)
+		}
+		col := int(math.Floor(float64((dx + 45) / 30)))
+		row := int(math.Floor(float64((dy + 30) / 20)))
+		seenCols[col] = true
+		seenRows[row] = true
+	}
+	if len(seenCols) < 3 || len(seenRows) < 3 {
+		t.Fatalf("expected fill placement to cover multiple rows/cols, got cols=%d rows=%d", len(seenCols), len(seenRows))
+	}
+}
+
+func TestSpawnRectVectorSurfaceStaysOnPerimeter(t *testing.T) {
+	sys := &System{cnt: 0}
+	data := &SystemData{
+		ParticlePool:      make([]Instance, 8),
+		ActiveIndices:     make([]int, 0, 8),
+		FreeIndices:       make([]int, 8),
+		SpawnInterval:     1,
+		ParticlesPerSpawn: 8,
+		MaxParticles:      8,
+		IsLoop:            true,
+		EmitterX:          0,
+		EmitterY:          0,
+		EmitterVector: EmitterVectorParams{
+			Enabled:   true,
+			Type:      EmitterVectorRect,
+			Placement: EmitterVectorSurface,
+			Rect:      EmitterVectorRectParams{Width: 80, Height: 40},
+		},
+		AnimParams: AnimationParams{
+			Duration: DurationParams{Base: 1.0},
+			Appearance: AppearanceParams{
+				StartScale:     1.0,
+				EndScale:       1.0,
+				AlphaEasing:    EasingLinear,
+				ScaleEasing:    EasingLinear,
+				RotationEasing: EasingLinear,
+			},
+			Color:    ColorParams{StartR: 1, StartG: 1, StartB: 1, EndR: 1, EndG: 1, EndB: 1, Easing: EasingLinear},
+			Position: PositionParams{Easing: EasingLinear},
+		},
+	}
+	for i := range data.FreeIndices {
+		data.FreeIndices[i] = len(data.FreeIndices) - 1 - i
+	}
+
+	sys.spawn(data)
+
+	for _, idx := range data.ActiveIndices {
+		p := data.ParticlePool[idx]
+		x := p.StartX
+		y := p.StartY
+		onVertical := math.Abs(float64(math.Abs(float64(x))-40)) < 0.001 && y >= -20.001 && y <= 20.001
+		onHorizontal := math.Abs(float64(math.Abs(float64(y))-20)) < 0.001 && x >= -40.001 && x <= 40.001
+		if !onVertical && !onHorizontal {
+			t.Fatalf("vector surface spawn should stay on perimeter, got (%v,%v)", x, y)
+		}
+	}
+}
+
+func TestSpawnPolylineVectorSurfaceStaysOnSegments(t *testing.T) {
+	sys := &System{cnt: 0}
+	data := &SystemData{
+		ParticlePool:      make([]Instance, 6),
+		ActiveIndices:     make([]int, 0, 6),
+		FreeIndices:       make([]int, 6),
+		SpawnInterval:     1,
+		ParticlesPerSpawn: 6,
+		MaxParticles:      6,
+		IsLoop:            true,
+		EmitterX:          0,
+		EmitterY:          0,
+		EmitterVector: EmitterVectorParams{
+			Enabled:   true,
+			Type:      EmitterVectorPolyline,
+			Placement: EmitterVectorSurface,
+			Polyline: buildEmitterVectorPolylineParams(&EmitterVectorPolylineConfig{
+				Points: []EmitterVectorPoint{
+					{X: -30, Y: 0},
+					{X: 0, Y: 0},
+					{X: 0, Y: 30},
+				},
+			}),
+		},
+		AnimParams: AnimationParams{
+			Duration: DurationParams{Base: 1.0},
+			Appearance: AppearanceParams{
+				StartScale:     1.0,
+				EndScale:       1.0,
+				AlphaEasing:    EasingLinear,
+				ScaleEasing:    EasingLinear,
+				RotationEasing: EasingLinear,
+			},
+			Color:    ColorParams{StartR: 1, StartG: 1, StartB: 1, EndR: 1, EndG: 1, EndB: 1, Easing: EasingLinear},
+			Position: PositionParams{Easing: EasingLinear},
+		},
+	}
+	for i := range data.FreeIndices {
+		data.FreeIndices[i] = len(data.FreeIndices) - 1 - i
+	}
+
+	sys.spawn(data)
+
+	for _, idx := range data.ActiveIndices {
+		p := data.ParticlePool[idx]
+		onHorizontal := math.Abs(float64(p.StartY)) < 0.001 && p.StartX >= -30.001 && p.StartX <= 0.001
+		onVertical := math.Abs(float64(p.StartX)) < 0.001 && p.StartY >= -0.001 && p.StartY <= 30.001
+		if !onHorizontal && !onVertical {
+			t.Fatalf("vector polyline spawn should stay on configured segments, got (%v,%v)", p.StartX, p.StartY)
+		}
+	}
+}
+
+func TestBuildEmitterVectorPolylineParamsQuadraticCompilesCurve(t *testing.T) {
+	params := buildEmitterVectorPolylineParams(&EmitterVectorPolylineConfig{
+		Interpolation: "quadratic",
+		CurveSteps:    6,
+		Points: []EmitterVectorPoint{
+			{X: -40, Y: 0},
+			{X: 0, Y: -40},
+			{X: 40, Y: 0},
+		},
+	})
+
+	if len(params.Points) != 7 {
+		t.Fatalf("expected 7 compiled points, got %d", len(params.Points))
+	}
+	if params.TotalLength <= 0 {
+		t.Fatalf("expected quadratic polyline length to be positive")
+	}
+	if params.Points[0].X != -40 || params.Points[len(params.Points)-1].X != 40 {
+		t.Fatalf("compiled curve should preserve endpoints, got start=%+v end=%+v", params.Points[0], params.Points[len(params.Points)-1])
+	}
+}
+
 func TestSpawnCircleEmitterArcLimitsAngle(t *testing.T) {
 	sys := &System{cnt: 0}
 	data := &SystemData{

@@ -5,12 +5,14 @@ import (
 	"image"
 	"image/color"
 	"log"
+	"math"
 	"path/filepath"
 	"time"
 
 	"github.com/ebitengine/debugui"
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
+	"github.com/hajimehoshi/ebiten/v2/vector"
 	"github.com/yohamta/donburi"
 	"github.com/yohamta/donburi/ecs"
 	"github.com/yohamta/donburi/filter"
@@ -34,25 +36,28 @@ const (
 )
 
 type ParticleEditorScene struct {
-	world           donburi.World
-	container       *ecs.ECS
-	config          *chirashi.ParticleConfig
-	loader          *chirashi.ConfigLoader
-	img             *ebiten.Image
-	debugui         debugui.DebugUI
-	defaultShader   *ebiten.Shader
-	shader          *ebiten.Shader
-	blurShader      *ebiten.Shader
-	bloomShader     *ebiten.Shader
-	offscreen       *ebiten.Image
-	glitchIntensity float64
-	useBlurShader   bool
-	vsyncEnabled    bool
-	dragEmitter     bool
-	time            float64
-	fileList        []string
-	attractorX      float32
-	attractorY      float32
+	world                    donburi.World
+	container                *ecs.ECS
+	config                   *chirashi.ParticleConfig
+	loader                   *chirashi.ConfigLoader
+	img                      *ebiten.Image
+	debugui                  debugui.DebugUI
+	defaultShader            *ebiten.Shader
+	shader                   *ebiten.Shader
+	blurShader               *ebiten.Shader
+	bloomShader              *ebiten.Shader
+	offscreen                *ebiten.Image
+	glitchIntensity          float64
+	useBlurShader            bool
+	vsyncEnabled             bool
+	dragEmitter              bool
+	time                     float64
+	fileList                 []string
+	attractorX               float32
+	attractorY               float32
+	dragVectorPoint          bool
+	dragVectorIndex          int
+	showEmitterVectorPreview bool
 }
 
 func NewParticleEditorScene() (*ParticleEditorScene, error) {
@@ -93,18 +98,20 @@ func NewParticleEditorScene() (*ParticleEditorScene, error) {
 	}
 
 	scene := &ParticleEditorScene{
-		world:         world,
-		container:     container,
-		config:        config,
-		loader:        loader,
-		img:           img,
-		defaultShader: shader,
-		shader:        shader,
-		blurShader:    blurShader,
-		bloomShader:   bloomShader,
-		vsyncEnabled:  false,
-		attractorX:    editorCenterX,
-		attractorY:    editorCenterY,
+		world:                    world,
+		container:                container,
+		config:                   config,
+		loader:                   loader,
+		img:                      img,
+		defaultShader:            shader,
+		shader:                   shader,
+		blurShader:               blurShader,
+		bloomShader:              bloomShader,
+		vsyncEnabled:             false,
+		attractorX:               editorCenterX,
+		attractorY:               editorCenterY,
+		dragVectorIndex:          -1,
+		showEmitterVectorPreview: true,
 	}
 	scene.refreshFileList()
 	return scene, nil
@@ -128,6 +135,7 @@ func (s *ParticleEditorScene) Update() error {
 		s.attractorY = float32(y)
 		s.applyAttractorTarget()
 	}
+	s.handleEmitterVectorEditing()
 	if s.dragEmitter && ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft) {
 		s.updateEmitterFromCursor()
 	}
@@ -196,6 +204,8 @@ func (s *ParticleEditorScene) Draw(screen *ebiten.Image) {
 		"GlitchIntensity": float32(s.glitchIntensity),
 	}
 	screen.DrawRectShader(screen.Bounds().Dx(), screen.Bounds().Dy(), s.bloomShader, op)
+
+	s.drawEmitterVectorPreview(screen)
 
 	// Draw UI on top
 	s.debugui.Draw(screen)
@@ -359,6 +369,124 @@ func (s *ParticleEditorScene) drawEmitterControls(ctx *debugui.Context) {
 	ctx.SetGridLayout([]int{-1}, nil)
 
 	s.drawEmitterShapeControls(ctx)
+	ctx.Text("----------------")
+	s.drawEmitterVectorControls(ctx)
+}
+
+func (s *ParticleEditorScene) drawEmitterVectorControls(ctx *debugui.Context) {
+	if s.config.Emitter.Vector == nil {
+		ctx.Text("Emitter Vector: OFF")
+		ctx.SetGridLayout([]int{180, 180}, nil)
+		ctx.Button("Enable Rect Vector").On(func() {
+			s.config.Emitter.Vector = &chirashi.EmitterVectorConfig{
+				Type:      "rect",
+				Placement: "fill",
+				Rect:      &chirashi.EmitterVectorRectConfig{Width: 180, Height: 100},
+			}
+			s.applyChange(applyModeRecreate)
+		})
+		ctx.Button("Enable Polyline").On(func() {
+			s.config.Emitter.Vector = defaultEditorPolylineVector()
+			s.applyChange(applyModeRecreate)
+		})
+		ctx.SetGridLayout([]int{-1}, nil)
+		return
+	}
+
+	vectorConfig := s.config.Emitter.Vector
+	ctx.Text("Emitter Vector: " + vectorConfig.Type)
+	ctx.Text("Vector placement overrides emitter shape for spawn positions")
+	previewLabel := "Preview: OFF"
+	if s.showEmitterVectorPreview {
+		previewLabel = "Preview: ON"
+	}
+	ctx.Button(previewLabel).On(func() {
+		s.showEmitterVectorPreview = !s.showEmitterVectorPreview
+	})
+	ctx.SetGridLayout([]int{180, 180}, nil)
+	ctx.Text("Placement: " + s.vectorPlacementLabel())
+	ctx.Button("Toggle Placement").On(func() {
+		if vectorConfig.Type == "polyline" {
+			vectorConfig.Placement = "surface"
+		} else if vectorConfig.Placement == "surface" {
+			vectorConfig.Placement = "fill"
+		} else {
+			vectorConfig.Placement = "surface"
+		}
+		s.applyChange(applyModeRecreate)
+	})
+	ctx.SetGridLayout([]int{-1}, nil)
+
+	switch vectorConfig.Type {
+	case "rect":
+		if vectorConfig.Rect == nil {
+			vectorConfig.Rect = &chirashi.EmitterVectorRectConfig{Width: 180, Height: 100}
+		}
+		s.sliderControl32WithMode(ctx, "Vector Width", &vectorConfig.Rect.Width, 10, 600, 5, applyModeRecreate)
+		s.sliderControl32WithMode(ctx, "Vector Height", &vectorConfig.Rect.Height, 10, 600, 5, applyModeRecreate)
+		s.sliderControl32WithMode(ctx, "Vector Rotation", &vectorConfig.Rect.Rotation, -3.14, 3.14, 0.1, applyModeRecreate)
+	case "polyline":
+		if vectorConfig.Polyline != nil {
+			ctx.Text(fmt.Sprintf("Polyline Points: %d", len(vectorConfig.Polyline.Points)))
+			closedLabel := "Closed: OFF"
+			if vectorConfig.Polyline.Closed {
+				closedLabel = "Closed: ON"
+			}
+			ctx.Button(closedLabel).On(func() {
+				vectorConfig.Polyline.Closed = !vectorConfig.Polyline.Closed
+				s.applyChange(applyModeRecreate)
+			})
+			ctx.SetGridLayout([]int{180, 180}, nil)
+			ctx.Text("Interpolation: " + s.polylineInterpolationLabel())
+			ctx.Button("Toggle Curve").On(func() {
+				s.togglePolylineInterpolation()
+				s.applyChange(applyModeRecreate)
+			})
+			ctx.SetGridLayout([]int{-1}, nil)
+			if vectorConfig.Polyline.Interpolation == "quadratic" {
+				s.sliderIntControl(ctx, "Curve Steps", &vectorConfig.Polyline.CurveSteps, 4, 32, 1, applyModeRecreate)
+			}
+			ctx.SetGridLayout([]int{180, 180}, nil)
+			ctx.Button("Add Point").On(func() {
+				s.appendPolylinePointFromTail()
+				s.applyChange(applyModeRecreate)
+			})
+			ctx.Button("Remove Last").On(func() {
+				if s.removeLastPolylinePoint() {
+					s.applyChange(applyModeRecreate)
+				}
+			})
+			ctx.SetGridLayout([]int{-1}, nil)
+			ctx.Text("Drag points on the canvas")
+			ctx.Text("Shift+Click adds a point at the cursor")
+			ctx.Text("Right click removes the nearest linear point")
+		}
+	}
+
+	ctx.SetGridLayout([]int{180, 180}, nil)
+	ctx.Button("Use Rect").On(func() {
+		s.config.Emitter.Vector = &chirashi.EmitterVectorConfig{
+			Type:      "rect",
+			Placement: "fill",
+			Rect:      &chirashi.EmitterVectorRectConfig{Width: 180, Height: 100},
+		}
+		s.applyChange(applyModeRecreate)
+	})
+	ctx.Button("Use Polyline").On(func() {
+		if s.config.Emitter.Vector != nil && s.config.Emitter.Vector.Type == "polyline" && s.config.Emitter.Vector.Polyline != nil {
+			return
+		}
+		s.config.Emitter.Vector = defaultEditorPolylineVector()
+		s.applyChange(applyModeRecreate)
+	})
+	ctx.SetGridLayout([]int{-1}, nil)
+
+	ctx.Button("Disable Vector").On(func() {
+		s.config.Emitter.Vector = nil
+		s.dragVectorPoint = false
+		s.dragVectorIndex = -1
+		s.applyChange(applyModeRecreate)
+	})
 }
 
 func (s *ParticleEditorScene) drawVisualFeatureControls(ctx *debugui.Context) {
@@ -538,6 +666,333 @@ func (s *ParticleEditorScene) setEmitterShapeType(shapeType string) {
 		shape.Type = "point"
 	}
 	s.applyChange(applyModeRecreate)
+}
+
+func (s *ParticleEditorScene) vectorPlacementLabel() string {
+	if s.config.Emitter.Vector == nil {
+		return "fill"
+	}
+	if s.config.Emitter.Vector.Type == "polyline" {
+		return "surface"
+	}
+	if s.config.Emitter.Vector.Placement == "" {
+		return "fill"
+	}
+	return s.config.Emitter.Vector.Placement
+}
+
+func (s *ParticleEditorScene) polylineInterpolationLabel() string {
+	polyline := s.currentVectorPolyline()
+	if polyline == nil || polyline.Interpolation == "" {
+		return "linear"
+	}
+	return polyline.Interpolation
+}
+
+func (s *ParticleEditorScene) drawEmitterVectorPreview(screen *ebiten.Image) {
+	if s.config.Emitter.Vector == nil || !s.showEmitterVectorPreview {
+		return
+	}
+
+	originX := float32(editorCenterX) + s.config.Emitter.X
+	originY := float32(editorCenterY) + s.config.Emitter.Y
+	previewColor := color.RGBA{0x5c, 0xd7, 0xff, 0xc0}
+	handleColor := color.RGBA{0xff, 0xf0, 0x94, 0xd8}
+
+	vector.DrawFilledCircle(screen, originX, originY, 4, handleColor, true)
+
+	switch s.config.Emitter.Vector.Type {
+	case "rect":
+		rect := s.config.Emitter.Vector.Rect
+		if rect == nil {
+			return
+		}
+		halfW := rect.Width / 2
+		halfH := rect.Height / 2
+		corners := [4]chirashi.EmitterVectorPoint{
+			{X: -halfW, Y: -halfH},
+			{X: halfW, Y: -halfH},
+			{X: halfW, Y: halfH},
+			{X: -halfW, Y: halfH},
+		}
+		for i := range corners {
+			a := rotatePreviewPoint(corners[i], rect.Rotation)
+			b := rotatePreviewPoint(corners[(i+1)%len(corners)], rect.Rotation)
+			vector.StrokeLine(screen, originX+a.X, originY+a.Y, originX+b.X, originY+b.Y, 2, previewColor, true)
+		}
+	case "polyline":
+		polyline := s.config.Emitter.Vector.Polyline
+		if polyline == nil || len(polyline.Points) < 2 {
+			return
+		}
+		previewPoints := previewPolylinePoints(polyline)
+		for i := 0; i < len(previewPoints)-1; i++ {
+			a := previewPoints[i]
+			b := previewPoints[i+1]
+			vector.StrokeLine(screen, originX+a.X, originY+a.Y, originX+b.X, originY+b.Y, 2, previewColor, true)
+		}
+		if polyline.Closed && len(previewPoints) > 1 {
+			last := previewPoints[len(previewPoints)-1]
+			first := previewPoints[0]
+			vector.StrokeLine(screen, originX+last.X, originY+last.Y, originX+first.X, originY+first.Y, 2, previewColor, true)
+		}
+		if s.polylineInterpolationLabel() == "quadratic" {
+			guideColor := color.RGBA{0xff, 0xaa, 0x7a, 0x80}
+			for i := 0; i+2 < len(polyline.Points); i += 2 {
+				a := polyline.Points[i]
+				control := polyline.Points[i+1]
+				b := polyline.Points[i+2]
+				vector.StrokeLine(screen, originX+a.X, originY+a.Y, originX+control.X, originY+control.Y, 1, guideColor, true)
+				vector.StrokeLine(screen, originX+control.X, originY+control.Y, originX+b.X, originY+b.Y, 1, guideColor, true)
+			}
+		}
+		for i, point := range polyline.Points {
+			radius := float32(3)
+			pointColor := handleColor
+			if s.polylineInterpolationLabel() == "quadratic" && i%2 == 1 {
+				radius = 2
+				pointColor = color.RGBA{0xff, 0x9b, 0x9b, 0xe0}
+			}
+			if s.dragVectorPoint && i == s.dragVectorIndex {
+				radius = 5
+				pointColor = color.RGBA{0xff, 0xff, 0xff, 0xff}
+			}
+			vector.DrawFilledCircle(screen, originX+point.X, originY+point.Y, radius, pointColor, true)
+		}
+	}
+}
+
+func (s *ParticleEditorScene) handleEmitterVectorEditing() {
+	polyline := s.currentVectorPolyline()
+	if polyline == nil {
+		s.dragVectorPoint = false
+		s.dragVectorIndex = -1
+		return
+	}
+
+	x, y := ebiten.CursorPosition()
+	if inpututil.IsMouseButtonJustReleased(ebiten.MouseButtonLeft) {
+		s.dragVectorPoint = false
+		s.dragVectorIndex = -1
+	}
+
+	if !s.dragVectorPoint && !s.isCanvasCursorPosition(x, y) {
+		return
+	}
+
+	if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
+		if ebiten.IsKeyPressed(ebiten.KeyShift) {
+			s.appendPolylinePointAtCursor(float32(x), float32(y))
+			s.applyChange(applyModeRecreate)
+			return
+		}
+		if index := s.nearestPolylinePointIndex(float32(x), float32(y), 16); index >= 0 {
+			s.dragVectorPoint = true
+			s.dragVectorIndex = index
+		}
+	}
+
+	if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonRight) && s.polylineInterpolationLabel() != "quadratic" {
+		if index := s.nearestPolylinePointIndex(float32(x), float32(y), 16); index >= 0 && len(polyline.Points) > 2 {
+			polyline.Points = append(polyline.Points[:index], polyline.Points[index+1:]...)
+			s.applyChange(applyModeRecreate)
+			return
+		}
+	}
+
+	if s.dragVectorPoint && ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft) && s.dragVectorIndex >= 0 && s.dragVectorIndex < len(polyline.Points) {
+		px, py := s.cursorToVectorPoint(float32(x), float32(y))
+		polyline.Points[s.dragVectorIndex].X = px
+		polyline.Points[s.dragVectorIndex].Y = py
+		s.applyChange(applyModeRecreate)
+	}
+}
+
+func (s *ParticleEditorScene) currentVectorPolyline() *chirashi.EmitterVectorPolylineConfig {
+	if s.config.Emitter.Vector == nil || s.config.Emitter.Vector.Type != "polyline" {
+		return nil
+	}
+	return s.config.Emitter.Vector.Polyline
+}
+
+func (s *ParticleEditorScene) isCanvasCursorPosition(x, y int) bool {
+	return x >= 400 && x <= 1520 && y >= 20 && y <= 1060
+}
+
+func (s *ParticleEditorScene) cursorToVectorPoint(screenX, screenY float32) (float32, float32) {
+	return screenX - (float32(editorCenterX) + s.config.Emitter.X), screenY - (float32(editorCenterY) + s.config.Emitter.Y)
+}
+
+func (s *ParticleEditorScene) nearestPolylinePointIndex(screenX, screenY float32, maxDistance float32) int {
+	polyline := s.currentVectorPolyline()
+	if polyline == nil {
+		return -1
+	}
+	originX := float32(editorCenterX) + s.config.Emitter.X
+	originY := float32(editorCenterY) + s.config.Emitter.Y
+	bestIndex := -1
+	bestDistanceSq := maxDistance * maxDistance
+	for i, point := range polyline.Points {
+		dx := screenX - (originX + point.X)
+		dy := screenY - (originY + point.Y)
+		distanceSq := dx*dx + dy*dy
+		if distanceSq <= bestDistanceSq {
+			bestDistanceSq = distanceSq
+			bestIndex = i
+		}
+	}
+	return bestIndex
+}
+
+func (s *ParticleEditorScene) appendPolylinePointAtCursor(screenX, screenY float32) {
+	polyline := s.currentVectorPolyline()
+	if polyline == nil {
+		return
+	}
+	x, y := s.cursorToVectorPoint(screenX, screenY)
+	if s.polylineInterpolationLabel() == "quadratic" {
+		if len(polyline.Points) == 0 {
+			polyline.Points = []chirashi.EmitterVectorPoint{{X: x - 40, Y: y}, {X: x, Y: y - 40}, {X: x + 40, Y: y}}
+			return
+		}
+		last := polyline.Points[len(polyline.Points)-1]
+		control := chirashi.EmitterVectorPoint{X: (last.X + x) * 0.5, Y: (last.Y + y) * 0.5}
+		polyline.Points = append(polyline.Points, control, chirashi.EmitterVectorPoint{X: x, Y: y})
+		return
+	}
+	polyline.Points = append(polyline.Points, chirashi.EmitterVectorPoint{X: x, Y: y})
+}
+
+func (s *ParticleEditorScene) appendPolylinePointFromTail() {
+	polyline := s.currentVectorPolyline()
+	if polyline == nil {
+		return
+	}
+	if len(polyline.Points) == 0 {
+		polyline.Points = defaultEditorPolylineVector().Polyline.Points
+		return
+	}
+	last := polyline.Points[len(polyline.Points)-1]
+	if s.polylineInterpolationLabel() == "quadratic" {
+		control := chirashi.EmitterVectorPoint{X: last.X + 40, Y: last.Y}
+		end := chirashi.EmitterVectorPoint{X: last.X + 80, Y: last.Y}
+		polyline.Points = append(polyline.Points, control, end)
+		return
+	}
+	polyline.Points = append(polyline.Points, chirashi.EmitterVectorPoint{X: last.X + 60, Y: last.Y})
+}
+
+func (s *ParticleEditorScene) removeLastPolylinePoint() bool {
+	polyline := s.currentVectorPolyline()
+	if polyline == nil {
+		return false
+	}
+	if s.polylineInterpolationLabel() == "quadratic" {
+		if len(polyline.Points) <= 3 {
+			return false
+		}
+		polyline.Points = polyline.Points[:len(polyline.Points)-2]
+		return true
+	}
+	if len(polyline.Points) <= 2 {
+		return false
+	}
+	polyline.Points = polyline.Points[:len(polyline.Points)-1]
+	return true
+}
+
+func (s *ParticleEditorScene) togglePolylineInterpolation() {
+	polyline := s.currentVectorPolyline()
+	if polyline == nil {
+		return
+	}
+	if s.polylineInterpolationLabel() == "quadratic" {
+		anchors := make([]chirashi.EmitterVectorPoint, 0, (len(polyline.Points)+1)/2)
+		for i := 0; i < len(polyline.Points); i += 2 {
+			anchors = append(anchors, polyline.Points[i])
+		}
+		polyline.Points = anchors
+		polyline.Interpolation = "linear"
+		polyline.CurveSteps = 0
+		polyline.Closed = false
+		return
+	}
+	if len(polyline.Points) < 2 {
+		return
+	}
+	curved := make([]chirashi.EmitterVectorPoint, 0, len(polyline.Points)*2-1)
+	curved = append(curved, polyline.Points[0])
+	for i := 1; i < len(polyline.Points); i++ {
+		prev := polyline.Points[i-1]
+		next := polyline.Points[i]
+		curved = append(curved, chirashi.EmitterVectorPoint{
+			X: (prev.X + next.X) * 0.5,
+			Y: (prev.Y + next.Y) * 0.5,
+		})
+		curved = append(curved, next)
+	}
+	polyline.Points = curved
+	polyline.Interpolation = "quadratic"
+	if polyline.CurveSteps <= 0 {
+		polyline.CurveSteps = 12
+	}
+	polyline.Closed = false
+}
+
+func defaultEditorPolylineVector() *chirashi.EmitterVectorConfig {
+	return &chirashi.EmitterVectorConfig{
+		Type:      "polyline",
+		Placement: "surface",
+		Polyline: &chirashi.EmitterVectorPolylineConfig{
+			Points: []chirashi.EmitterVectorPoint{
+				{X: -90, Y: -40},
+				{X: 0, Y: -80},
+				{X: 90, Y: -40},
+			},
+		},
+	}
+}
+
+func previewPolylinePoints(polyline *chirashi.EmitterVectorPolylineConfig) []chirashi.EmitterVectorPoint {
+	if polyline == nil || len(polyline.Points) == 0 {
+		return nil
+	}
+	if polyline.Interpolation != "quadratic" {
+		points := make([]chirashi.EmitterVectorPoint, len(polyline.Points))
+		copy(points, polyline.Points)
+		return points
+	}
+	curveSteps := polyline.CurveSteps
+	if curveSteps <= 0 {
+		curveSteps = 12
+	}
+	points := make([]chirashi.EmitterVectorPoint, 0, ((len(polyline.Points)-1)/2)*curveSteps+1)
+	points = append(points, polyline.Points[0])
+	for i := 0; i+2 < len(polyline.Points); i += 2 {
+		a := polyline.Points[i]
+		control := polyline.Points[i+1]
+		b := polyline.Points[i+2]
+		for step := 1; step <= curveSteps; step++ {
+			t := float32(step) / float32(curveSteps)
+			u := 1 - t
+			points = append(points, chirashi.EmitterVectorPoint{
+				X: u*u*a.X + 2*u*t*control.X + t*t*b.X,
+				Y: u*u*a.Y + 2*u*t*control.Y + t*t*b.Y,
+			})
+		}
+	}
+	return points
+}
+
+func rotatePreviewPoint(point chirashi.EmitterVectorPoint, rotation float32) chirashi.EmitterVectorPoint {
+	if rotation == 0 {
+		return point
+	}
+	sin, cos := math.Sincos(float64(rotation))
+	return chirashi.EmitterVectorPoint{
+		X: point.X*float32(cos) - point.Y*float32(sin),
+		Y: point.X*float32(sin) + point.Y*float32(cos),
+	}
 }
 
 func (s *ParticleEditorScene) setPositionMode(mode string) {
@@ -1032,10 +1487,28 @@ func (s *ParticleEditorScene) sliderControlWithMode(ctx *debugui.Context, label 
 }
 
 func (s *ParticleEditorScene) sliderControl32(ctx *debugui.Context, label string, value *float32, min, max, step float64) {
+	s.sliderControl32WithMode(ctx, label, value, min, max, step, applyModeLive)
+}
+
+func (s *ParticleEditorScene) sliderControl32WithMode(ctx *debugui.Context, label string, value *float32, min, max, step float64, mode applyMode) {
 	ctx.IDScope(label, func() {
 		floatVal := float64(*value)
-		s.numericControl(ctx, label, &floatVal, min, max, step, 2, applyModeLive)
+		s.numericControl(ctx, label, &floatVal, min, max, step, 2, mode)
 		*value = float32(floatVal)
+	})
+}
+
+func (s *ParticleEditorScene) sliderIntControl(ctx *debugui.Context, label string, value *int, min, max, step int, mode applyMode) {
+	ctx.IDScope(label, func() {
+		floatVal := float64(*value)
+		s.numericControl(ctx, label, &floatVal, float64(min), float64(max), float64(step), 0, mode)
+		*value = int(math.Round(floatVal))
+		if *value < min {
+			*value = min
+		}
+		if *value > max {
+			*value = max
+		}
 	})
 }
 
