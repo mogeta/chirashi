@@ -140,6 +140,15 @@ func (s *ParticleEditorScene) Update() error {
 		s.updateEmitterFromCursor()
 	}
 
+	// One-shot replay: click anywhere on the canvas to restart when not looping.
+	// Skip when vector polyline editing is active (clicks are used to manipulate points).
+	if !s.config.Spawn.IsLoop && s.currentVectorPolyline() == nil && inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
+		x, y := ebiten.CursorPosition()
+		if s.isCanvasCursorPosition(x, y) {
+			s.recreateParticles()
+		}
+	}
+
 	s.container.Update()
 	return nil
 }
