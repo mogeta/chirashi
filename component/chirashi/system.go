@@ -139,11 +139,13 @@ func (sys *System) spawn(data *SystemData) {
 			particle.StartY = spawnY
 			particle.HasAttractor = false
 			if pos.UsePolarVelocity {
-				// Velocity mode: duration = lifetime only, position driven by speed
+				// Velocity mode: duration = lifetime only, position driven by speed/angular_speed
 				particle.DirX = cosA
 				particle.DirY = sinA
+				particle.StartAngle = angle
 				particle.SpawnDist = rangeFloat32(pos.DistMin, pos.DistMax)
 				particle.Speed = rangeFloat32(pos.SpeedMin, pos.SpeedMax)
+				particle.AngularSpeed = rangeFloat32(pos.AngularSpeedMin, pos.AngularSpeedMax)
 				particle.HasPolarVelocity = true
 			} else {
 				// Legacy lerp mode: convert to cartesian at spawn time
@@ -639,8 +641,14 @@ func lerp(a, b, t float32) float32 {
 func evaluateParticleBasePosition(data *SystemData, p *Instance, elapsed, posT float32) (float32, float32) {
 	switch {
 	case p.HasPolarVelocity:
-		// Velocity mode: move radially at fixed speed, independent of duration
 		dist := p.SpawnDist + p.Speed*elapsed
+		if p.AngularSpeed != 0 {
+			// Spiral mode: angle rotates over time
+			a := p.StartAngle + p.AngularSpeed*elapsed
+			return p.StartX + float32(math.Cos(float64(a)))*dist,
+				p.StartY + float32(math.Sin(float64(a)))*dist
+		}
+		// Straight radial
 		return p.StartX + p.DirX*dist, p.StartY + p.DirY*dist
 	case p.HasAttractor:
 		// Quadratic bezier: B(t) = (1-t)^2*P0 + 2(1-t)t*P1 + t^2*P2

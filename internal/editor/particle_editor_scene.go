@@ -1000,6 +1000,8 @@ func (s *ParticleEditorScene) setPositionMode(mode string) {
 		}
 	default:
 		s.config.Animation.Position.Type = "cartesian"
+		s.config.Animation.Position.Speed = nil
+		s.config.Animation.Position.AngularSpeed = nil
 		if s.config.Animation.Position.EndX == nil {
 			s.config.Animation.Position.EndX = &chirashi.RangeFloat{Min: -100, Max: 100}
 		}
@@ -1067,29 +1069,50 @@ func (s *ParticleEditorScene) drawPositionSection(ctx *debugui.Context) {
 	ctx.Button("Attractor").On(func() { s.setPositionMode("attractor") })
 	ctx.SetGridLayout([]int{-1}, nil)
 
-	isPolarVelocity := s.config.Animation.Position.Type == "polar" && s.config.Animation.Position.Speed != nil
+	pos := &s.config.Animation.Position
+	isPolarVelocity := pos.Type == "polar" && (pos.Speed != nil || pos.AngularSpeed != nil)
 
 	switch s.config.Animation.Position.Type {
 	case "polar":
-		s.rangeControl(ctx, "Angle", s.config.Animation.Position.Angle, 0, 6.283185, 0.1)
+		s.rangeControl(ctx, "Angle", pos.Angle, 0, 6.283185, 0.1)
 		if !isPolarVelocity {
 			// Lerp mode
-			s.rangeControl(ctx, "Distance", s.config.Animation.Position.Distance, 0, 500, 10)
+			s.rangeControl(ctx, "Distance", pos.Distance, 0, 500, 10)
 			ctx.SetGridLayout([]int{200, 180}, nil)
 			ctx.Text("Move: Lerp  (duration controls speed)")
 			ctx.Button("Switch to Velocity").On(func() {
-				s.config.Animation.Position.Speed = &chirashi.RangeFloat{Min: 60, Max: 120}
+				pos.Speed = &chirashi.RangeFloat{Min: 60, Max: 120}
 				s.applyChange(applyModeLive)
 			})
 			ctx.SetGridLayout([]int{-1}, nil)
 		} else {
 			// Velocity mode
-			s.rangeControl(ctx, "Spawn Offset", s.config.Animation.Position.Distance, 0, 500, 10)
-			s.rangeControl(ctx, "Speed (u/s)", s.config.Animation.Position.Speed, 0, 1000, 10)
+			s.rangeControl(ctx, "Spawn Offset", pos.Distance, 0, 500, 10)
+			s.rangeControl(ctx, "Speed (u/s)", pos.Speed, 0, 1000, 10)
+			ctx.SetGridLayout([]int{200, 180}, nil)
+			// Angular Speed toggle
+			if pos.AngularSpeed == nil {
+				ctx.Text("Angular Speed: OFF")
+				ctx.Button("Enable").On(func() {
+					pos.AngularSpeed = &chirashi.RangeFloat{Min: 1.5, Max: 2.5}
+					s.applyChange(applyModeLive)
+				})
+			} else {
+				ctx.Text("Angular Speed: ON")
+				ctx.Button("Disable").On(func() {
+					pos.AngularSpeed = nil
+					s.applyChange(applyModeLive)
+				})
+			}
+			ctx.SetGridLayout([]int{-1}, nil)
+			if pos.AngularSpeed != nil {
+				s.rangeControl(ctx, "Angular Spd (rad/s)", pos.AngularSpeed, -12.566, 12.566, 0.1)
+			}
 			ctx.SetGridLayout([]int{200, 180}, nil)
 			ctx.Text("Move: Velocity  (duration = lifetime)")
 			ctx.Button("Switch to Lerp").On(func() {
-				s.config.Animation.Position.Speed = nil
+				pos.Speed = nil
+				pos.AngularSpeed = nil
 				s.applyChange(applyModeLive)
 			})
 			ctx.SetGridLayout([]int{-1}, nil)

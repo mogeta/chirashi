@@ -120,7 +120,8 @@ type PositionConfig struct {
 	// Polar mode
 	Angle    *RangeFloat `yaml:"angle,omitempty"`    // Radians (0 to 2π for full circle)
 	Distance *RangeFloat `yaml:"distance,omitempty"` // Distance from emitter (spawn offset in velocity mode)
-	Speed    *RangeFloat `yaml:"speed,omitempty"`    // units/sec; presence enables velocity mode (duration = lifetime only)
+	Speed        *RangeFloat `yaml:"speed,omitempty"`         // units/sec; presence enables velocity mode (duration = lifetime only)
+	AngularSpeed *RangeFloat `yaml:"angular_speed,omitempty"` // rad/sec; positive = CCW, negative = CW
 
 	// Attractor mode - random bezier control point offset from the emitter
 	ControlX *RangeFloat `yaml:"control_x,omitempty"` // X offset range for bezier control point
