@@ -18,6 +18,12 @@ type Instance struct {
 	// Attractor mode: quadratic bezier control point (randomized at spawn)
 	ControlX, ControlY float32
 	HasAttractor       bool
+
+	// Polar velocity mode (speed-based radial movement)
+	HasPolarVelocity bool
+	DirX, DirY       float32 // unit direction vector (cos/sin of spawn angle)
+	SpawnDist        float32 // initial distance from emitter at spawn
+	Speed            float32 // radial speed in units/sec
 	HasFlow            bool
 	FlowGain           float32
 	FlowOffsetX        float32
@@ -222,6 +228,7 @@ type PositionParams struct {
 	// Polar
 	AngleMin, AngleMax float32 // Radians
 	DistMin, DistMax   float32
+	SpeedMin, SpeedMax float32 // units/sec; non-zero enables velocity mode
 
 	// Attractor: bezier control point offset from emitter
 	ControlXMin, ControlXMax float32

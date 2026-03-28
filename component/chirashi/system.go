@@ -133,15 +133,25 @@ func (sys *System) spawn(data *SystemData) {
 			particle.ControlY = spawnY + rangeFloat32(pos.ControlYMin, pos.ControlYMax)
 			particle.HasAttractor = true
 		case pos.UsePolar:
-			// Polar mode: convert to cartesian at spawn time (no per-frame cost)
 			angle := rangeFloat32(pos.AngleMin, pos.AngleMax)
-			dist := rangeFloat32(pos.DistMin, pos.DistMax)
-			cos, sin := float32(math.Cos(float64(angle))), float32(math.Sin(float64(angle)))
+			cosA, sinA := float32(math.Cos(float64(angle))), float32(math.Sin(float64(angle)))
 			particle.StartX = spawnX
 			particle.StartY = spawnY
-			particle.EndX = spawnX + dist*cos
-			particle.EndY = spawnY + dist*sin
 			particle.HasAttractor = false
+			if pos.SpeedMin > 0 || pos.SpeedMax > 0 {
+				// Velocity mode: duration = lifetime only, position driven by speed
+				particle.DirX = cosA
+				particle.DirY = sinA
+				particle.SpawnDist = rangeFloat32(pos.DistMin, pos.DistMax)
+				particle.Speed = rangeFloat32(pos.SpeedMin, pos.SpeedMax)
+				particle.HasPolarVelocity = true
+			} else {
+				// Legacy lerp mode: convert to cartesian at spawn time
+				dist := rangeFloat32(pos.DistMin, pos.DistMax)
+				particle.EndX = spawnX + dist*cosA
+				particle.EndY = spawnY + dist*sinA
+				particle.HasPolarVelocity = false
+			}
 		default:
 			// Cartesian mode
 			particle.StartX = spawnX + rangeFloat32(pos.StartXMin, pos.StartXMax)
@@ -628,6 +638,10 @@ func lerp(a, b, t float32) float32 {
 
 func evaluateParticleBasePosition(data *SystemData, p *Instance, elapsed, posT float32) (float32, float32) {
 	switch {
+	case p.HasPolarVelocity:
+		// Velocity mode: move radially at fixed speed, independent of duration
+		dist := p.SpawnDist + p.Speed*elapsed
+		return p.StartX + p.DirX*dist, p.StartY + p.DirY*dist
 	case p.HasAttractor:
 		// Quadratic bezier: B(t) = (1-t)^2*P0 + 2(1-t)t*P1 + t^2*P2
 		u := 1 - posT

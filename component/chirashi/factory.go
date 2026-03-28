@@ -343,6 +343,10 @@ func buildAnimationParams(config *ParticleConfig) AnimationParams {
 			pos.DistMin = config.Animation.Position.Distance.Min
 			pos.DistMax = config.Animation.Position.Distance.Max
 		}
+		if config.Animation.Position.Speed != nil {
+			pos.SpeedMin = config.Animation.Position.Speed.Min
+			pos.SpeedMax = config.Animation.Position.Speed.Max
+		}
 	default: // cartesian
 		if config.Animation.Position.StartX != nil {
 			pos.StartXMin = config.Animation.Position.StartX.Min
