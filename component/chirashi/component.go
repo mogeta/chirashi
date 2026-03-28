@@ -89,6 +89,7 @@ type SystemData struct {
 	// Emitter configuration
 	EmitterX, EmitterY float32
 	EmitterShape       EmitterShapeParams
+	EmitterVector      EmitterVectorParams
 	EmitterLocalSpace  bool
 
 	// Spawn configuration
@@ -148,6 +149,50 @@ const (
 	EmitterShapeBox
 	EmitterShapeLine
 )
+
+// EmitterVectorParams stores normalized vector-based spawn placement.
+type EmitterVectorParams struct {
+	Enabled   bool
+	Type      EmitterVectorType
+	Placement EmitterVectorPlacement
+	Rect      EmitterVectorRectParams
+	Polyline  EmitterVectorPolylineParams
+}
+
+type EmitterVectorType int
+
+const (
+	EmitterVectorNone EmitterVectorType = iota
+	EmitterVectorRect
+	EmitterVectorPolyline
+)
+
+type EmitterVectorPlacement int
+
+const (
+	EmitterVectorFill EmitterVectorPlacement = iota
+	EmitterVectorSurface
+)
+
+type EmitterVectorRectParams struct {
+	Width    float32
+	Height   float32
+	Rotation float32
+}
+
+type EmitterVectorPolylineParams struct {
+	Closed         bool
+	Interpolation  string
+	CurveSteps     int
+	Points         []EmitterVectorPointParams
+	SegmentLengths []float32
+	TotalLength    float32
+}
+
+type EmitterVectorPointParams struct {
+	X float32
+	Y float32
+}
 
 // AnimationParams holds the configuration for particle animations, grouped by concern.
 type AnimationParams struct {

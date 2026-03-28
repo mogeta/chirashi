@@ -111,6 +111,97 @@ func TestValidateConfigRejectsInvalidValues(t *testing.T) {
 			wantErr: "emitter.space",
 		},
 		{
+			name: "invalid emitter vector type",
+			mutate: func(c *ParticleConfig) {
+				c.Emitter.Vector = &EmitterVectorConfig{Type: "glyphs"}
+			},
+			wantErr: "emitter.vector.type",
+		},
+		{
+			name: "invalid polyline placement",
+			mutate: func(c *ParticleConfig) {
+				c.Emitter.Vector = &EmitterVectorConfig{
+					Type:      "polyline",
+					Placement: "fill",
+					Polyline: &EmitterVectorPolylineConfig{
+						Points: []EmitterVectorPoint{{X: -10, Y: 0}, {X: 10, Y: 0}},
+					},
+				}
+			},
+			wantErr: "emitter.vector.placement must be surface for polyline",
+		},
+		{
+			name: "invalid emitter vector placement",
+			mutate: func(c *ParticleConfig) {
+				c.Emitter.Vector = &EmitterVectorConfig{
+					Type:      "rect",
+					Placement: "inside",
+					Rect:      &EmitterVectorRectConfig{Width: 10, Height: 10},
+				}
+			},
+			wantErr: "emitter.vector.placement",
+		},
+		{
+			name: "missing emitter vector rect",
+			mutate: func(c *ParticleConfig) {
+				c.Emitter.Vector = &EmitterVectorConfig{Type: "rect"}
+			},
+			wantErr: "emitter.vector.rect is required",
+		},
+		{
+			name: "invalid emitter vector rect width",
+			mutate: func(c *ParticleConfig) {
+				c.Emitter.Vector = &EmitterVectorConfig{Type: "rect", Rect: &EmitterVectorRectConfig{Width: 0, Height: 10}}
+			},
+			wantErr: "emitter.vector.rect.width",
+		},
+		{
+			name: "missing emitter vector polyline",
+			mutate: func(c *ParticleConfig) {
+				c.Emitter.Vector = &EmitterVectorConfig{Type: "polyline", Placement: "surface"}
+			},
+			wantErr: "emitter.vector.polyline is required",
+		},
+		{
+			name: "polyline requires at least two points",
+			mutate: func(c *ParticleConfig) {
+				c.Emitter.Vector = &EmitterVectorConfig{
+					Type:      "polyline",
+					Placement: "surface",
+					Polyline:  &EmitterVectorPolylineConfig{Points: []EmitterVectorPoint{{X: 0, Y: 0}}},
+				}
+			},
+			wantErr: "emitter.vector.polyline.points",
+		},
+		{
+			name: "invalid polyline interpolation",
+			mutate: func(c *ParticleConfig) {
+				c.Emitter.Vector = &EmitterVectorConfig{
+					Type:      "polyline",
+					Placement: "surface",
+					Polyline: &EmitterVectorPolylineConfig{
+						Interpolation: "cubic",
+						Points:        []EmitterVectorPoint{{X: -10, Y: 0}, {X: 10, Y: 0}},
+					},
+				}
+			},
+			wantErr: "emitter.vector.polyline.interpolation",
+		},
+		{
+			name: "quadratic polyline requires anchor control anchor pattern",
+			mutate: func(c *ParticleConfig) {
+				c.Emitter.Vector = &EmitterVectorConfig{
+					Type:      "polyline",
+					Placement: "surface",
+					Polyline: &EmitterVectorPolylineConfig{
+						Interpolation: "quadratic",
+						Points:        []EmitterVectorPoint{{X: -10, Y: 0}, {X: 0, Y: 10}},
+					},
+				}
+			},
+			wantErr: "anchor/control/anchor",
+		},
+		{
 			name: "invalid emitter radius range",
 			mutate: func(c *ParticleConfig) {
 				c.Emitter.Shape.Type = "circle"

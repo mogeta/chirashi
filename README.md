@@ -24,6 +24,7 @@ You can try it in your browser:
 - Built-in editor for real-time parameter tuning and YAML save/load
 - Position modes: `cartesian`, `polar`, `attractor`
 - Emitter shapes: `point`, `circle`, `box`, `line`
+- Optional vector emitters for one-shot rect fill/surface placement
 - Optional emitter or per-particle ribbon trails with width/alpha/color gradients
 - Property animation with easing and multi-step sequences
 - Runtime attractor target updates for UI/item-collection effects
@@ -96,6 +97,12 @@ emitter:
     radius: { min: 0, max: 48 }
     start_angle: 0
     end_angle: 6.2831855
+  vector:
+    type: "rect"
+    placement: "surface"
+    rect:
+      width: 180
+      height: 96
 
 animation:
   duration:
@@ -146,6 +153,7 @@ spawn:
 Config highlights:
 
 - `emitter.shape` controls where particles are spawned around the emitter origin.
+- `emitter.vector` can distribute one-shot particles across a rectangle fill/outline or along a linear/quadratic polyline path.
 - `emitter.space: world` lets emitted particles keep their world position when the emitter moves later.
 - `animation.position.type: attractor` curves particles toward a runtime target.
 - `animation.position.flow` adds low-cost curl flow on top of the base path for drifting smoke, space dust, and magic ambience.
@@ -162,6 +170,8 @@ Notable samples:
 - `muzzle_flash_cone.yaml`: short forward cone burst
 - `barrier_edge.yaml`: perimeter emission around a box
 - `starlit_drift.yaml`: curl-flow ambient starfield drift around the emitter
+- `vector_box_shatter.yaml`: rectangle outline burst for panel shatter and UI breakup
+- `digit_five_bubble_burst.yaml`: number-shaped burst sampled from a polyline "5"
 
 ## Runtime Notes
 

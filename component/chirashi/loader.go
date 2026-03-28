@@ -152,6 +152,56 @@ func (l *ConfigLoader) validateConfig(config *ParticleConfig) error {
 	default:
 		return fmt.Errorf("emitter.shape.type must be point, circle, box, or line")
 	}
+	if vector := config.Emitter.Vector; vector != nil {
+		switch vector.Type {
+		case "rect", "polyline":
+		default:
+			return fmt.Errorf("emitter.vector.type must be rect or polyline")
+		}
+		switch vector.Placement {
+		case "", "fill", "surface":
+		default:
+			return fmt.Errorf("emitter.vector.placement must be fill or surface")
+		}
+		switch vector.Type {
+		case "rect":
+			if vector.Rect == nil {
+				return fmt.Errorf("emitter.vector.rect is required")
+			}
+			if vector.Rect.Width <= 0 {
+				return fmt.Errorf("emitter.vector.rect.width must be greater than 0")
+			}
+			if vector.Rect.Height <= 0 {
+				return fmt.Errorf("emitter.vector.rect.height must be greater than 0")
+			}
+		case "polyline":
+			if vector.Placement != "" && vector.Placement != "surface" {
+				return fmt.Errorf("emitter.vector.placement must be surface for polyline")
+			}
+			if vector.Polyline == nil {
+				return fmt.Errorf("emitter.vector.polyline is required")
+			}
+			if len(vector.Polyline.Points) < 2 {
+				return fmt.Errorf("emitter.vector.polyline.points must contain at least 2 points")
+			}
+			switch vector.Polyline.Interpolation {
+			case "", "linear", "quadratic":
+			default:
+				return fmt.Errorf("emitter.vector.polyline.interpolation must be linear or quadratic")
+			}
+			if vector.Polyline.CurveSteps < 0 {
+				return fmt.Errorf("emitter.vector.polyline.curve_steps must be greater than or equal to 0")
+			}
+			if vector.Polyline.Interpolation == "quadratic" {
+				if len(vector.Polyline.Points) < 3 || len(vector.Polyline.Points)%2 == 0 {
+					return fmt.Errorf("emitter.vector.polyline.points must alternate anchor/control/anchor for quadratic interpolation")
+				}
+				if vector.Polyline.Closed {
+					return fmt.Errorf("emitter.vector.polyline.closed is not supported for quadratic interpolation")
+				}
+			}
+		}
+	}
 	switch config.Emitter.Space {
 	case EmitterSpaceDefault, EmitterSpaceLocal, EmitterSpaceWorld:
 	default:

@@ -10,11 +10,12 @@ import (
 const fullCircleEpsilon = float32(0.01)
 
 const (
-	defaultFlowScale       = float32(160)
-	defaultFlowOctaves     = 2
-	defaultFlowPersistence = float32(0.5)
-	defaultFlowTimeScale   = float32(0.2)
-	defaultFlowDrag        = float32(0.96)
+	defaultEmitterVectorCurveSteps = 12
+	defaultFlowScale               = float32(160)
+	defaultFlowOctaves             = 2
+	defaultFlowPersistence         = float32(0.5)
+	defaultFlowTimeScale           = float32(0.2)
+	defaultFlowDrag                = float32(0.96)
 )
 
 var (
@@ -88,6 +89,7 @@ func buildSystemDataFromConfig(shader *ebiten.Shader, image *ebiten.Image, confi
 		EmitterX:          emitterX,
 		EmitterY:          emitterY,
 		EmitterShape:      buildEmitterShapeParams(config.Emitter.Shape),
+		EmitterVector:     buildEmitterVectorParams(config.Emitter.Vector),
 		EmitterLocalSpace: config.Emitter.Space != EmitterSpaceWorld,
 		SpawnInterval:     config.Spawn.Interval,
 		ParticlesPerSpawn: config.Spawn.ParticlesPerSpawn,
@@ -153,6 +155,126 @@ func buildEmitterShapeParams(config EmitterShapeConfig) EmitterShapeParams {
 	return shape
 }
 
+func buildEmitterVectorParams(config *EmitterVectorConfig) EmitterVectorParams {
+	if config == nil {
+		return EmitterVectorParams{}
+	}
+
+	params := EmitterVectorParams{
+		Enabled:   true,
+		Type:      parseEmitterVectorType(config.Type),
+		Placement: parseEmitterVectorPlacement(config.Placement),
+	}
+	if params.Type == EmitterVectorPolyline && config.Placement == "" {
+		params.Placement = EmitterVectorSurface
+	}
+	if config.Rect != nil {
+		params.Rect = EmitterVectorRectParams{
+			Width:    config.Rect.Width,
+			Height:   config.Rect.Height,
+			Rotation: config.Rect.Rotation,
+		}
+	}
+	if config.Polyline != nil {
+		params.Polyline = buildEmitterVectorPolylineParams(config.Polyline)
+	}
+	return params
+}
+
+func buildEmitterVectorPolylineParams(config *EmitterVectorPolylineConfig) EmitterVectorPolylineParams {
+	params := EmitterVectorPolylineParams{
+		Closed:         config.Closed,
+		Interpolation:  emitterVectorPolylineInterpolation(config),
+		CurveSteps:     emitterVectorPolylineCurveSteps(config),
+		SegmentLengths: nil,
+	}
+	compiledPoints := CompileEmitterVectorPolylinePoints(config)
+	params.Points = make([]EmitterVectorPointParams, len(compiledPoints))
+	for i, point := range compiledPoints {
+		params.Points[i] = EmitterVectorPointParams(point)
+	}
+
+	segmentCount := len(params.Points) - 1
+	if params.Closed && len(params.Points) > 1 {
+		segmentCount = len(params.Points)
+	}
+	if segmentCount <= 0 {
+		params.SegmentLengths = nil
+		return params
+	}
+
+	params.SegmentLengths = make([]float32, 0, segmentCount)
+	for i := 0; i < len(params.Points)-1; i++ {
+		length := vectorSegmentLength(params.Points[i], params.Points[i+1])
+		params.SegmentLengths = append(params.SegmentLengths, length)
+		params.TotalLength += length
+	}
+	if params.Closed {
+		length := vectorSegmentLength(params.Points[len(params.Points)-1], params.Points[0])
+		params.SegmentLengths = append(params.SegmentLengths, length)
+		params.TotalLength += length
+	}
+	return params
+}
+
+// CompileEmitterVectorPolylinePoints expands a configured polyline into sampled points.
+func CompileEmitterVectorPolylinePoints(config *EmitterVectorPolylineConfig) []EmitterVectorPoint {
+	if config == nil || len(config.Points) == 0 {
+		return nil
+	}
+	if emitterVectorPolylineInterpolation(config) != "quadratic" {
+		points := make([]EmitterVectorPoint, len(config.Points))
+		copy(points, config.Points)
+		return points
+	}
+
+	curveSteps := emitterVectorPolylineCurveSteps(config)
+	if curveSteps < 1 {
+		curveSteps = defaultEmitterVectorCurveSteps
+	}
+	points := make([]EmitterVectorPoint, 0, ((len(config.Points)-1)/2)*curveSteps+1)
+	start := config.Points[0]
+	points = append(points, start)
+	for i := 0; i+2 < len(config.Points); i += 2 {
+		a := EmitterVectorPointParams(config.Points[i])
+		control := EmitterVectorPointParams(config.Points[i+1])
+		b := EmitterVectorPointParams(config.Points[i+2])
+		for step := 1; step <= curveSteps; step++ {
+			t := float32(step) / float32(curveSteps)
+			points = append(points, EmitterVectorPoint(quadraticBezierPoint(a, control, b, t)))
+		}
+	}
+	return points
+}
+
+func emitterVectorPolylineInterpolation(config *EmitterVectorPolylineConfig) string {
+	if config == nil || config.Interpolation == "" {
+		return "linear"
+	}
+	return config.Interpolation
+}
+
+func emitterVectorPolylineCurveSteps(config *EmitterVectorPolylineConfig) int {
+	if config == nil || config.CurveSteps <= 0 {
+		return defaultEmitterVectorCurveSteps
+	}
+	return config.CurveSteps
+}
+
+func quadraticBezierPoint(a, control, b EmitterVectorPointParams, t float32) EmitterVectorPointParams {
+	u := 1 - t
+	return EmitterVectorPointParams{
+		X: u*u*a.X + 2*u*t*control.X + t*t*b.X,
+		Y: u*u*a.Y + 2*u*t*control.Y + t*t*b.Y,
+	}
+}
+
+func vectorSegmentLength(a, b EmitterVectorPointParams) float32 {
+	dx := b.X - a.X
+	dy := b.Y - a.Y
+	return float32(math.Hypot(float64(dx), float64(dy)))
+}
+
 func parseEmitterShapeType(shapeType string) EmitterShapeType {
 	switch shapeType {
 	case "", "point":
@@ -165,6 +287,26 @@ func parseEmitterShapeType(shapeType string) EmitterShapeType {
 		return EmitterShapeLine
 	default:
 		return EmitterShapePoint
+	}
+}
+
+func parseEmitterVectorType(vectorType string) EmitterVectorType {
+	switch vectorType {
+	case "rect":
+		return EmitterVectorRect
+	case "polyline":
+		return EmitterVectorPolyline
+	default:
+		return EmitterVectorNone
+	}
+}
+
+func parseEmitterVectorPlacement(placement string) EmitterVectorPlacement {
+	switch placement {
+	case "surface":
+		return EmitterVectorSurface
+	default:
+		return EmitterVectorFill
 	}
 }
 

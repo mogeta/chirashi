@@ -1,0 +1,40 @@
+name: "vector_box_shatter"
+description: "One-shot burst that starts from a rectangle outline and blows outward like a shattered panel."
+image: { image_from: "ef1", image_id: 2 }
+
+emitter:
+  x: 0
+  y: 0
+  space: "world"
+  vector:
+    type: "rect"
+    placement: "surface"
+    rect:
+      width: 180
+      height: 96
+
+animation:
+  duration: { value: 0.7 }
+  position:
+    type: "polar"
+    angle: { min: 0.0, max: 6.28318 }
+    distance: { min: 24, max: 120 }
+    easing: "OutQuad"
+  alpha: { start: 1.0, end: 0.0, easing: "Linear" }
+  scale: { start: 0.35, end: 0.08, easing: "OutSine" }
+  rotation: { start: -1.2, end: 1.2, easing: "Linear" }
+  color:
+    start_r: 0.9
+    start_g: 1.0
+    start_b: 1.0
+    end_r: 0.3
+    end_g: 0.6
+    end_b: 1.0
+    easing: "OutQuad"
+
+spawn:
+  interval: 1
+  particles_per_spawn: 48
+  max_particles: 48
+  is_loop: false
+  life_time: 48

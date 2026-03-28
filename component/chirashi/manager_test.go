@@ -169,6 +169,36 @@ func TestCopyConfigDeepCopiesEmitterShape(t *testing.T) {
 	}
 }
 
+func TestCopyConfigDeepCopiesEmitterVector(t *testing.T) {
+	src := &ParticleConfig{
+		Emitter: EmitterConfig{
+			Vector: &EmitterVectorConfig{
+				Type:      "polyline",
+				Placement: "surface",
+				Polyline: &EmitterVectorPolylineConfig{
+					Closed: true,
+					Points: []EmitterVectorPoint{
+						{X: -10, Y: 0},
+						{X: 10, Y: 0},
+						{X: 0, Y: 20},
+					},
+				},
+			},
+		},
+	}
+
+	dst := copyConfig(src)
+	dst.Emitter.Vector.Placement = "surface"
+	dst.Emitter.Vector.Polyline.Points[0].X = 999
+
+	if src.Emitter.Vector.Placement != "surface" {
+		t.Error("Emitter.Vector.Placement: src was modified by dst change")
+	}
+	if src.Emitter.Vector.Polyline.Points[0].X == 999 {
+		t.Error("Emitter.Vector.Polyline: src was modified by dst change")
+	}
+}
+
 func TestCopyConfigDeepCopiesTrail(t *testing.T) {
 	src := &ParticleConfig{
 		Trail: &TrailConfig{

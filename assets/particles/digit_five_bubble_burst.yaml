@@ -1,0 +1,48 @@
+name: "digit_five_bubble_burst"
+description: "One-shot burst sampled along a stylized number 5, then scattered upward like breaking bubbles."
+image: { image_from: "ef1", image_id: 2 }
+
+emitter:
+  x: 0
+  y: 0
+  space: "world"
+  vector:
+    type: "polyline"
+    placement: "surface"
+    polyline:
+      points:
+        - { x: 52, y: -88 }
+        - { x: -48, y: -88 }
+        - { x: -48, y: -12 }
+        - { x: 18, y: -12 }
+        - { x: 44, y: 10 }
+        - { x: 44, y: 56 }
+        - { x: 10, y: 88 }
+        - { x: -46, y: 82 }
+
+animation:
+  duration: { value: 1.0 }
+  position:
+    start_x: { min: -4, max: 4 }
+    start_y: { min: -4, max: 4 }
+    end_x: { min: -54, max: 54 }
+    end_y: { min: -120, max: 12 }
+    easing: "OutQuad"
+  alpha: { start: 0.95, end: 0.0, easing: "Linear" }
+  scale: { start: 0.22, end: 0.06, easing: "OutSine" }
+  rotation: { start: -1.4, end: 1.4, easing: "Linear" }
+  color:
+    start_r: 0.88
+    start_g: 0.97
+    start_b: 1.0
+    end_r: 0.42
+    end_g: 0.76
+    end_b: 0.98
+    easing: "OutQuad"
+
+spawn:
+  interval: 1
+  particles_per_spawn: 56
+  max_particles: 56
+  is_loop: false
+  life_time: 64
