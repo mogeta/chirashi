@@ -348,6 +348,11 @@ func buildAnimationParams(config *ParticleConfig) AnimationParams {
 			pos.SpeedMax = config.Animation.Position.Speed.Max
 			pos.UsePolarVelocity = true
 		}
+		if config.Animation.Position.AngularSpeed != nil {
+			pos.AngularSpeedMin = config.Animation.Position.AngularSpeed.Min
+			pos.AngularSpeedMax = config.Animation.Position.AngularSpeed.Max
+			pos.UsePolarVelocity = true
+		}
 	default: // cartesian
 		if config.Animation.Position.StartX != nil {
 			pos.StartXMin = config.Animation.Position.StartX.Min

@@ -19,11 +19,13 @@ type Instance struct {
 	ControlX, ControlY float32
 	HasAttractor       bool
 
-	// Polar velocity mode (speed-based radial movement)
+	// Polar velocity mode (speed-based radial movement, optional spiral)
 	HasPolarVelocity bool
 	DirX, DirY       float32 // unit direction vector (cos/sin of spawn angle)
+	StartAngle       float32 // spawn angle in radians (used when AngularSpeed != 0)
 	SpawnDist        float32 // initial distance from emitter at spawn
 	Speed            float32 // radial speed in units/sec
+	AngularSpeed     float32 // angular speed in rad/sec (0 = straight line)
 	HasFlow            bool
 	FlowGain           float32
 	FlowOffsetX        float32
@@ -228,8 +230,9 @@ type PositionParams struct {
 	// Polar
 	AngleMin, AngleMax   float32 // Radians
 	DistMin, DistMax     float32
-	SpeedMin, SpeedMax   float32 // units/sec (velocity mode)
-	UsePolarVelocity     bool    // true when speed field is set in config
+	SpeedMin, SpeedMax               float32 // units/sec (velocity mode)
+	AngularSpeedMin, AngularSpeedMax float32 // rad/sec (spiral mode)
+	UsePolarVelocity                 bool    // true when speed or angular_speed is set in config
 
 	// Attractor: bezier control point offset from emitter
 	ControlXMin, ControlXMax float32
