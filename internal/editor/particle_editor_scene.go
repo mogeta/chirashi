@@ -1129,6 +1129,9 @@ func (s *ParticleEditorScene) drawFlowSection(ctx *debugui.Context) {
 	ctx.SetGridLayout([]int{-1}, nil)
 
 	flow := s.config.Animation.Position.Flow
+	if flow == nil {
+		return
+	}
 	if flow.Strength == nil {
 		flow.Strength = &chirashi.RangeFloat{Min: 8, Max: 18}
 	}
