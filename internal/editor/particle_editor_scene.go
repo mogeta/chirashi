@@ -1057,10 +1057,12 @@ func (s *ParticleEditorScene) drawPositionSection(ctx *debugui.Context) {
 	ctx.Button("Attractor").On(func() { s.setPositionMode("attractor") })
 	ctx.SetGridLayout([]int{-1}, nil)
 
+	isPolarVelocity := s.config.Animation.Position.Type == "polar" && s.config.Animation.Position.Speed != nil
+
 	switch s.config.Animation.Position.Type {
 	case "polar":
 		s.rangeControl(ctx, "Angle", s.config.Animation.Position.Angle, 0, 6.283185, 0.1)
-		if s.config.Animation.Position.Speed == nil {
+		if !isPolarVelocity {
 			// Lerp mode
 			s.rangeControl(ctx, "Distance", s.config.Animation.Position.Distance, 0, 500, 10)
 			ctx.SetGridLayout([]int{200, 180}, nil)
@@ -1111,7 +1113,6 @@ func (s *ParticleEditorScene) drawPositionSection(ctx *debugui.Context) {
 		s.rangeControl(ctx, "End Y", s.config.Animation.Position.EndY, -500, 500, 10)
 	}
 
-	isPolarVelocity := s.config.Animation.Position.Type == "polar" && s.config.Animation.Position.Speed != nil
 	if isPolarVelocity {
 		ctx.SetGridLayout([]int{-1}, nil)
 		ctx.Text("Easing: N/A (velocity mode)")

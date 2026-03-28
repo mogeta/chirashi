@@ -226,9 +226,10 @@ type PositionParams struct {
 	EndYMin, EndYMax     float32
 
 	// Polar
-	AngleMin, AngleMax float32 // Radians
-	DistMin, DistMax   float32
-	SpeedMin, SpeedMax float32 // units/sec; non-zero enables velocity mode
+	AngleMin, AngleMax   float32 // Radians
+	DistMin, DistMax     float32
+	SpeedMin, SpeedMax   float32 // units/sec (velocity mode)
+	UsePolarVelocity     bool    // true when speed field is set in config
 
 	// Attractor: bezier control point offset from emitter
 	ControlXMin, ControlXMax float32

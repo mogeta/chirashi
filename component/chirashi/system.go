@@ -138,7 +138,7 @@ func (sys *System) spawn(data *SystemData) {
 			particle.StartX = spawnX
 			particle.StartY = spawnY
 			particle.HasAttractor = false
-			if pos.SpeedMin > 0 || pos.SpeedMax > 0 {
+			if pos.UsePolarVelocity {
 				// Velocity mode: duration = lifetime only, position driven by speed
 				particle.DirX = cosA
 				particle.DirY = sinA
