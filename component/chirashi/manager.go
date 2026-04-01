@@ -109,7 +109,7 @@ func SetAttractor(world donburi.World, entity donburi.Entity, x, y float32) {
 		return
 	}
 	entry := world.Entry(entity)
-	if !Component.Has(entry) {
+	if !entry.HasComponent(Component) {
 		return
 	}
 	data := Component.Get(entry)
