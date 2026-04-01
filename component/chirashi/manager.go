@@ -105,8 +105,11 @@ func (m *ParticleManager) SetImage(image *ebiten.Image) {
 // Call each frame when the target moves (e.g. a score counter that slides around).
 // Has no effect on particles that do not use position type "attractor".
 func SetAttractor(world donburi.World, entity donburi.Entity, x, y float32) {
-	entry := world.Entry(entity)
 	if !world.Valid(entity) {
+		return
+	}
+	entry := world.Entry(entity)
+	if !Component.Has(entry) {
 		return
 	}
 	data := Component.Get(entry)
