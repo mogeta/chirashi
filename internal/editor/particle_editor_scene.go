@@ -58,6 +58,25 @@ type ParticleEditorScene struct {
 	dragVectorPoint          bool
 	dragVectorIndex          int
 	showEmitterVectorPreview bool
+	easingPicker             *easingPickerState
+}
+
+type easingPickerState struct {
+	title   string
+	current func() string
+	apply   func(string)
+}
+
+var editorEasingOptions = []string{
+	"Linear",
+	"InQuad", "OutQuad", "InOutQuad",
+	"InCubic", "OutCubic", "InOutCubic",
+	"InQuart", "OutQuart", "InOutQuart",
+	"InQuint", "OutQuint", "InOutQuint",
+	"InSine", "OutSine", "InOutSine",
+	"InExpo", "OutExpo", "InOutExpo",
+	"InCirc", "OutCirc", "InOutCirc",
+	"InBack", "OutBack", "InOutBack",
 }
 
 func NewParticleEditorScene() (*ParticleEditorScene, error) {
@@ -124,6 +143,7 @@ func (s *ParticleEditorScene) Update() error {
 	if _, err := s.debugui.Update(func(ctx *debugui.Context) error {
 		s.drawLeftSidebarWindow(ctx)
 		s.drawRightSidebarWindow(ctx)
+		s.drawEasingPickerWindow(ctx)
 		return nil
 	}); err != nil {
 		return err
@@ -1152,9 +1172,13 @@ func (s *ParticleEditorScene) drawPositionSection(ctx *debugui.Context) {
 	} else {
 		ctx.SetGridLayout([]int{200, 180}, nil)
 		ctx.Text("Easing: " + s.config.Animation.Position.Easing)
-		ctx.Button("Cycle Easing").On(func() {
-			s.config.Animation.Position.Easing = s.cycleEasing(s.config.Animation.Position.Easing)
-			s.applyChange(applyModeLive)
+		ctx.Button("Select Easing").On(func() {
+			s.openEasingPicker("Position Easing", func() string {
+				return s.config.Animation.Position.Easing
+			}, func(easing string) {
+				s.config.Animation.Position.Easing = easing
+				s.applyChange(applyModeLive)
+			})
 		})
 		ctx.SetGridLayout([]int{-1}, nil)
 	}
@@ -1242,9 +1266,13 @@ func (s *ParticleEditorScene) drawPropertyWindow(ctx *debugui.Context, label str
 	config.End = float32(end)
 	ctx.SetGridLayout([]int{200, 180}, nil)
 	ctx.Text("Easing: " + config.Easing)
-	ctx.Button("Cycle Easing##" + idSuffix).On(func() {
-		config.Easing = s.cycleEasing(config.Easing)
-		s.applyChange(applyModeLive)
+	ctx.Button("Select Easing##" + idSuffix).On(func() {
+		s.openEasingPicker(label+" Easing", func() string {
+			return config.Easing
+		}, func(easing string) {
+			config.Easing = easing
+			s.applyChange(applyModeLive)
+		})
 	})
 	ctx.SetGridLayout([]int{-1}, nil)
 }
@@ -1279,9 +1307,13 @@ func (s *ParticleEditorScene) drawColorControls(ctx *debugui.Context) {
 	s.config.Animation.Color.EndB = float32(endB)
 	ctx.SetGridLayout([]int{200, 180}, nil)
 	ctx.Text("Easing: " + s.config.Animation.Color.Easing)
-	ctx.Button("Cycle Easing##color").On(func() {
-		s.config.Animation.Color.Easing = s.cycleEasing(s.config.Animation.Color.Easing)
-		s.applyChange(applyModeLive)
+	ctx.Button("Select Easing##color").On(func() {
+		s.openEasingPicker("Color Easing", func() string {
+			return s.config.Animation.Color.Easing
+		}, func(easing string) {
+			s.config.Animation.Color.Easing = easing
+			s.applyChange(applyModeLive)
+		})
 	})
 	ctx.SetGridLayout([]int{-1}, nil)
 }
@@ -1339,9 +1371,13 @@ func (s *ParticleEditorScene) drawTrailControls(ctx *debugui.Context) {
 	s.sliderScalarConfig(ctx, "Trail Width End", &s.config.Trail.Width.End, 0, 64, 1)
 	ctx.SetGridLayout([]int{200, 180}, nil)
 	ctx.Text("Width Easing: " + s.config.Trail.Width.Easing)
-	ctx.Button("Cycle Easing##trail_width").On(func() {
-		s.config.Trail.Width.Easing = s.cycleEasing(s.config.Trail.Width.Easing)
-		s.applyChange(applyModeLive)
+	ctx.Button("Select Easing##trail_width").On(func() {
+		s.openEasingPicker("Trail Width Easing", func() string {
+			return s.config.Trail.Width.Easing
+		}, func(easing string) {
+			s.config.Trail.Width.Easing = easing
+			s.applyChange(applyModeLive)
+		})
 	})
 	ctx.SetGridLayout([]int{-1}, nil)
 
@@ -1350,9 +1386,13 @@ func (s *ParticleEditorScene) drawTrailControls(ctx *debugui.Context) {
 	s.sliderScalarConfig(ctx, "Trail Alpha End", &s.config.Trail.Alpha.End, 0, 1, 0.05)
 	ctx.SetGridLayout([]int{200, 180}, nil)
 	ctx.Text("Alpha Easing: " + s.config.Trail.Alpha.Easing)
-	ctx.Button("Cycle Easing##trail_alpha").On(func() {
-		s.config.Trail.Alpha.Easing = s.cycleEasing(s.config.Trail.Alpha.Easing)
-		s.applyChange(applyModeLive)
+	ctx.Button("Select Easing##trail_alpha").On(func() {
+		s.openEasingPicker("Trail Alpha Easing", func() string {
+			return s.config.Trail.Alpha.Easing
+		}, func(easing string) {
+			s.config.Trail.Alpha.Easing = easing
+			s.applyChange(applyModeLive)
+		})
 	})
 	ctx.SetGridLayout([]int{-1}, nil)
 
@@ -1392,9 +1432,13 @@ func (s *ParticleEditorScene) drawTrailControls(ctx *debugui.Context) {
 	s.config.Trail.Color.EndB = float32(endB)
 	ctx.SetGridLayout([]int{200, 180}, nil)
 	ctx.Text("Color Easing: " + s.config.Trail.Color.Easing)
-	ctx.Button("Cycle Easing##trail_color").On(func() {
-		s.config.Trail.Color.Easing = s.cycleEasing(s.config.Trail.Color.Easing)
-		s.applyChange(applyModeLive)
+	ctx.Button("Select Easing##trail_color").On(func() {
+		s.openEasingPicker("Trail Color Easing", func() string {
+			return s.config.Trail.Color.Easing
+		}, func(easing string) {
+			s.config.Trail.Color.Easing = easing
+			s.applyChange(applyModeLive)
+		})
 	})
 	ctx.SetGridLayout([]int{-1}, nil)
 }
@@ -1692,9 +1736,20 @@ func (s *ParticleEditorScene) sequenceControls(ctx *debugui.Context, label strin
 				step.Duration = float32(durVal)
 
 				ctx.Text("  Easing: " + step.Easing)
-				ctx.Button("  Cycle Easing").On(func() {
-					step.Easing = s.cycleEasing(step.Easing)
-					s.applyChange(applyModeLive)
+				ctx.Button("  Select Easing").On(func() {
+					stepIndex := i
+					s.openEasingPicker(fmt.Sprintf("%s Step %d Easing", label, stepIndex+1), func() string {
+						if stepIndex >= len(config.Steps) {
+							return "Linear"
+						}
+						return config.Steps[stepIndex].Easing
+					}, func(easing string) {
+						if stepIndex >= len(config.Steps) {
+							return
+						}
+						config.Steps[stepIndex].Easing = easing
+						s.applyChange(applyModeLive)
+					})
 				})
 
 				ctx.Button("  Remove Step").On(func() {
@@ -1742,23 +1797,44 @@ func (s *ParticleEditorScene) propertyModeToggle(ctx *debugui.Context, label str
 	})
 }
 
-func (s *ParticleEditorScene) cycleEasing(current string) string {
-	easings := []string{
-		"Linear",
-		"InQuad", "OutQuad", "InOutQuad",
-		"InCubic", "OutCubic", "InOutCubic",
-		"InQuart", "OutQuart", "InOutQuart",
-		"InQuint", "OutQuint", "InOutQuint",
-		"InSine", "OutSine", "InOutSine",
-		"InExpo", "OutExpo", "InOutExpo",
-		"InCirc", "OutCirc", "InOutCirc",
-		"InBack", "OutBack", "InOutBack",
+func (s *ParticleEditorScene) openEasingPicker(title string, current func() string, apply func(string)) {
+	s.easingPicker = &easingPickerState{
+		title:   title,
+		current: current,
+		apply:   apply,
+	}
+}
+
+func (s *ParticleEditorScene) closeEasingPicker() {
+	s.easingPicker = nil
+}
+
+func (s *ParticleEditorScene) drawEasingPickerWindow(ctx *debugui.Context) {
+	if s.easingPicker == nil {
+		return
 	}
 
-	for i, e := range easings {
-		if e == current {
-			return easings[(i+1)%len(easings)]
+	picker := s.easingPicker
+	ctx.Window("Easing Picker", image.Rect(620, 180, 1300, 760), func(layout debugui.ContainerLayout) {
+		ctx.Text(picker.title)
+		ctx.Text("Current: " + picker.current())
+		ctx.Text("Select an easing:")
+		ctx.SetGridLayout([]int{-1, -1, -1}, nil)
+		for i, easing := range editorEasingOptions {
+			ctx.IDScope(fmt.Sprintf("easing_picker_%d", i), func() {
+				selected := easing == picker.current()
+				label := easing
+				if selected {
+					label = "[Selected] " + easing
+				}
+				ctx.Button(label).On(func() {
+					picker.apply(easing)
+				})
+			})
 		}
-	}
-	return "Linear"
+		ctx.SetGridLayout([]int{-1}, nil)
+		ctx.Button("Close").On(func() {
+			s.closeEasingPicker()
+		})
+	})
 }
