@@ -2,7 +2,7 @@ package chirashi
 
 import (
 	"math"
-	"math/rand"
+	"math/rand/v2"
 	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -12,10 +12,13 @@ import (
 )
 
 const (
+	// maxParticleBatchVertices keeps vertex counts addressable by uint16
+	// indices (65535); the largest multiple of 4 below that is 65532.
+	maxParticleBatchVertices = 65532
+
 	defaultDeltaTime        = float32(1.0 / 60.0)
 	flowSeedRange           = float32(32)
 	flowSeedHalfRange       = flowSeedRange / 2
-	curlNoiseEpsilon        = float32(0.05)
 	flowTimeBaseFactor      = float32(0.75)
 	flowTimeFrequencyGain   = float32(0.25)
 	flowPrimaryTimeScale    = float32(0.9)
@@ -134,7 +137,8 @@ func (sys *System) spawn(data *SystemData) {
 			particle.HasAttractor = true
 		case pos.UsePolar:
 			angle := rangeFloat32(pos.AngleMin, pos.AngleMax)
-			cosA, sinA := float32(math.Cos(float64(angle))), float32(math.Sin(float64(angle)))
+			sin64, cos64 := math.Sincos(float64(angle))
+			cosA, sinA := float32(cos64), float32(sin64)
 			particle.StartX = spawnX
 			particle.StartY = spawnY
 			particle.HasAttractor = false
@@ -239,7 +243,8 @@ func sampleEmitterPosition(emitterX, emitterY float32, shape EmitterShapeParams,
 			maxRadiusSq := shape.RadiusMax * shape.RadiusMax
 			radius = float32(math.Sqrt(float64(minRadiusSq + rand.Float32()*(maxRadiusSq-minRadiusSq))))
 		}
-		return emitterX + radius*float32(math.Cos(float64(angle))), emitterY + radius*float32(math.Sin(float64(angle)))
+		sin, cos := math.Sincos(float64(angle))
+		return emitterX + radius*float32(cos), emitterY + radius*float32(sin)
 	case EmitterShapeBox:
 		halfW := shape.Width / 2
 		halfH := shape.Height / 2
@@ -422,8 +427,9 @@ func rotateOffset(originX, originY, offsetX, offsetY, rotation float32) (float32
 	if rotation == 0 {
 		return originX + offsetX, originY + offsetY
 	}
-	cos := float32(math.Cos(float64(rotation)))
-	sin := float32(math.Sin(float64(rotation)))
+	sin64, cos64 := math.Sincos(float64(rotation))
+	cos := float32(cos64)
+	sin := float32(sin64)
 	return originX + offsetX*cos - offsetY*sin, originY + offsetX*sin + offsetY*cos
 }
 
@@ -494,7 +500,28 @@ func (sys *System) Draw(ecs *ecs.ECS, screen *ebiten.Image) {
 		halfW := imgW / 2
 		halfH := imgH / 2
 
+		clr := &data.AnimParams.Color
+		uniforms := data.ShaderUniforms
+		if uniforms == nil {
+			uniforms = make(map[string]interface{}, 4)
+			data.ShaderUniforms = uniforms
+		}
+		uniforms["Time"] = currentTime
+		uniforms["StartColor"] = [3]float32{clr.StartR, clr.StartG, clr.StartB}
+		uniforms["EndColor"] = [3]float32{clr.EndR, clr.EndG, clr.EndB}
+		uniforms["ColorEasing"] = float32(clr.Easing)
+		opts := &ebiten.DrawTrianglesShaderOptions{
+			Uniforms: uniforms,
+			Images:   [4]*ebiten.Image{data.SourceImage},
+		}
+
 		for _, particleIdx := range data.ActiveIndices {
+			// Flush before the vertex count overflows uint16 indices.
+			if len(data.Vertices) >= maxParticleBatchVertices {
+				screen.DrawTrianglesShader(data.Vertices, data.Indices, data.Shader, opts)
+				data.Vertices = data.Vertices[:0]
+				data.Indices = data.Indices[:0]
+			}
 			p := &data.ParticlePool[particleIdx]
 
 			// Calculate normalized time
@@ -529,8 +556,9 @@ func (sys *System) Draw(ecs *ecs.ECS, screen *ebiten.Image) {
 			cos := float32(1.0)
 			sin := float32(0.0)
 			if rotation != 0 {
-				cos = float32(math.Cos(float64(rotation)))
-				sin = float32(math.Sin(float64(rotation)))
+				sin64, cos64 := math.Sincos(float64(rotation))
+				cos = float32(cos64)
+				sin = float32(sin64)
 			}
 
 			// 4 corners relative to center, then rotated and translated
@@ -603,22 +631,9 @@ func (sys *System) Draw(ecs *ecs.ECS, screen *ebiten.Image) {
 			)
 		}
 
-		clr := &data.AnimParams.Color
-		uniforms := data.ShaderUniforms
-		if uniforms == nil {
-			uniforms = make(map[string]interface{}, 4)
-			data.ShaderUniforms = uniforms
+		if len(data.Vertices) > 0 {
+			screen.DrawTrianglesShader(data.Vertices, data.Indices, data.Shader, opts)
 		}
-		uniforms["Time"] = currentTime
-		uniforms["StartColor"] = [3]float32{clr.StartR, clr.StartG, clr.StartB}
-		uniforms["EndColor"] = [3]float32{clr.EndR, clr.EndG, clr.EndB}
-		uniforms["ColorEasing"] = float32(clr.Easing)
-		opts := &ebiten.DrawTrianglesShaderOptions{
-			Uniforms: uniforms,
-			Images:   [4]*ebiten.Image{data.SourceImage},
-		}
-
-		screen.DrawTrianglesShader(data.Vertices, data.Indices, data.Shader, opts)
 
 		data.Metrics.DrawTimeUs = time.Since(startTime).Microseconds()
 	}
@@ -643,8 +658,9 @@ func evaluateParticleBasePosition(data *SystemData, p *Instance, elapsed, posT f
 		if p.AngularSpeed != 0 {
 			// Spiral mode: angle rotates over time
 			a := p.StartAngle + p.AngularSpeed*elapsed
-			return p.StartX + float32(math.Cos(float64(a)))*dist,
-				p.StartY + float32(math.Sin(float64(a)))*dist
+			sin, cos := math.Sincos(float64(a))
+			return p.StartX + float32(cos)*dist,
+				p.StartY + float32(sin)*dist
 		}
 		// Straight radial
 		return p.StartX + p.DirX*dist, p.StartY + p.DirY*dist
@@ -742,35 +758,45 @@ func resetParticleFlowState(p *Instance, randomizeSeed bool) {
 	p.FlowSeedY = 0
 }
 
+// sampleCurlNoiseField returns the curl (ddy, -ddx) of the flow scalar field.
+// The field is a sum of sin/cos terms, so its gradient has a closed form:
+// evaluating it analytically needs 4 trig calls per octave instead of the 16
+// a central-difference approximation costs.
 func sampleCurlNoiseField(x, y, t float32, octaves int, persistence float32) (float32, float32) {
-	nx1 := sampleFlowScalar(x+curlNoiseEpsilon, y, t, octaves, persistence)
-	nx2 := sampleFlowScalar(x-curlNoiseEpsilon, y, t, octaves, persistence)
-	ny1 := sampleFlowScalar(x, y+curlNoiseEpsilon, t, octaves, persistence)
-	ny2 := sampleFlowScalar(x, y-curlNoiseEpsilon, t, octaves, persistence)
-	ddx := (nx1 - nx2) / (2 * curlNoiseEpsilon)
-	ddy := (ny1 - ny2) / (2 * curlNoiseEpsilon)
-	return ddy, -ddx
-}
-
-func sampleFlowScalar(x, y, t float32, octaves int, persistence float32) float32 {
 	amp := float32(1)
 	freq := float32(1)
 	sumAmp := float32(0)
-	value := float32(0)
+	ddx := float32(0)
+	ddy := float32(0)
 	for i := 0; i < octaves; i++ {
 		px := x * freq
 		py := y * freq
 		pt := t * (flowTimeBaseFactor + flowTimeFrequencyGain*freq)
-		value += float32(math.Sin(float64(px+pt*flowPrimaryTimeScale))) * amp
-		value += flowSecondaryAmplitude * float32(math.Cos(float64(py*flowSecondarySpaceScale-pt*flowSecondaryTimeScale))) * amp
-		value += flowTertiaryAmplitude * float32(math.Sin(float64((px*flowTertiaryXScale+py*flowTertiaryYScale)+pt*flowTertiaryTimeScale))) * amp
-		value += flowQuaternaryAmplitude * float32(math.Cos(float64((px*flowQuaternaryXScale-py*flowQuaternaryYScale)-pt*flowQuaternaryTimeScale))) * amp
+
+		// d/dx sin(px + pt*k) = cos(...) * freq
+		cos1 := float32(math.Cos(float64(px + pt*flowPrimaryTimeScale)))
+		ddx += cos1 * freq * amp
+
+		// d/dy 0.7*cos(py*1.3 - pt*k) = -0.7*sin(...) * 1.3 * freq
+		sin2 := float32(math.Sin(float64(py*flowSecondarySpaceScale - pt*flowSecondaryTimeScale)))
+		ddy += -flowSecondaryAmplitude * sin2 * flowSecondarySpaceScale * freq * amp
+
+		// d/d{x,y} 0.5*sin(px*0.8 + py*1.1 + pt*k) = 0.5*cos(...) * {0.8,1.1} * freq
+		cos3 := float32(math.Cos(float64(px*flowTertiaryXScale + py*flowTertiaryYScale + pt*flowTertiaryTimeScale)))
+		ddx += flowTertiaryAmplitude * cos3 * flowTertiaryXScale * freq * amp
+		ddy += flowTertiaryAmplitude * cos3 * flowTertiaryYScale * freq * amp
+
+		// d/d{x,y} 0.35*cos(px*1.7 - py*0.6 - pt*k) = 0.35*-sin(...) * {1.7,-0.6} * freq
+		sin4 := float32(math.Sin(float64(px*flowQuaternaryXScale - py*flowQuaternaryYScale - pt*flowQuaternaryTimeScale)))
+		ddx += -flowQuaternaryAmplitude * sin4 * flowQuaternaryXScale * freq * amp
+		ddy += flowQuaternaryAmplitude * sin4 * flowQuaternaryYScale * freq * amp
+
 		sumAmp += amp
 		amp *= persistence
 		freq *= 2
 	}
 	if sumAmp == 0 {
-		return 0
+		return 0, 0
 	}
-	return value / sumAmp
+	return ddy / sumAmp, -ddx / sumAmp
 }
