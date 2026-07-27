@@ -49,6 +49,8 @@ type ParticleEditorScene struct {
 	offscreen                *ebiten.Image
 	persistence              *chirashi.PersistenceEffect
 	usePersistence           bool
+	bloom                    *chirashi.BloomEffect
+	useBloom                 bool
 	glitchIntensity          float64
 	useBlurShader            bool
 	vsyncEnabled             bool
@@ -107,6 +109,11 @@ func NewParticleEditorScene() (*ParticleEditorScene, error) {
 		return nil, fmt.Errorf("load blur shader: %w", err)
 	}
 
+	bloom, err := chirashi.NewBloomEffect()
+	if err != nil {
+		return nil, fmt.Errorf("load bloom effect shaders: %w", err)
+	}
+
 	loader := chirashi.NewConfigLoader()
 
 	config, err := loader.LoadConfigFromBytes(assets.SampleParticleConfig, "sample.yaml")
@@ -129,6 +136,7 @@ func NewParticleEditorScene() (*ParticleEditorScene, error) {
 		blurShader:               blurShader,
 		bloomShader:              bloomShader,
 		persistence:              chirashi.NewPersistenceEffect(0.9),
+		bloom:                    bloom,
 		vsyncEnabled:             false,
 		attractorX:               editorCenterX,
 		attractorY:               editorCenterY,
@@ -233,6 +241,10 @@ func (s *ParticleEditorScene) Draw(screen *ebiten.Image) {
 		s.persistence.Compose(s.offscreen)
 	} else {
 		s.container.Draw(s.offscreen)
+	}
+
+	if s.useBloom {
+		s.bloom.Apply(s.offscreen, s.offscreen)
 	}
 
 	// Apply shader and draw to screen
@@ -647,6 +659,18 @@ func (s *ParticleEditorScene) drawShaderControls(ctx *debugui.Context) {
 	})
 	if s.usePersistence {
 		s.sliderControl32(ctx, "Afterimage Decay", &s.persistence.Decay, 0.5, 0.99, 0.01)
+	}
+
+	bloomLabel := "Bloom: OFF"
+	if s.useBloom {
+		bloomLabel = "Bloom: ON"
+	}
+	ctx.Button(bloomLabel).On(func() {
+		s.useBloom = !s.useBloom
+	})
+	if s.useBloom {
+		s.sliderControl32(ctx, "Bloom Threshold", &s.bloom.Threshold, 0.0, 1.0, 0.02)
+		s.sliderControl32(ctx, "Bloom Intensity", &s.bloom.Intensity, 0.0, 3.0, 0.05)
 	}
 }
 
