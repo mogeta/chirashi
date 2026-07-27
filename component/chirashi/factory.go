@@ -97,6 +97,7 @@ func buildSystemDataFromConfig(shader *ebiten.Shader, image *ebiten.Image, confi
 		SourceImage:       image,
 		ImageWidth:        imgWidth,
 		ImageHeight:       imgHeight,
+		ShaderUniforms:    make(map[string]interface{}, 4),
 		Trail:             buildTrailData(config.Trail),
 		ActiveCount:       0,
 		IsLoop:            config.Spawn.IsLoop,

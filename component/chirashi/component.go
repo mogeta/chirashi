@@ -26,18 +26,18 @@ type Instance struct {
 	SpawnDist        float32 // initial distance from emitter at spawn
 	Speed            float32 // radial speed in units/sec
 	AngularSpeed     float32 // angular speed in rad/sec (0 = straight line)
-	HasFlow            bool
-	FlowGain           float32
-	FlowOffsetX        float32
-	FlowOffsetY        float32
-	FlowVelX           float32
-	FlowVelY           float32
-	FlowSeedX          float32
-	FlowSeedY          float32
-	CurrentX           float32
-	CurrentY           float32
-	CurrentPosValid    bool
-	CurrentPosTime     float32
+	HasFlow          bool
+	FlowGain         float32
+	FlowOffsetX      float32
+	FlowOffsetY      float32
+	FlowVelX         float32
+	FlowVelY         float32
+	FlowSeedX        float32
+	FlowSeedY        float32
+	CurrentX         float32
+	CurrentY         float32
+	CurrentPosValid  bool
+	CurrentPosTime   float32
 
 	// Appearance animation
 	StartAlpha, EndAlpha       float32
@@ -106,10 +106,11 @@ type SystemData struct {
 	MaxParticles      int
 
 	// Rendering
-	SourceImage *ebiten.Image
-	ImageWidth  float32 // Cached image width
-	ImageHeight float32 // Cached image height
-	Trail       TrailData
+	SourceImage    *ebiten.Image
+	ImageWidth     float32 // Cached image width
+	ImageHeight    float32 // Cached image height
+	ShaderUniforms map[string]interface{}
+	Trail          TrailData
 
 	// Internal state
 	ActiveCount int
@@ -228,8 +229,8 @@ type PositionParams struct {
 	EndYMin, EndYMax     float32
 
 	// Polar
-	AngleMin, AngleMax   float32 // Radians
-	DistMin, DistMax     float32
+	AngleMin, AngleMax               float32 // Radians
+	DistMin, DistMax                 float32
 	SpeedMin, SpeedMax               float32 // units/sec (velocity mode)
 	AngularSpeedMin, AngularSpeedMax float32 // rad/sec (spiral mode)
 	UsePolarVelocity                 bool    // true when speed or angular_speed is set in config
@@ -293,33 +294,36 @@ type TrailGhost struct {
 
 // TrailParams stores normalized trail configuration values.
 type TrailParams struct {
-	Enabled          bool
-	Mode             string
-	LocalSpace       bool
-	MaxPoints        int
-	MinPointDistance float32
-	MaxPointAge      float32
-	WidthStart       float32
-	WidthEnd         float32
-	WidthEasing      EasingType
-	AlphaStart       float32
-	AlphaEnd         float32
-	AlphaEasing      EasingType
-	ColorStartR      float32
-	ColorStartG      float32
-	ColorStartB      float32
-	ColorEndR        float32
-	ColorEndG        float32
-	ColorEndB        float32
-	ColorEasing      EasingType
+	Enabled            bool
+	Mode               string
+	LocalSpace         bool
+	MaxPoints          int
+	MinPointDistance   float32
+	MinPointDistanceSq float32
+	MaxPointAge        float32
+	WidthStart         float32
+	WidthEnd           float32
+	WidthEasing        EasingType
+	AlphaStart         float32
+	AlphaEnd           float32
+	AlphaEasing        EasingType
+	ColorStartR        float32
+	ColorStartG        float32
+	ColorStartB        float32
+	ColorEndR          float32
+	ColorEndG          float32
+	ColorEndB          float32
+	ColorEasing        EasingType
 }
 
 // TrailRuntime stores mutable trail history and draw buffers.
 type TrailRuntime struct {
-	Points   []TrailPoint
-	Ghosts   []TrailGhost
-	Vertices []ebiten.Vertex
-	Indices  []uint16
+	Points         []TrailPoint
+	Ghosts         []TrailGhost
+	GhostPointPool [][]TrailPoint
+	Vertices       []ebiten.Vertex
+	Indices        []uint16
+	DrawOptions    ebiten.DrawTrianglesOptions
 }
 
 // TrailData stores ribbon trail configuration and runtime state.

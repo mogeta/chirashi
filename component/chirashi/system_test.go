@@ -374,6 +374,37 @@ func TestExpiredParticleTrailBecomesGhostUntilFadeCompletes(t *testing.T) {
 	}
 }
 
+func TestExpiredParticleTrailReusesGhostPointBuffers(t *testing.T) {
+	trail := TrailRuntime{
+		Ghosts: []TrailGhost{
+			{Points: []TrailPoint{{X: 0, CapturedAt: 0.1}, {X: 10, CapturedAt: 0.2}}},
+		},
+	}
+	reusable := trail.Ghosts[0].Points
+
+	pruneTrailGhosts(&trail, 0.1, 1.0)
+	if len(trail.GhostPointPool) != 1 {
+		t.Fatalf("expected expired ghost points to be pooled, got %d buffers", len(trail.GhostPointPool))
+	}
+
+	data := TrailData{
+		Params: TrailParams{
+			MaxPointAge: 1,
+		},
+		Runtime: trail,
+	}
+	detachParticleTrail(&data, []TrailPoint{{X: 2, CapturedAt: 0.3}, {X: 6, CapturedAt: 0.4}})
+	if len(data.Runtime.Ghosts) != 1 {
+		t.Fatalf("expected detached ghost, got %d", len(data.Runtime.Ghosts))
+	}
+	if &data.Runtime.Ghosts[0].Points[0] != &reusable[0] {
+		t.Fatal("expected detached trail to reuse pooled point buffer")
+	}
+	if len(data.Runtime.GhostPointPool) != 0 {
+		t.Fatalf("expected pooled buffer to be consumed, got %d", len(data.Runtime.GhostPointPool))
+	}
+}
+
 func TestSpawnCircleEmitterSamplesInsideRadius(t *testing.T) {
 	sys := &System{cnt: 0}
 	data := &SystemData{

@@ -429,7 +429,6 @@ func rotateOffset(originX, originY, offsetX, offsetY, rotation float32) (float32
 
 func (sys *System) updateParticles(data *SystemData, deltaTime float32) {
 	currentTime := data.CurrentTime
-	indicesToRemove := []int{}
 
 	// Check for expired particles
 	for i := 0; i < len(data.ActiveIndices); i++ {
@@ -454,20 +453,15 @@ func (sys *System) updateParticles(data *SystemData, deltaTime float32) {
 				detachParticleTrail(&data.Trail, particle.TrailPoints)
 			}
 			particle.TrailPoints = particle.TrailPoints[:0]
-			indicesToRemove = append(indicesToRemove, i)
 			data.ActiveCount--
 			data.Metrics.DeactivateCount++
 			// Return to free indices pool
 			data.FreeIndices = append(data.FreeIndices, particleIdx)
+			lastIdx := len(data.ActiveIndices) - 1
+			data.ActiveIndices[i] = data.ActiveIndices[lastIdx]
+			data.ActiveIndices = data.ActiveIndices[:lastIdx]
+			i--
 		}
-	}
-
-	// Remove finished particles from active indices (iterate backwards)
-	for i := len(indicesToRemove) - 1; i >= 0; i-- {
-		removeIdx := indicesToRemove[i]
-		lastIdx := len(data.ActiveIndices) - 1
-		data.ActiveIndices[removeIdx] = data.ActiveIndices[lastIdx]
-		data.ActiveIndices = data.ActiveIndices[:lastIdx]
 	}
 }
 
@@ -610,14 +604,18 @@ func (sys *System) Draw(ecs *ecs.ECS, screen *ebiten.Image) {
 		}
 
 		clr := &data.AnimParams.Color
+		uniforms := data.ShaderUniforms
+		if uniforms == nil {
+			uniforms = make(map[string]interface{}, 4)
+			data.ShaderUniforms = uniforms
+		}
+		uniforms["Time"] = currentTime
+		uniforms["StartColor"] = [3]float32{clr.StartR, clr.StartG, clr.StartB}
+		uniforms["EndColor"] = [3]float32{clr.EndR, clr.EndG, clr.EndB}
+		uniforms["ColorEasing"] = float32(clr.Easing)
 		opts := &ebiten.DrawTrianglesShaderOptions{
-			Uniforms: map[string]interface{}{
-				"Time":        currentTime,
-				"StartColor":  [3]float32{clr.StartR, clr.StartG, clr.StartB},
-				"EndColor":    [3]float32{clr.EndR, clr.EndG, clr.EndB},
-				"ColorEasing": float32(clr.Easing),
-			},
-			Images: [4]*ebiten.Image{data.SourceImage},
+			Uniforms: uniforms,
+			Images:   [4]*ebiten.Image{data.SourceImage},
 		}
 
 		screen.DrawTrianglesShader(data.Vertices, data.Indices, data.Shader, opts)
