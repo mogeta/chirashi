@@ -182,6 +182,7 @@ func drawTrail(screen *ebiten.Image, data *SystemData) {
 	if !trailHasVisiblePoints(data) {
 		return
 	}
+	trail.Runtime.DrawOptions.Blend = data.Blend
 	if isParticleTrail(trail) {
 		drawParticleTrails(screen, data)
 		return
@@ -392,6 +393,7 @@ func newParticleTrailBatchBuilder(screen *ebiten.Image, runtime *TrailRuntime) p
 	return particleTrailBatchBuilder{
 		screen: screen,
 		trail:  runtime,
+		opts:   runtime.DrawOptions,
 	}
 }
 

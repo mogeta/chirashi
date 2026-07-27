@@ -513,6 +513,7 @@ func (sys *System) Draw(ecs *ecs.ECS, screen *ebiten.Image) {
 		opts := &ebiten.DrawTrianglesShaderOptions{
 			Uniforms: uniforms,
 			Images:   [4]*ebiten.Image{data.SourceImage},
+			Blend:    data.Blend,
 		}
 
 		for _, particleIdx := range data.ActiveIndices {

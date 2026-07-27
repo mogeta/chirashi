@@ -5,6 +5,7 @@ type ParticleConfig struct {
 	Name        string          `yaml:"name"`
 	Description string          `yaml:"description"`
 	Image       ImageConfig     `yaml:"image"`
+	Blend       string          `yaml:"blend,omitempty"` // normal (default) or additive
 	Emitter     EmitterConfig   `yaml:"emitter"`
 	Animation   AnimationConfig `yaml:"animation"`
 	Trail       *TrailConfig    `yaml:"trail,omitempty"`

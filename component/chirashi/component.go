@@ -109,6 +109,7 @@ type SystemData struct {
 	SourceImage    *ebiten.Image
 	ImageWidth     float32 // Cached image width
 	ImageHeight    float32 // Cached image height
+	Blend          ebiten.Blend // Zero value = source-over (alpha blending)
 	ShaderUniforms map[string]interface{}
 	Trail          TrailData
 
