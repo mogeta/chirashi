@@ -47,6 +47,8 @@ type ParticleEditorScene struct {
 	blurShader               *ebiten.Shader
 	bloomShader              *ebiten.Shader
 	offscreen                *ebiten.Image
+	persistence              *chirashi.PersistenceEffect
+	usePersistence           bool
 	glitchIntensity          float64
 	useBlurShader            bool
 	vsyncEnabled             bool
@@ -126,6 +128,7 @@ func NewParticleEditorScene() (*ParticleEditorScene, error) {
 		shader:                   shader,
 		blurShader:               blurShader,
 		bloomShader:              bloomShader,
+		persistence:              chirashi.NewPersistenceEffect(0.9),
 		vsyncEnabled:             false,
 		attractorX:               editorCenterX,
 		attractorY:               editorCenterY,
@@ -223,8 +226,14 @@ func (s *ParticleEditorScene) Draw(screen *ebiten.Image) {
 	// Clear offscreen
 	s.offscreen.Fill(color.RGBA{0x20, 0x20, 0x20, 0xff})
 
-	// Draw particles to offscreen
-	s.container.Draw(s.offscreen)
+	// Draw particles to offscreen, optionally through the afterimage buffer
+	if s.usePersistence {
+		target := s.persistence.Target(s.offscreen.Bounds().Dx(), s.offscreen.Bounds().Dy())
+		s.container.Draw(target)
+		s.persistence.Compose(s.offscreen)
+	} else {
+		s.container.Draw(s.offscreen)
+	}
 
 	// Apply shader and draw to screen
 	op := &ebiten.DrawRectShaderOptions{}
@@ -612,6 +621,33 @@ func (s *ParticleEditorScene) drawShaderControls(ctx *debugui.Context) {
 		s.applyChange(applyModeRecreate)
 	})
 	ctx.SetGridLayout([]int{-1}, nil)
+
+	blendLabel := "Blend: Normal"
+	if s.config.Blend == "additive" {
+		blendLabel = "Blend: Additive"
+	}
+	ctx.Button(blendLabel).On(func() {
+		if s.config.Blend == "additive" {
+			s.config.Blend = ""
+		} else {
+			s.config.Blend = "additive"
+		}
+		s.applyChange(applyModeLive)
+	})
+
+	persistenceLabel := "Afterimage: OFF"
+	if s.usePersistence {
+		persistenceLabel = "Afterimage: ON"
+	}
+	ctx.Button(persistenceLabel).On(func() {
+		s.usePersistence = !s.usePersistence
+		if !s.usePersistence {
+			s.persistence.Clear()
+		}
+	})
+	if s.usePersistence {
+		s.sliderControl32(ctx, "Afterimage Decay", &s.persistence.Decay, 0.5, 0.99, 0.01)
+	}
 }
 
 func (s *ParticleEditorScene) drawEmitterShapeControls(ctx *debugui.Context) {
