@@ -3,6 +3,8 @@ package chirashi
 import (
 	"math"
 	"math/rand/v2"
+	"runtime"
+	"sync"
 	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -137,8 +139,7 @@ func (sys *System) spawn(data *SystemData) {
 			particle.HasAttractor = true
 		case pos.UsePolar:
 			angle := rangeFloat32(pos.AngleMin, pos.AngleMax)
-			sin64, cos64 := math.Sincos(float64(angle))
-			cosA, sinA := float32(cos64), float32(sin64)
+			sinA, cosA := fastSincos(angle)
 			particle.StartX = spawnX
 			particle.StartY = spawnY
 			particle.HasAttractor = false
@@ -201,26 +202,26 @@ func (sys *System) spawn(data *SystemData) {
 
 		particle.Active = true
 
-		// Initialize per-property sequence snapshots
+		// Initialize per-property sequence snapshots, reusing pooled slices
 		particle.HasPosXSeq = data.PosXSeq != nil
 		if particle.HasPosXSeq {
-			particle.PosXSnap = GenerateSnapshot(data.PosXSeq, spawnX)
+			FillSnapshot(data.PosXSeq, &particle.PosXSnap, spawnX)
 		}
 		particle.HasPosYSeq = data.PosYSeq != nil
 		if particle.HasPosYSeq {
-			particle.PosYSnap = GenerateSnapshot(data.PosYSeq, spawnY)
+			FillSnapshot(data.PosYSeq, &particle.PosYSnap, spawnY)
 		}
 		particle.HasScaleSeq = data.ScaleSeq != nil
 		if particle.HasScaleSeq {
-			particle.ScaleSnap = GenerateSnapshot(data.ScaleSeq, 0)
+			FillSnapshot(data.ScaleSeq, &particle.ScaleSnap, 0)
 		}
 		particle.HasRotSeq = data.RotSeq != nil
 		if particle.HasRotSeq {
-			particle.RotSnap = GenerateSnapshot(data.RotSeq, 0)
+			FillSnapshot(data.RotSeq, &particle.RotSnap, 0)
 		}
 		particle.HasAlphaSeq = data.AlphaSeq != nil
 		if particle.HasAlphaSeq {
-			particle.AlphaSnap = GenerateSnapshot(data.AlphaSeq, 0)
+			FillSnapshot(data.AlphaSeq, &particle.AlphaSnap, 0)
 		}
 
 		// Add to active indices
@@ -243,8 +244,8 @@ func sampleEmitterPosition(emitterX, emitterY float32, shape EmitterShapeParams,
 			maxRadiusSq := shape.RadiusMax * shape.RadiusMax
 			radius = float32(math.Sqrt(float64(minRadiusSq + rand.Float32()*(maxRadiusSq-minRadiusSq))))
 		}
-		sin, cos := math.Sincos(float64(angle))
-		return emitterX + radius*float32(cos), emitterY + radius*float32(sin)
+		sin, cos := fastSincos(angle)
+		return emitterX + radius*cos, emitterY + radius*sin
 	case EmitterShapeBox:
 		halfW := shape.Width / 2
 		halfH := shape.Height / 2
@@ -427,32 +428,21 @@ func rotateOffset(originX, originY, offsetX, offsetY, rotation float32) (float32
 	if rotation == 0 {
 		return originX + offsetX, originY + offsetY
 	}
-	sin64, cos64 := math.Sincos(float64(rotation))
-	cos := float32(cos64)
-	sin := float32(sin64)
+	sin, cos := fastSincos(rotation)
 	return originX + offsetX*cos - offsetY*sin, originY + offsetX*sin + offsetY*cos
 }
 
 func (sys *System) updateParticles(data *SystemData, deltaTime float32) {
 	currentTime := data.CurrentTime
 
-	// Check for expired particles
+	// Simulate first (parallel-capable), then sweep expired particles.
+	simulateActiveParticles(data, deltaTime)
+
 	for i := 0; i < len(data.ActiveIndices); i++ {
 		particleIdx := data.ActiveIndices[i]
 		particle := &data.ParticlePool[particleIdx]
 
 		elapsed := currentTime - particle.SpawnTime
-		if particle.HasFlow && data.AnimParams.Position.HasFlow {
-			normalizedT := elapsed / particle.Duration
-			if normalizedT < 0 {
-				normalizedT = 0
-			}
-			if normalizedT > 1 {
-				normalizedT = 1
-			}
-			updateParticleFlow(data, particle, elapsed, normalizedT, deltaTime)
-		}
-		cacheParticleCurrentPosition(data, particle, elapsed)
 		if elapsed >= particle.Duration {
 			particle.Active = false
 			if data.Trail.Params.Mode == "particle" {
@@ -468,6 +458,73 @@ func (sys *System) updateParticles(data *SystemData, deltaTime float32) {
 			data.ActiveIndices = data.ActiveIndices[:lastIdx]
 			i--
 		}
+	}
+}
+
+// Active-particle counts above which the simulation phase is split across
+// goroutines. Below them, goroutine and synchronization overhead outweighs
+// the gain. Flow-field sampling is an order of magnitude heavier per
+// particle, so it pays off much earlier.
+const (
+	parallelSimulateThresholdFlow  = 256
+	parallelSimulateThresholdPlain = 4096
+)
+
+// simulateActiveParticles advances flow state and caches positions for all
+// active particles. Each particle only touches its own state, so the work is
+// split across goroutines for large pools.
+func simulateActiveParticles(data *SystemData, deltaTime float32) {
+	n := len(data.ActiveIndices)
+	if n == 0 {
+		return
+	}
+
+	workers := runtime.GOMAXPROCS(0)
+	if workers > 8 {
+		workers = 8
+	}
+	threshold := parallelSimulateThresholdPlain
+	if data.AnimParams.Position.HasFlow {
+		threshold = parallelSimulateThresholdFlow
+	}
+	if n < threshold || workers <= 1 {
+		simulateParticleRange(data, data.ActiveIndices, deltaTime)
+		return
+	}
+
+	chunk := (n + workers - 1) / workers
+	var wg sync.WaitGroup
+	for start := 0; start < n; start += chunk {
+		end := start + chunk
+		if end > n {
+			end = n
+		}
+		wg.Add(1)
+		go func(indices []int) {
+			defer wg.Done()
+			simulateParticleRange(data, indices, deltaTime)
+		}(data.ActiveIndices[start:end])
+	}
+	wg.Wait()
+}
+
+func simulateParticleRange(data *SystemData, indices []int, deltaTime float32) {
+	currentTime := data.CurrentTime
+	hasFlow := data.AnimParams.Position.HasFlow
+	for _, particleIdx := range indices {
+		particle := &data.ParticlePool[particleIdx]
+		elapsed := currentTime - particle.SpawnTime
+		if particle.HasFlow && hasFlow {
+			normalizedT := elapsed / particle.Duration
+			if normalizedT < 0 {
+				normalizedT = 0
+			}
+			if normalizedT > 1 {
+				normalizedT = 1
+			}
+			updateParticleFlow(data, particle, elapsed, normalizedT, deltaTime)
+		}
+		cacheParticleCurrentPosition(data, particle, elapsed)
 	}
 }
 
@@ -490,9 +547,13 @@ func (sys *System) Draw(ecs *ecs.ECS, screen *ebiten.Image) {
 
 		startTime := time.Now()
 
-		// Build vertex/index buffers
+		// Build vertex buffer; the quad index pattern is static and grown once.
 		data.Vertices = data.Vertices[:0]
-		data.Indices = data.Indices[:0]
+		batchQuads := len(data.ActiveIndices)
+		if batchQuads > maxParticleBatchVertices/4 {
+			batchQuads = maxParticleBatchVertices / 4
+		}
+		ensureQuadIndices(data, batchQuads)
 
 		currentTime := data.CurrentTime
 		imgW := data.ImageWidth
@@ -519,9 +580,8 @@ func (sys *System) Draw(ecs *ecs.ECS, screen *ebiten.Image) {
 		for _, particleIdx := range data.ActiveIndices {
 			// Flush before the vertex count overflows uint16 indices.
 			if len(data.Vertices) >= maxParticleBatchVertices {
-				screen.DrawTrianglesShader(data.Vertices, data.Indices, data.Shader, opts)
+				screen.DrawTrianglesShader(data.Vertices, data.Indices[:len(data.Vertices)/4*6], data.Shader, opts)
 				data.Vertices = data.Vertices[:0]
-				data.Indices = data.Indices[:0]
 			}
 			p := &data.ParticlePool[particleIdx]
 
@@ -557,18 +617,7 @@ func (sys *System) Draw(ecs *ecs.ECS, screen *ebiten.Image) {
 			cos := float32(1.0)
 			sin := float32(0.0)
 			if rotation != 0 {
-				sin64, cos64 := math.Sincos(float64(rotation))
-				cos = float32(cos64)
-				sin = float32(sin64)
-			}
-
-			// 4 corners relative to center, then rotated and translated
-			// Top-left, Top-right, Bottom-left, Bottom-right
-			corners := [4][2]float32{
-				{-scaledHalfW, -scaledHalfH},
-				{scaledHalfW, -scaledHalfH},
-				{-scaledHalfW, scaledHalfH},
-				{scaledHalfW, scaledHalfH},
+				sin, cos = fastSincos(rotation)
 			}
 
 			// Vertex custom data layout:
@@ -588,55 +637,55 @@ func (sys *System) Draw(ecs *ecs.ECS, screen *ebiten.Image) {
 				alphaEasingNorm = float32(p.AlphaEasing) / float32(easingTypeCount)
 			}
 
-			vertexBase := uint16(len(data.Vertices))
+			// Rotated half extents; the four corners are +/- combinations.
+			// Top-left, Top-right, Bottom-left, Bottom-right
+			wx := scaledHalfW * cos
+			wy := scaledHalfW * sin
+			hx := -scaledHalfH * sin
+			hy := scaledHalfH * cos
 
-			for i, corner := range corners {
-				// Rotate
-				rx := corner[0]*cos - corner[1]*sin
-				ry := corner[0]*sin + corner[1]*cos
-
-				// Translate
-				vx := x + rx
-				vy := y + ry
-
-				// UV coordinates
-				var u, v float32
-				switch i {
-				case 0: // Top-left
-					u, v = 0, 0
-				case 1: // Top-right
-					u, v = imgW, 0
-				case 2: // Bottom-left
-					u, v = 0, imgH
-				case 3: // Bottom-right
-					u, v = imgW, imgH
-				}
-
-				data.Vertices = append(data.Vertices, ebiten.Vertex{
-					DstX:    vx,
-					DstY:    vy,
-					SrcX:    u,
-					SrcY:    v,
-					ColorR:  startAlpha,
-					ColorG:  endAlpha,
-					ColorB:  alphaEasingNorm,
-					Custom0: p.SpawnTime,
-					Custom1: p.Duration,
-				})
+			vertex := ebiten.Vertex{
+				ColorR:  startAlpha,
+				ColorG:  endAlpha,
+				ColorB:  alphaEasingNorm,
+				Custom0: p.SpawnTime,
+				Custom1: p.Duration,
 			}
-
-			// Add indices for two triangles (0,1,2), (1,3,2)
-			data.Indices = append(data.Indices,
-				vertexBase+0, vertexBase+1, vertexBase+2,
-				vertexBase+1, vertexBase+3, vertexBase+2,
-			)
+			vertex.DstX, vertex.DstY = x-wx-hx, y-wy-hy
+			vertex.SrcX, vertex.SrcY = 0, 0
+			data.Vertices = append(data.Vertices, vertex)
+			vertex.DstX, vertex.DstY = x+wx-hx, y+wy-hy
+			vertex.SrcX, vertex.SrcY = imgW, 0
+			data.Vertices = append(data.Vertices, vertex)
+			vertex.DstX, vertex.DstY = x-wx+hx, y-wy+hy
+			vertex.SrcX, vertex.SrcY = 0, imgH
+			data.Vertices = append(data.Vertices, vertex)
+			vertex.DstX, vertex.DstY = x+wx+hx, y+wy+hy
+			vertex.SrcX, vertex.SrcY = imgW, imgH
+			data.Vertices = append(data.Vertices, vertex)
 		}
 
 		if len(data.Vertices) > 0 {
-			screen.DrawTrianglesShader(data.Vertices, data.Indices, data.Shader, opts)
+			screen.DrawTrianglesShader(data.Vertices, data.Indices[:len(data.Vertices)/4*6], data.Shader, opts)
 		}
 
 		data.Metrics.DrawTimeUs = time.Since(startTime).Microseconds()
+	}
+}
+
+// ensureQuadIndices grows the static quad index buffer to cover quadCount
+// quads. The pattern (two triangles per quad) never changes, so it is built
+// once and sliced per draw call instead of being rebuilt every frame.
+func ensureQuadIndices(data *SystemData, quadCount int) {
+	if quadCount > maxParticleBatchVertices/4 {
+		quadCount = maxParticleBatchVertices / 4
+	}
+	for i := len(data.Indices) / 6; i < quadCount; i++ {
+		base := uint16(i * 4)
+		data.Indices = append(data.Indices,
+			base+0, base+1, base+2,
+			base+1, base+3, base+2,
+		)
 	}
 }
 
@@ -659,9 +708,9 @@ func evaluateParticleBasePosition(data *SystemData, p *Instance, elapsed, posT f
 		if p.AngularSpeed != 0 {
 			// Spiral mode: angle rotates over time
 			a := p.StartAngle + p.AngularSpeed*elapsed
-			sin, cos := math.Sincos(float64(a))
-			return p.StartX + float32(cos)*dist,
-				p.StartY + float32(sin)*dist
+			sin, cos := fastSincos(a)
+			return p.StartX + cos*dist,
+				p.StartY + sin*dist
 		}
 		// Straight radial
 		return p.StartX + p.DirX*dist, p.StartY + p.DirY*dist
@@ -775,20 +824,20 @@ func sampleCurlNoiseField(x, y, t float32, octaves int, persistence float32) (fl
 		pt := t * (flowTimeBaseFactor + flowTimeFrequencyGain*freq)
 
 		// d/dx sin(px + pt*k) = cos(...) * freq
-		cos1 := float32(math.Cos(float64(px + pt*flowPrimaryTimeScale)))
+		cos1 := fastCos(px + pt*flowPrimaryTimeScale)
 		ddx += cos1 * freq * amp
 
 		// d/dy 0.7*cos(py*1.3 - pt*k) = -0.7*sin(...) * 1.3 * freq
-		sin2 := float32(math.Sin(float64(py*flowSecondarySpaceScale - pt*flowSecondaryTimeScale)))
+		sin2 := fastSin(py*flowSecondarySpaceScale - pt*flowSecondaryTimeScale)
 		ddy += -flowSecondaryAmplitude * sin2 * flowSecondarySpaceScale * freq * amp
 
 		// d/d{x,y} 0.5*sin(px*0.8 + py*1.1 + pt*k) = 0.5*cos(...) * {0.8,1.1} * freq
-		cos3 := float32(math.Cos(float64(px*flowTertiaryXScale + py*flowTertiaryYScale + pt*flowTertiaryTimeScale)))
+		cos3 := fastCos(px*flowTertiaryXScale + py*flowTertiaryYScale + pt*flowTertiaryTimeScale)
 		ddx += flowTertiaryAmplitude * cos3 * flowTertiaryXScale * freq * amp
 		ddy += flowTertiaryAmplitude * cos3 * flowTertiaryYScale * freq * amp
 
 		// d/d{x,y} 0.35*cos(px*1.7 - py*0.6 - pt*k) = 0.35*-sin(...) * {1.7,-0.6} * freq
-		sin4 := float32(math.Sin(float64(px*flowQuaternaryXScale - py*flowQuaternaryYScale - pt*flowQuaternaryTimeScale)))
+		sin4 := fastSin(px*flowQuaternaryXScale - py*flowQuaternaryYScale - pt*flowQuaternaryTimeScale)
 		ddx += -flowQuaternaryAmplitude * sin4 * flowQuaternaryXScale * freq * amp
 		ddy += flowQuaternaryAmplitude * sin4 * flowQuaternaryYScale * freq * amp
 

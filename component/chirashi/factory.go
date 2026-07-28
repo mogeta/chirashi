@@ -69,7 +69,12 @@ func buildSystemDataFromConfig(shader *ebiten.Shader, image *ebiten.Image, confi
 	}
 
 	maxVertices := config.Spawn.MaxParticles * 4
-	maxIndices := config.Spawn.MaxParticles * 6
+	// Index buffer is static and capped at one uint16-addressable batch.
+	maxIndexQuads := config.Spawn.MaxParticles
+	if maxIndexQuads > maxParticleBatchVertices/4 {
+		maxIndexQuads = maxParticleBatchVertices / 4
+	}
+	maxIndices := maxIndexQuads * 6
 
 	var imgWidth, imgHeight float32
 	if image != nil {
