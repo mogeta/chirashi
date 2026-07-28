@@ -137,8 +137,7 @@ func (sys *System) spawn(data *SystemData) {
 			particle.HasAttractor = true
 		case pos.UsePolar:
 			angle := rangeFloat32(pos.AngleMin, pos.AngleMax)
-			sin64, cos64 := math.Sincos(float64(angle))
-			cosA, sinA := float32(cos64), float32(sin64)
+			sinA, cosA := fastSincos(angle)
 			particle.StartX = spawnX
 			particle.StartY = spawnY
 			particle.HasAttractor = false
@@ -243,8 +242,8 @@ func sampleEmitterPosition(emitterX, emitterY float32, shape EmitterShapeParams,
 			maxRadiusSq := shape.RadiusMax * shape.RadiusMax
 			radius = float32(math.Sqrt(float64(minRadiusSq + rand.Float32()*(maxRadiusSq-minRadiusSq))))
 		}
-		sin, cos := math.Sincos(float64(angle))
-		return emitterX + radius*float32(cos), emitterY + radius*float32(sin)
+		sin, cos := fastSincos(angle)
+		return emitterX + radius*cos, emitterY + radius*sin
 	case EmitterShapeBox:
 		halfW := shape.Width / 2
 		halfH := shape.Height / 2
@@ -427,9 +426,7 @@ func rotateOffset(originX, originY, offsetX, offsetY, rotation float32) (float32
 	if rotation == 0 {
 		return originX + offsetX, originY + offsetY
 	}
-	sin64, cos64 := math.Sincos(float64(rotation))
-	cos := float32(cos64)
-	sin := float32(sin64)
+	sin, cos := fastSincos(rotation)
 	return originX + offsetX*cos - offsetY*sin, originY + offsetX*sin + offsetY*cos
 }
 
@@ -560,9 +557,7 @@ func (sys *System) Draw(ecs *ecs.ECS, screen *ebiten.Image) {
 			cos := float32(1.0)
 			sin := float32(0.0)
 			if rotation != 0 {
-				sin64, cos64 := math.Sincos(float64(rotation))
-				cos = float32(cos64)
-				sin = float32(sin64)
+				sin, cos = fastSincos(rotation)
 			}
 
 			// Vertex custom data layout:
@@ -653,9 +648,9 @@ func evaluateParticleBasePosition(data *SystemData, p *Instance, elapsed, posT f
 		if p.AngularSpeed != 0 {
 			// Spiral mode: angle rotates over time
 			a := p.StartAngle + p.AngularSpeed*elapsed
-			sin, cos := math.Sincos(float64(a))
-			return p.StartX + float32(cos)*dist,
-				p.StartY + float32(sin)*dist
+			sin, cos := fastSincos(a)
+			return p.StartX + cos*dist,
+				p.StartY + sin*dist
 		}
 		// Straight radial
 		return p.StartX + p.DirX*dist, p.StartY + p.DirY*dist
@@ -769,20 +764,20 @@ func sampleCurlNoiseField(x, y, t float32, octaves int, persistence float32) (fl
 		pt := t * (flowTimeBaseFactor + flowTimeFrequencyGain*freq)
 
 		// d/dx sin(px + pt*k) = cos(...) * freq
-		cos1 := float32(math.Cos(float64(px + pt*flowPrimaryTimeScale)))
+		cos1 := fastCos(px + pt*flowPrimaryTimeScale)
 		ddx += cos1 * freq * amp
 
 		// d/dy 0.7*cos(py*1.3 - pt*k) = -0.7*sin(...) * 1.3 * freq
-		sin2 := float32(math.Sin(float64(py*flowSecondarySpaceScale - pt*flowSecondaryTimeScale)))
+		sin2 := fastSin(py*flowSecondarySpaceScale - pt*flowSecondaryTimeScale)
 		ddy += -flowSecondaryAmplitude * sin2 * flowSecondarySpaceScale * freq * amp
 
 		// d/d{x,y} 0.5*sin(px*0.8 + py*1.1 + pt*k) = 0.5*cos(...) * {0.8,1.1} * freq
-		cos3 := float32(math.Cos(float64(px*flowTertiaryXScale + py*flowTertiaryYScale + pt*flowTertiaryTimeScale)))
+		cos3 := fastCos(px*flowTertiaryXScale + py*flowTertiaryYScale + pt*flowTertiaryTimeScale)
 		ddx += flowTertiaryAmplitude * cos3 * flowTertiaryXScale * freq * amp
 		ddy += flowTertiaryAmplitude * cos3 * flowTertiaryYScale * freq * amp
 
 		// d/d{x,y} 0.35*cos(px*1.7 - py*0.6 - pt*k) = 0.35*-sin(...) * {1.7,-0.6} * freq
-		sin4 := float32(math.Sin(float64(px*flowQuaternaryXScale - py*flowQuaternaryYScale - pt*flowQuaternaryTimeScale)))
+		sin4 := fastSin(px*flowQuaternaryXScale - py*flowQuaternaryYScale - pt*flowQuaternaryTimeScale)
 		ddx += -flowQuaternaryAmplitude * sin4 * flowQuaternaryXScale * freq * amp
 		ddy += flowQuaternaryAmplitude * sin4 * flowQuaternaryYScale * freq * amp
 
