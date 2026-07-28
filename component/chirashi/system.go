@@ -3,6 +3,8 @@ package chirashi
 import (
 	"math"
 	"math/rand/v2"
+	"runtime"
+	"sync"
 	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -433,23 +435,14 @@ func rotateOffset(originX, originY, offsetX, offsetY, rotation float32) (float32
 func (sys *System) updateParticles(data *SystemData, deltaTime float32) {
 	currentTime := data.CurrentTime
 
-	// Check for expired particles
+	// Simulate first (parallel-capable), then sweep expired particles.
+	simulateActiveParticles(data, deltaTime)
+
 	for i := 0; i < len(data.ActiveIndices); i++ {
 		particleIdx := data.ActiveIndices[i]
 		particle := &data.ParticlePool[particleIdx]
 
 		elapsed := currentTime - particle.SpawnTime
-		if particle.HasFlow && data.AnimParams.Position.HasFlow {
-			normalizedT := elapsed / particle.Duration
-			if normalizedT < 0 {
-				normalizedT = 0
-			}
-			if normalizedT > 1 {
-				normalizedT = 1
-			}
-			updateParticleFlow(data, particle, elapsed, normalizedT, deltaTime)
-		}
-		cacheParticleCurrentPosition(data, particle, elapsed)
 		if elapsed >= particle.Duration {
 			particle.Active = false
 			if data.Trail.Params.Mode == "particle" {
@@ -465,6 +458,73 @@ func (sys *System) updateParticles(data *SystemData, deltaTime float32) {
 			data.ActiveIndices = data.ActiveIndices[:lastIdx]
 			i--
 		}
+	}
+}
+
+// Active-particle counts above which the simulation phase is split across
+// goroutines. Below them, goroutine and synchronization overhead outweighs
+// the gain. Flow-field sampling is an order of magnitude heavier per
+// particle, so it pays off much earlier.
+const (
+	parallelSimulateThresholdFlow  = 256
+	parallelSimulateThresholdPlain = 4096
+)
+
+// simulateActiveParticles advances flow state and caches positions for all
+// active particles. Each particle only touches its own state, so the work is
+// split across goroutines for large pools.
+func simulateActiveParticles(data *SystemData, deltaTime float32) {
+	n := len(data.ActiveIndices)
+	if n == 0 {
+		return
+	}
+
+	workers := runtime.GOMAXPROCS(0)
+	if workers > 8 {
+		workers = 8
+	}
+	threshold := parallelSimulateThresholdPlain
+	if data.AnimParams.Position.HasFlow {
+		threshold = parallelSimulateThresholdFlow
+	}
+	if n < threshold || workers <= 1 {
+		simulateParticleRange(data, data.ActiveIndices, deltaTime)
+		return
+	}
+
+	chunk := (n + workers - 1) / workers
+	var wg sync.WaitGroup
+	for start := 0; start < n; start += chunk {
+		end := start + chunk
+		if end > n {
+			end = n
+		}
+		wg.Add(1)
+		go func(indices []int) {
+			defer wg.Done()
+			simulateParticleRange(data, indices, deltaTime)
+		}(data.ActiveIndices[start:end])
+	}
+	wg.Wait()
+}
+
+func simulateParticleRange(data *SystemData, indices []int, deltaTime float32) {
+	currentTime := data.CurrentTime
+	hasFlow := data.AnimParams.Position.HasFlow
+	for _, particleIdx := range indices {
+		particle := &data.ParticlePool[particleIdx]
+		elapsed := currentTime - particle.SpawnTime
+		if particle.HasFlow && hasFlow {
+			normalizedT := elapsed / particle.Duration
+			if normalizedT < 0 {
+				normalizedT = 0
+			}
+			if normalizedT > 1 {
+				normalizedT = 1
+			}
+			updateParticleFlow(data, particle, elapsed, normalizedT, deltaTime)
+		}
+		cacheParticleCurrentPosition(data, particle, elapsed)
 	}
 }
 
