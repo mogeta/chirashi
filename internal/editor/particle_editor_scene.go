@@ -94,11 +94,6 @@ func NewParticleEditorScene() (*ParticleEditorScene, error) {
 	img := ebiten.NewImage(8, 8)
 	img.Fill(color.White)
 
-	shader, err := ebiten.NewShader(assets.ParticleShader)
-	if err != nil {
-		return nil, fmt.Errorf("load particle shader: %w", err)
-	}
-
 	bloomShader, err := ebiten.NewShader(assets.BloomShader)
 	if err != nil {
 		return nil, fmt.Errorf("load bloom shader: %w", err)
@@ -121,7 +116,8 @@ func NewParticleEditorScene() (*ParticleEditorScene, error) {
 		return nil, fmt.Errorf("load config: %w", err)
 	}
 
-	if err := chirashi.NewParticlesFromConfig(world, shader, img, config, editorCenterX, editorCenterY); err != nil {
+	// nil shader = plain DrawTriangles path with Ebiten's internal batching.
+	if err := chirashi.NewParticlesFromConfig(world, nil, img, config, editorCenterX, editorCenterY); err != nil {
 		return nil, fmt.Errorf("create particles: %w", err)
 	}
 
@@ -131,8 +127,8 @@ func NewParticleEditorScene() (*ParticleEditorScene, error) {
 		config:                   config,
 		loader:                   loader,
 		img:                      img,
-		defaultShader:            shader,
-		shader:                   shader,
+		defaultShader:            nil,
+		shader:                   nil,
 		blurShader:               blurShader,
 		bloomShader:              bloomShader,
 		persistence:              chirashi.NewPersistenceEffect(0.9),

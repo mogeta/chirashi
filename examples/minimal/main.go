@@ -24,15 +24,10 @@ func NewGame() *Game {
 	container.AddSystem(particleSystem.Update)
 	container.AddRenderer(0, particleSystem.Draw)
 
-	shader, err := ebiten.NewShader(assets.ParticleShader)
-	if err != nil {
-		log.Fatalf("failed to create particle shader: %v", err)
-	}
-
 	img := ebiten.NewImage(8, 8)
 	img.Fill(color.White)
 
-	manager := chirashi.NewParticleManager(shader, img)
+	manager := chirashi.NewParticleManager(nil, img)
 	if err := manager.PreloadFromBytes("sample", assets.SampleParticleConfig); err != nil {
 		log.Fatalf("failed to preload particle config: %v", err)
 	}

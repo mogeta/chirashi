@@ -48,10 +48,11 @@ particleSystem := chirashi.NewSystem()
 gameECS.AddSystem(particleSystem.Update)
 gameECS.AddRenderer(0, particleSystem.Draw)
 
-shader, _ := ebiten.NewShader([]byte("..."))
 image := ebiten.NewImage(8, 8)
 
-manager := chirashi.NewParticleManager(shader, image)
+// Pass nil to use the default batched draw path; supply a custom
+// *ebiten.Shader only for bespoke particle rendering.
+manager := chirashi.NewParticleManager(nil, image)
 _ = manager.Preload("sample", "assets/particles/sample.yaml")
 _, _ = manager.SpawnLoop(world, "sample", 640, 480)
 ```
@@ -102,6 +103,21 @@ animation:
     start: 0.0
     end: 3.14
     easing: "Linear"
+  color:
+    start_r: 1.0
+    start_g: 0.8
+    start_b: 0.2
+    end_r: 1.0
+    end_g: 0.1
+    end_b: 0.0
+    easing: "OutQuad"
+    variation:
+      start_r: 0.3
+      start_g: 0.8
+      start_b: 1.0
+      end_r: 0.1
+      end_g: 0.2
+      end_b: 1.0
 
 spawn:
   interval: 1
@@ -109,6 +125,9 @@ spawn:
   max_particles: 1000
   is_loop: true
 ```
+
+`animation.color.variation` を指定すると、ベースとネストした RGB
+グラデーションの間をパーティクル生成時に一度だけランダムに混色します。
 
 ## エディター
 

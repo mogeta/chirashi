@@ -47,6 +47,7 @@ type Instance struct {
 	// Color animation (RGB 0-1)
 	StartR, StartG, StartB float32
 	EndR, EndG, EndB       float32
+	ColorVariationMix      float32 // spawn-time mix toward the variation gradient
 
 	// Easing types for each property
 	PositionEasing EasingType
@@ -77,12 +78,11 @@ type Instance struct {
 
 // SystemData represents the GPU-based particle system component data
 type SystemData struct {
-	// Pool of particles for efficient memory management
+	// Pool of particles. The pool is kept dense: ParticlePool[:ActiveCount]
+	// are the live particles (order is not stable), the rest are free slots.
+	// Update/draw therefore traverse memory linearly with no index
+	// indirection.
 	ParticlePool []Instance
-
-	// Index management for O(1) operations
-	ActiveIndices []int // Indices of active particles (compact array)
-	FreeIndices   []int // Stack of free particle indices
 
 	// Pre-allocated vertex/index buffers for batch rendering
 	Vertices []ebiten.Vertex
@@ -271,6 +271,12 @@ type ColorParams struct {
 	StartR, StartG, StartB float32
 	EndR, EndG, EndB       float32
 	Easing                 EasingType
+
+	// Variation: when enabled, each particle lerps between the base pair and
+	// this second pair by one random factor rolled at spawn.
+	HasVariation              bool
+	Start2R, Start2G, Start2B float32
+	End2R, End2G, End2B       float32
 }
 
 // Metrics tracks performance data for a particle system
