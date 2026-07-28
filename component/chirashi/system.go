@@ -201,26 +201,26 @@ func (sys *System) spawn(data *SystemData) {
 
 		particle.Active = true
 
-		// Initialize per-property sequence snapshots
+		// Initialize per-property sequence snapshots, reusing pooled slices
 		particle.HasPosXSeq = data.PosXSeq != nil
 		if particle.HasPosXSeq {
-			particle.PosXSnap = GenerateSnapshot(data.PosXSeq, spawnX)
+			FillSnapshot(data.PosXSeq, &particle.PosXSnap, spawnX)
 		}
 		particle.HasPosYSeq = data.PosYSeq != nil
 		if particle.HasPosYSeq {
-			particle.PosYSnap = GenerateSnapshot(data.PosYSeq, spawnY)
+			FillSnapshot(data.PosYSeq, &particle.PosYSnap, spawnY)
 		}
 		particle.HasScaleSeq = data.ScaleSeq != nil
 		if particle.HasScaleSeq {
-			particle.ScaleSnap = GenerateSnapshot(data.ScaleSeq, 0)
+			FillSnapshot(data.ScaleSeq, &particle.ScaleSnap, 0)
 		}
 		particle.HasRotSeq = data.RotSeq != nil
 		if particle.HasRotSeq {
-			particle.RotSnap = GenerateSnapshot(data.RotSeq, 0)
+			FillSnapshot(data.RotSeq, &particle.RotSnap, 0)
 		}
 		particle.HasAlphaSeq = data.AlphaSeq != nil
 		if particle.HasAlphaSeq {
-			particle.AlphaSnap = GenerateSnapshot(data.AlphaSeq, 0)
+			FillSnapshot(data.AlphaSeq, &particle.AlphaSnap, 0)
 		}
 
 		// Add to active indices
@@ -490,9 +490,13 @@ func (sys *System) Draw(ecs *ecs.ECS, screen *ebiten.Image) {
 
 		startTime := time.Now()
 
-		// Build vertex/index buffers
+		// Build vertex buffer; the quad index pattern is static and grown once.
 		data.Vertices = data.Vertices[:0]
-		data.Indices = data.Indices[:0]
+		batchQuads := len(data.ActiveIndices)
+		if batchQuads > maxParticleBatchVertices/4 {
+			batchQuads = maxParticleBatchVertices / 4
+		}
+		ensureQuadIndices(data, batchQuads)
 
 		currentTime := data.CurrentTime
 		imgW := data.ImageWidth
@@ -519,9 +523,8 @@ func (sys *System) Draw(ecs *ecs.ECS, screen *ebiten.Image) {
 		for _, particleIdx := range data.ActiveIndices {
 			// Flush before the vertex count overflows uint16 indices.
 			if len(data.Vertices) >= maxParticleBatchVertices {
-				screen.DrawTrianglesShader(data.Vertices, data.Indices, data.Shader, opts)
+				screen.DrawTrianglesShader(data.Vertices, data.Indices[:len(data.Vertices)/4*6], data.Shader, opts)
 				data.Vertices = data.Vertices[:0]
-				data.Indices = data.Indices[:0]
 			}
 			p := &data.ParticlePool[particleIdx]
 
@@ -562,15 +565,6 @@ func (sys *System) Draw(ecs *ecs.ECS, screen *ebiten.Image) {
 				sin = float32(sin64)
 			}
 
-			// 4 corners relative to center, then rotated and translated
-			// Top-left, Top-right, Bottom-left, Bottom-right
-			corners := [4][2]float32{
-				{-scaledHalfW, -scaledHalfH},
-				{scaledHalfW, -scaledHalfH},
-				{-scaledHalfW, scaledHalfH},
-				{scaledHalfW, scaledHalfH},
-			}
-
 			// Vertex custom data layout:
 			// color.r = startAlpha, color.g = endAlpha, color.b = alphaEasing (normalized)
 			// custom.x = spawnTime, custom.y = duration
@@ -588,55 +582,55 @@ func (sys *System) Draw(ecs *ecs.ECS, screen *ebiten.Image) {
 				alphaEasingNorm = float32(p.AlphaEasing) / float32(easingTypeCount)
 			}
 
-			vertexBase := uint16(len(data.Vertices))
+			// Rotated half extents; the four corners are +/- combinations.
+			// Top-left, Top-right, Bottom-left, Bottom-right
+			wx := scaledHalfW * cos
+			wy := scaledHalfW * sin
+			hx := -scaledHalfH * sin
+			hy := scaledHalfH * cos
 
-			for i, corner := range corners {
-				// Rotate
-				rx := corner[0]*cos - corner[1]*sin
-				ry := corner[0]*sin + corner[1]*cos
-
-				// Translate
-				vx := x + rx
-				vy := y + ry
-
-				// UV coordinates
-				var u, v float32
-				switch i {
-				case 0: // Top-left
-					u, v = 0, 0
-				case 1: // Top-right
-					u, v = imgW, 0
-				case 2: // Bottom-left
-					u, v = 0, imgH
-				case 3: // Bottom-right
-					u, v = imgW, imgH
-				}
-
-				data.Vertices = append(data.Vertices, ebiten.Vertex{
-					DstX:    vx,
-					DstY:    vy,
-					SrcX:    u,
-					SrcY:    v,
-					ColorR:  startAlpha,
-					ColorG:  endAlpha,
-					ColorB:  alphaEasingNorm,
-					Custom0: p.SpawnTime,
-					Custom1: p.Duration,
-				})
+			vertex := ebiten.Vertex{
+				ColorR:  startAlpha,
+				ColorG:  endAlpha,
+				ColorB:  alphaEasingNorm,
+				Custom0: p.SpawnTime,
+				Custom1: p.Duration,
 			}
-
-			// Add indices for two triangles (0,1,2), (1,3,2)
-			data.Indices = append(data.Indices,
-				vertexBase+0, vertexBase+1, vertexBase+2,
-				vertexBase+1, vertexBase+3, vertexBase+2,
-			)
+			vertex.DstX, vertex.DstY = x-wx-hx, y-wy-hy
+			vertex.SrcX, vertex.SrcY = 0, 0
+			data.Vertices = append(data.Vertices, vertex)
+			vertex.DstX, vertex.DstY = x+wx-hx, y+wy-hy
+			vertex.SrcX, vertex.SrcY = imgW, 0
+			data.Vertices = append(data.Vertices, vertex)
+			vertex.DstX, vertex.DstY = x-wx+hx, y-wy+hy
+			vertex.SrcX, vertex.SrcY = 0, imgH
+			data.Vertices = append(data.Vertices, vertex)
+			vertex.DstX, vertex.DstY = x+wx+hx, y+wy+hy
+			vertex.SrcX, vertex.SrcY = imgW, imgH
+			data.Vertices = append(data.Vertices, vertex)
 		}
 
 		if len(data.Vertices) > 0 {
-			screen.DrawTrianglesShader(data.Vertices, data.Indices, data.Shader, opts)
+			screen.DrawTrianglesShader(data.Vertices, data.Indices[:len(data.Vertices)/4*6], data.Shader, opts)
 		}
 
 		data.Metrics.DrawTimeUs = time.Since(startTime).Microseconds()
+	}
+}
+
+// ensureQuadIndices grows the static quad index buffer to cover quadCount
+// quads. The pattern (two triangles per quad) never changes, so it is built
+// once and sliced per draw call instead of being rebuilt every frame.
+func ensureQuadIndices(data *SystemData, quadCount int) {
+	if quadCount > maxParticleBatchVertices/4 {
+		quadCount = maxParticleBatchVertices / 4
+	}
+	for i := len(data.Indices) / 6; i < quadCount; i++ {
+		base := uint16(i * 4)
+		data.Indices = append(data.Indices,
+			base+0, base+1, base+2,
+			base+1, base+3, base+2,
+		)
 	}
 }
 

@@ -101,7 +101,7 @@ func applyLiveAppearance(data *SystemData, p *Instance, app AppearanceParams) {
 		p.EndAlpha = app.EndAlpha
 	} else {
 		p.HasAlphaSeq = true
-		p.AlphaSnap = GenerateSnapshot(data.AlphaSeq, 0)
+		FillSnapshot(data.AlphaSeq, &p.AlphaSnap, 0)
 	}
 
 	if data.ScaleSeq == nil {
@@ -110,7 +110,7 @@ func applyLiveAppearance(data *SystemData, p *Instance, app AppearanceParams) {
 		p.EndScale = app.EndScale
 	} else {
 		p.HasScaleSeq = true
-		p.ScaleSnap = GenerateSnapshot(data.ScaleSeq, 0)
+		FillSnapshot(data.ScaleSeq, &p.ScaleSnap, 0)
 	}
 
 	if data.RotSeq == nil {
@@ -119,20 +119,20 @@ func applyLiveAppearance(data *SystemData, p *Instance, app AppearanceParams) {
 		p.EndRotation = app.EndRotation
 	} else {
 		p.HasRotSeq = true
-		p.RotSnap = GenerateSnapshot(data.RotSeq, 0)
+		FillSnapshot(data.RotSeq, &p.RotSnap, 0)
 	}
 }
 
 func applyLivePositionSequences(data *SystemData, p *Instance) {
 	if data.PosXSeq != nil {
 		p.HasPosXSeq = true
-		p.PosXSnap = GenerateSnapshot(data.PosXSeq, p.StartX)
+		FillSnapshot(data.PosXSeq, &p.PosXSnap, p.StartX)
 	} else {
 		p.HasPosXSeq = false
 	}
 	if data.PosYSeq != nil {
 		p.HasPosYSeq = true
-		p.PosYSnap = GenerateSnapshot(data.PosYSeq, p.StartY)
+		FillSnapshot(data.PosYSeq, &p.PosYSnap, p.StartY)
 	} else {
 		p.HasPosYSeq = false
 	}

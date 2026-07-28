@@ -22,11 +22,31 @@ type SequenceConfig struct {
 // Layout: [from0, to0, from1, to1, ...]
 type SequenceSnapshot struct {
 	Values []float32
+
+	// Step cursor: elapsed time is monotonic within a particle's life, so
+	// evaluation resumes from the last step instead of scanning from step 0.
+	stepIdx   int
+	stepStart float32 // Accumulated duration of steps before stepIdx
 }
 
 // GenerateSnapshot creates a randomized snapshot for one particle
 func GenerateSnapshot(config *SequenceConfig, baseValue float32) SequenceSnapshot {
-	values := make([]float32, len(config.Steps)*2)
+	var snap SequenceSnapshot
+	FillSnapshot(config, &snap, baseValue)
+	return snap
+}
+
+// FillSnapshot randomizes snap in place for one particle, reusing the existing
+// Values slice when possible so respawning does not allocate.
+func FillSnapshot(config *SequenceConfig, snap *SequenceSnapshot, baseValue float32) {
+	need := len(config.Steps) * 2
+	if cap(snap.Values) < need {
+		snap.Values = make([]float32, need)
+	} else {
+		snap.Values = snap.Values[:need]
+	}
+	snap.stepIdx = 0
+	snap.stepStart = 0
 	currentBase := baseValue
 
 	for i, step := range config.Steps {
@@ -40,14 +60,12 @@ func GenerateSnapshot(config *SequenceConfig, baseValue float32) SequenceSnapsho
 			to += (rand.Float32()*2 - 1) * step.ToRange
 		}
 
-		values[i*2] = from
-		values[i*2+1] = to
+		snap.Values[i*2] = from
+		snap.Values[i*2+1] = to
 
 		// Next step's base starts from this step's to value
 		currentBase = to
 	}
-
-	return SequenceSnapshot{Values: values}
 }
 
 // EvaluateSequence evaluates a multi-step sequence at the given elapsed time
@@ -67,11 +85,20 @@ func EvaluateSequence(config *SequenceConfig, snap *SequenceSnapshot, elapsed fl
 		return snap.Values[0]
 	}
 
-	// Find which step we're in
-	accumulated := float32(0)
-	for i, step := range config.Steps {
+	// Resume from the cached step cursor; reset if it is stale (config swapped
+	// via live update, or time moved backwards).
+	i := snap.stepIdx
+	accumulated := snap.stepStart
+	if i >= len(config.Steps) || i*2+1 >= len(snap.Values) || elapsed < accumulated {
+		i = 0
+		accumulated = 0
+	}
+	for ; i < len(config.Steps); i++ {
+		step := &config.Steps[i]
 		if elapsed < accumulated+step.Duration {
-			// We're in this step
+			snap.stepIdx = i
+			snap.stepStart = accumulated
+
 			stepElapsed := elapsed - accumulated
 			normalizedT := stepElapsed / step.Duration
 			easedT := ApplyEasing(normalizedT, step.Easing)
