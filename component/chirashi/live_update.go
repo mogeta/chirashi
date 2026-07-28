@@ -139,12 +139,7 @@ func applyLivePositionSequences(data *SystemData, p *Instance) {
 }
 
 func applyLiveColor(p *Instance, clr ColorParams) {
-	p.StartR = clr.StartR
-	p.StartG = clr.StartG
-	p.StartB = clr.StartB
-	p.EndR = clr.EndR
-	p.EndG = clr.EndG
-	p.EndB = clr.EndB
+	assignParticleColor(p, &clr)
 }
 
 func applyLiveFlow(p *Instance, pos PositionParams) {

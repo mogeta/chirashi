@@ -441,6 +441,15 @@ func buildAnimationParams(config *ParticleConfig) AnimationParams {
 			EndB:    config.Animation.Color.EndB,
 			Easing:  ParseEasing(config.Animation.Color.Easing),
 		}
+		if v := config.Animation.Color.Variation; v != nil {
+			clr.HasVariation = true
+			clr.Start2R = v.StartR
+			clr.Start2G = v.StartG
+			clr.Start2B = v.StartB
+			clr.End2R = v.EndR
+			clr.End2G = v.EndG
+			clr.End2B = v.EndB
+		}
 	} else {
 		clr = ColorParams{StartR: 1, StartG: 1, StartB: 1, EndR: 1, EndG: 1, EndB: 1}
 	}

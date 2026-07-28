@@ -899,3 +899,32 @@ func TestSpawnCircleEmitterWrapArc(t *testing.T) {
 		}
 	}
 }
+
+func TestAssignParticleColorVariation(t *testing.T) {
+	clr := &ColorParams{
+		Enabled: true,
+		StartR:  1, StartG: 0, StartB: 0,
+		EndR: 1, EndG: 1, EndB: 0,
+		HasVariation: true,
+		Start2R:      0, Start2G: 0, Start2B: 1,
+		End2R: 0, End2G: 1, End2B: 1,
+	}
+	var p Instance
+	for i := 0; i < 32; i++ {
+		assignParticleColor(&p, clr)
+		// Every channel must stay inside the [base, variation] envelope.
+		if p.StartR < 0 || p.StartR > 1 || p.StartB < 0 || p.StartB > 1 {
+			t.Fatalf("start color out of range: %+v", p)
+		}
+		// Mix factor is shared across channels: StartR + StartB == 1 here.
+		if diff := p.StartR + p.StartB - 1; diff > 1e-6 || diff < -1e-6 {
+			t.Fatalf("channels not mixed by a single factor: R=%v B=%v", p.StartR, p.StartB)
+		}
+	}
+
+	clr.HasVariation = false
+	assignParticleColor(&p, clr)
+	if p.StartR != 1 || p.StartG != 0 || p.StartB != 0 || p.EndG != 1 {
+		t.Fatalf("base color not applied verbatim: %+v", p)
+	}
+}

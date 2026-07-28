@@ -48,10 +48,11 @@ particleSystem := chirashi.NewSystem()
 gameECS.AddSystem(particleSystem.Update)
 gameECS.AddRenderer(0, particleSystem.Draw)
 
-shader, _ := ebiten.NewShader([]byte("..."))
 image := ebiten.NewImage(8, 8)
 
-manager := chirashi.NewParticleManager(shader, image)
+// Pass nil to use the default batched draw path; supply a custom
+// *ebiten.Shader only for bespoke particle rendering.
+manager := chirashi.NewParticleManager(nil, image)
 _ = manager.Preload("sample", "assets/particles/sample.yaml")
 _, _ = manager.SpawnLoop(world, "sample", 640, 480)
 ```

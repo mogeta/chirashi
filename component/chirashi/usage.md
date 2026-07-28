@@ -1,6 +1,6 @@
 # aburi - GPU Particle System
 
-GPU最適化されたパーティクルシステム。`DrawTrianglesShader`による1回のドローコールでバッチ描画を実現。
+GPU最適化されたパーティクルシステム。頂点カラーに色を焼き込み、`DrawTriangles`(シェーダー指定時は`DrawTrianglesShader`)によるバッチ描画を実現。シェーダーがnilならEbitenの内部バッチングにより複数システムのドローコールが統合されうる。
 
 ## 特徴
 
@@ -21,7 +21,8 @@ import (
 )
 
 // シェーダーとイメージを準備
-shader, _ := ebiten.NewShader(assets.ParticleShader)
+// shaderはnilでよい(デフォルトの描画パス)。カスタム表現が必要な場合のみ指定する。
+var shader *ebiten.Shader = nil
 img := ebiten.NewImage(8, 8)
 img.Fill(color.White)
 
@@ -263,7 +264,7 @@ go run . -aburi
 
 | 項目 | 実装 |
 |------|------|
-| 描画 | パーティクル本体は1回のDrawTrianglesShader、trail有効時は追加で1回以上 |
+| 描画 | パーティクル本体は1回のDrawTriangles(shader指定時はDrawTrianglesShader)、trail有効時は追加で1回以上 |
 | 位置/スケール/回転 | CPU（spawn時 or 毎フレーム） |
 | アルファ/色 | GPU（シェーダー内で補間） |
 | 極座標変換 | spawn時のみ（毎フレームコストなし） |

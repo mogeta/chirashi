@@ -188,13 +188,7 @@ func (sys *System) spawn(data *SystemData) {
 		particle.RotationEasing = app.RotationEasing
 
 		// Color
-		particle.StartR = clr.StartR
-		particle.StartG = clr.StartG
-		particle.StartB = clr.StartB
-		particle.EndR = clr.EndR
-		particle.EndG = clr.EndG
-		particle.EndB = clr.EndB
-		particle.ColorEasing = clr.Easing
+		assignParticleColor(particle, clr)
 
 		particle.Active = true
 
@@ -530,7 +524,7 @@ func (sys *System) Draw(ecs *ecs.ECS, screen *ebiten.Image) {
 			drawTrail(screen, data)
 		}
 
-		if data.SourceImage == nil || data.Shader == nil {
+		if data.SourceImage == nil {
 			continue
 		}
 
@@ -554,33 +548,43 @@ func (sys *System) Draw(ecs *ecs.ECS, screen *ebiten.Image) {
 		halfW := imgW / 2
 		halfH := imgH / 2
 
-		clr := &data.AnimParams.Color
-		uniforms := data.ShaderUniforms
-		if uniforms == nil {
-			uniforms = make(map[string]interface{}, 4)
-			data.ShaderUniforms = uniforms
+		// Colors are fully evaluated on the CPU into vertex data, so the
+		// shader-less path renders with plain DrawTriangles and benefits
+		// from Ebiten's internal draw-command batching across systems.
+		var shaderOpts *ebiten.DrawTrianglesShaderOptions
+		var plainOpts *ebiten.DrawTrianglesOptions
+		if data.Shader != nil {
+			shaderOpts = &ebiten.DrawTrianglesShaderOptions{
+				Uniforms: data.ShaderUniforms,
+				Images:   [4]*ebiten.Image{data.SourceImage},
+				Blend:    data.Blend,
+			}
+		} else {
+			plainOpts = &ebiten.DrawTrianglesOptions{Blend: data.Blend}
 		}
-		uniforms["Time"] = currentTime
-		uniforms["StartColor"] = [3]float32{clr.StartR, clr.StartG, clr.StartB}
-		uniforms["EndColor"] = [3]float32{clr.EndR, clr.EndG, clr.EndB}
-		uniforms["ColorEasing"] = float32(clr.Easing)
-		opts := &ebiten.DrawTrianglesShaderOptions{
-			Uniforms: uniforms,
-			Images:   [4]*ebiten.Image{data.SourceImage},
-			Blend:    data.Blend,
+		flush := func() {
+			indices := data.Indices[:len(data.Vertices)/4*6]
+			if data.Shader != nil {
+				screen.DrawTrianglesShader(data.Vertices, indices, data.Shader, shaderOpts)
+			} else {
+				screen.DrawTriangles(data.Vertices, indices, data.SourceImage, plainOpts)
+			}
+			data.Vertices = data.Vertices[:0]
 		}
 
 		for particleIdx := 0; particleIdx < data.ActiveCount; particleIdx++ {
 			// Flush before the vertex count overflows uint16 indices.
 			if len(data.Vertices) >= maxParticleBatchVertices {
-				screen.DrawTrianglesShader(data.Vertices, data.Indices[:len(data.Vertices)/4*6], data.Shader, opts)
-				data.Vertices = data.Vertices[:0]
+				flush()
 			}
 			p := &data.ParticlePool[particleIdx]
 
 			// Calculate normalized time
 			elapsed := currentTime - p.SpawnTime
 			normalizedT := elapsed / p.Duration
+			if normalizedT < 0 {
+				normalizedT = 0
+			}
 			if normalizedT > 1 {
 				normalizedT = 1
 			}
@@ -613,22 +617,19 @@ func (sys *System) Draw(ecs *ecs.ECS, screen *ebiten.Image) {
 				sin, cos = fastSincos(rotation)
 			}
 
-			// Vertex custom data layout:
-			// color.r = startAlpha, color.g = endAlpha, color.b = alphaEasing (normalized)
-			// custom.x = spawnTime, custom.y = duration
-			// Color and colorEasing are passed as shader uniforms (same for all particles in system)
-			var startAlpha, endAlpha, alphaEasingNorm float32
+			// Evaluate alpha and tint per particle; vertex colors carry the
+			// final straight-alpha color (custom.x carries normalized time
+			// for effect shaders such as blur).
+			var alpha float32
 			if p.HasAlphaSeq {
-				// CPU-evaluated alpha: pass same value as both start and end
-				cpuAlpha := EvaluateSequence(data.AlphaSeq, &p.AlphaSnap, elapsed)
-				startAlpha = cpuAlpha
-				endAlpha = cpuAlpha
-				alphaEasingNorm = 0 // Linear (no-op since start==end)
+				alpha = EvaluateSequence(data.AlphaSeq, &p.AlphaSnap, elapsed)
 			} else {
-				startAlpha = p.StartAlpha
-				endAlpha = p.EndAlpha
-				alphaEasingNorm = float32(p.AlphaEasing) / float32(easingTypeCount)
+				alpha = lerp(p.StartAlpha, p.EndAlpha, ApplyEasing(normalizedT, p.AlphaEasing))
 			}
+			colorT := ApplyEasing(normalizedT, p.ColorEasing)
+			tintR := lerp(p.StartR, p.EndR, colorT)
+			tintG := lerp(p.StartG, p.EndG, colorT)
+			tintB := lerp(p.StartB, p.EndB, colorT)
 
 			// Rotated half extents; the four corners are +/- combinations.
 			// Top-left, Top-right, Bottom-left, Bottom-right
@@ -638,11 +639,11 @@ func (sys *System) Draw(ecs *ecs.ECS, screen *ebiten.Image) {
 			hy := scaledHalfH * cos
 
 			vertex := ebiten.Vertex{
-				ColorR:  startAlpha,
-				ColorG:  endAlpha,
-				ColorB:  alphaEasingNorm,
-				Custom0: p.SpawnTime,
-				Custom1: p.Duration,
+				ColorR:  tintR,
+				ColorG:  tintG,
+				ColorB:  tintB,
+				ColorA:  alpha,
+				Custom0: normalizedT,
 			}
 			vertex.DstX, vertex.DstY = x-wx-hx, y-wy-hy
 			vertex.SrcX, vertex.SrcY = 0, 0
@@ -659,7 +660,7 @@ func (sys *System) Draw(ecs *ecs.ECS, screen *ebiten.Image) {
 		}
 
 		if len(data.Vertices) > 0 {
-			screen.DrawTrianglesShader(data.Vertices, data.Indices[:len(data.Vertices)/4*6], data.Shader, opts)
+			flush()
 		}
 
 		data.Metrics.DrawTimeUs = time.Since(startTime).Microseconds()
@@ -680,6 +681,28 @@ func ensureQuadIndices(data *SystemData, quadCount int) {
 			base+1, base+3, base+2,
 		)
 	}
+}
+
+// assignParticleColor sets a particle's color pair from config, mixing toward
+// the variation pair by one random factor when variation is enabled.
+func assignParticleColor(particle *Instance, clr *ColorParams) {
+	if clr.HasVariation {
+		t := rand.Float32()
+		particle.StartR = lerp(clr.StartR, clr.Start2R, t)
+		particle.StartG = lerp(clr.StartG, clr.Start2G, t)
+		particle.StartB = lerp(clr.StartB, clr.Start2B, t)
+		particle.EndR = lerp(clr.EndR, clr.End2R, t)
+		particle.EndG = lerp(clr.EndG, clr.End2G, t)
+		particle.EndB = lerp(clr.EndB, clr.End2B, t)
+	} else {
+		particle.StartR = clr.StartR
+		particle.StartG = clr.StartG
+		particle.StartB = clr.StartB
+		particle.EndR = clr.EndR
+		particle.EndG = clr.EndG
+		particle.EndB = clr.EndB
+	}
+	particle.ColorEasing = clr.Easing
 }
 
 // Helper functions

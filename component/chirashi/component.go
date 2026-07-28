@@ -270,6 +270,12 @@ type ColorParams struct {
 	StartR, StartG, StartB float32
 	EndR, EndG, EndB       float32
 	Easing                 EasingType
+
+	// Variation: when enabled, each particle lerps between the base pair and
+	// this second pair by one random factor rolled at spawn.
+	HasVariation              bool
+	Start2R, Start2G, Start2B float32
+	End2R, End2G, End2B       float32
 }
 
 // Metrics tracks performance data for a particle system
