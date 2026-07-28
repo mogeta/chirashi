@@ -1,6 +1,6 @@
 package chirashi
 
-import "math/rand"
+import "math/rand/v2"
 
 // SequenceStep defines one step in a multi-step animation
 type SequenceStep struct {

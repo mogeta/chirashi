@@ -13,6 +13,7 @@ const (
 	defaultTrailMinPointDistance = float32(6)
 	defaultTrailMaxPointAge      = float32(0.35)
 	maxTrailBatchVertices        = 65535
+	maxTrailGhostPointBuffers    = 256
 )
 
 var (
@@ -46,25 +47,26 @@ func buildTrailData(config *TrailConfig) TrailData {
 
 	trail := TrailData{
 		Params: TrailParams{
-			Enabled:          true,
-			Mode:             config.Mode,
-			LocalSpace:       config.Space == "local",
-			MaxPoints:        maxPoints,
-			MinPointDistance: minPointDistance,
-			MaxPointAge:      maxPointAge,
-			WidthStart:       config.Width.Start,
-			WidthEnd:         config.Width.End,
-			WidthEasing:      ParseEasing(config.Width.Easing),
-			AlphaStart:       config.Alpha.Start,
-			AlphaEnd:         config.Alpha.End,
-			AlphaEasing:      ParseEasing(config.Alpha.Easing),
-			ColorStartR:      1,
-			ColorStartG:      1,
-			ColorStartB:      1,
-			ColorEndR:        1,
-			ColorEndG:        1,
-			ColorEndB:        1,
-			ColorEasing:      EasingLinear,
+			Enabled:            true,
+			Mode:               config.Mode,
+			LocalSpace:         config.Space == "local",
+			MaxPoints:          maxPoints,
+			MinPointDistance:   minPointDistance,
+			MinPointDistanceSq: minPointDistance * minPointDistance,
+			MaxPointAge:        maxPointAge,
+			WidthStart:         config.Width.Start,
+			WidthEnd:           config.Width.End,
+			WidthEasing:        ParseEasing(config.Width.Easing),
+			AlphaStart:         config.Alpha.Start,
+			AlphaEnd:           config.Alpha.End,
+			AlphaEasing:        ParseEasing(config.Alpha.Easing),
+			ColorStartR:        1,
+			ColorStartG:        1,
+			ColorStartB:        1,
+			ColorEndR:          1,
+			ColorEndG:          1,
+			ColorEndB:          1,
+			ColorEasing:        EasingLinear,
 		},
 		Runtime: TrailRuntime{
 			Points:   make([]TrailPoint, 0, maxPoints),
@@ -141,7 +143,7 @@ func updateEmitterTrail(data *SystemData) {
 	last := &trail.Runtime.Points[len(trail.Runtime.Points)-1]
 	dx := head.X - last.X
 	dy := head.Y - last.Y
-	if dx*dx+dy*dy >= trail.Params.MinPointDistance*trail.Params.MinPointDistance {
+	if dx*dx+dy*dy >= trailMinPointDistanceSq(trail.Params) {
 		if len(trail.Runtime.Points) == trail.Params.MaxPoints {
 			copy(trail.Runtime.Points, trail.Runtime.Points[1:])
 			trail.Runtime.Points[len(trail.Runtime.Points)-1] = head
@@ -180,6 +182,7 @@ func drawTrail(screen *ebiten.Image, data *SystemData) {
 	if !trailHasVisiblePoints(data) {
 		return
 	}
+	trail.Runtime.DrawOptions.Blend = data.Blend
 	if isParticleTrail(trail) {
 		drawParticleTrails(screen, data)
 		return
@@ -190,8 +193,7 @@ func drawTrail(screen *ebiten.Image, data *SystemData) {
 		return
 	}
 
-	op := &ebiten.DrawTrianglesOptions{}
-	drawTrailBatch(screen, trail.Runtime.Vertices, trail.Runtime.Indices, op)
+	drawTrailBatch(screen, trail.Runtime.Vertices, trail.Runtime.Indices, &trail.Runtime.DrawOptions)
 }
 
 func buildEmitterTrailMesh(data *SystemData) {
@@ -240,7 +242,7 @@ func updateSingleParticleTrail(data *SystemData, p *Instance, currentTime float3
 	last := &points[len(points)-1]
 	dx := head.X - last.X
 	dy := head.Y - last.Y
-	if dx*dx+dy*dy >= data.Trail.Params.MinPointDistance*data.Trail.Params.MinPointDistance {
+	if dx*dx+dy*dy >= trailMinPointDistanceSq(data.Trail.Params) {
 		if len(points) == data.Trail.Params.MaxPoints {
 			copy(points, points[1:])
 			points[len(points)-1] = head
@@ -309,13 +311,17 @@ func pruneTrailGhosts(trail *TrailRuntime, maxPointAge, currentTime float32) {
 		if len(points) >= 2 && points[len(points)-1].CapturedAt >= pruneBefore {
 			break
 		}
+		recycleTrailGhostPoints(trail, points)
 		firstAlive++
 	}
+	oldGhosts := trail.Ghosts
+	oldLen := len(oldGhosts)
 	if firstAlive > 0 {
 		copy(trail.Ghosts, trail.Ghosts[firstAlive:])
 		trail.Ghosts = trail.Ghosts[:len(trail.Ghosts)-firstAlive]
 	}
 	if len(trail.Ghosts) == 0 {
+		clearTrailGhostTail(oldGhosts, 0, oldLen)
 		return
 	}
 
@@ -342,11 +348,13 @@ func pruneTrailGhosts(trail *TrailRuntime, maxPointAge, currentTime float32) {
 			points = points[:len(points)-keepFrom]
 		}
 		if len(points) < 2 {
+			recycleTrailGhostPoints(trail, points)
 			continue
 		}
 		trail.Ghosts[writeIdx].Points = points
 		writeIdx++
 	}
+	clearTrailGhostTail(oldGhosts, writeIdx, oldLen)
 	trail.Ghosts = trail.Ghosts[:writeIdx]
 }
 
@@ -354,7 +362,7 @@ func detachParticleTrail(trail *TrailData, points []TrailPoint) {
 	if len(points) < 2 || trail.Params.MaxPointAge <= 0 {
 		return
 	}
-	copied := make([]TrailPoint, len(points))
+	copied := takeTrailGhostPoints(&trail.Runtime, len(points))
 	copy(copied, points)
 	trail.Runtime.Ghosts = append(trail.Runtime.Ghosts, TrailGhost{Points: copied})
 }
@@ -385,6 +393,7 @@ func newParticleTrailBatchBuilder(screen *ebiten.Image, runtime *TrailRuntime) p
 	return particleTrailBatchBuilder{
 		screen: screen,
 		trail:  runtime,
+		opts:   runtime.DrawOptions,
 	}
 }
 
@@ -419,11 +428,47 @@ func trailNormal(points []TrailPoint, idx int, fallbackX, fallbackY float32) (fl
 		dy = points[idx+1].Y - points[idx-1].Y
 	}
 
-	length := float32(math.Hypot(float64(dx), float64(dy)))
-	if length <= 0.0001 {
+	lengthSq := dx*dx + dy*dy
+	if lengthSq <= 0.00000001 {
 		return fallbackX, fallbackY
 	}
+	length := float32(math.Sqrt(float64(lengthSq)))
 	return -dy / length, dx / length
+}
+
+func trailMinPointDistanceSq(params TrailParams) float32 {
+	if params.MinPointDistanceSq > 0 {
+		return params.MinPointDistanceSq
+	}
+	return params.MinPointDistance * params.MinPointDistance
+}
+
+func takeTrailGhostPoints(trail *TrailRuntime, count int) []TrailPoint {
+	last := len(trail.GhostPointPool) - 1
+	for i := last; i >= 0; i-- {
+		points := trail.GhostPointPool[i]
+		if cap(points) < count {
+			continue
+		}
+		trail.GhostPointPool[i] = trail.GhostPointPool[last]
+		trail.GhostPointPool[last] = nil
+		trail.GhostPointPool = trail.GhostPointPool[:last]
+		return points[:count]
+	}
+	return make([]TrailPoint, count)
+}
+
+func recycleTrailGhostPoints(trail *TrailRuntime, points []TrailPoint) {
+	if cap(points) == 0 || len(trail.GhostPointPool) >= maxTrailGhostPointBuffers {
+		return
+	}
+	trail.GhostPointPool = append(trail.GhostPointPool, points[:0])
+}
+
+func clearTrailGhostTail(ghosts []TrailGhost, from, to int) {
+	for i := from; i < to; i++ {
+		ghosts[i].Points = nil
+	}
 }
 
 func clamp01(v float32) float32 {

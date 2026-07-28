@@ -97,6 +97,8 @@ func buildSystemDataFromConfig(shader *ebiten.Shader, image *ebiten.Image, confi
 		SourceImage:       image,
 		ImageWidth:        imgWidth,
 		ImageHeight:       imgHeight,
+		Blend:             ParseBlendMode(config.Blend),
+		ShaderUniforms:    make(map[string]interface{}, 4),
 		Trail:             buildTrailData(config.Trail),
 		ActiveCount:       0,
 		IsLoop:            config.Spawn.IsLoop,
@@ -117,6 +119,17 @@ func buildSystemDataFromConfig(shader *ebiten.Shader, image *ebiten.Image, confi
 
 func normalizeParticleConfig(config *ParticleConfig) {
 	normalizeEmitterShapeConfig(&config.Emitter.Shape)
+}
+
+// ParseBlendMode maps a config blend name to an Ebitengine blend mode.
+// Unknown or empty values fall back to source-over (regular alpha blending).
+func ParseBlendMode(name string) ebiten.Blend {
+	switch name {
+	case "additive", "lighter":
+		return ebiten.BlendLighter
+	default:
+		return ebiten.BlendSourceOver
+	}
 }
 
 func normalizeEmitterShapeConfig(shape *EmitterShapeConfig) {

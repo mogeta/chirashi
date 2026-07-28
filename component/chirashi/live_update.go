@@ -22,6 +22,7 @@ func ApplyConfigLive(world donburi.World, entity donburi.Entity, config *Particl
 	data.EmitterShape = buildEmitterShapeParams(config.Emitter.Shape)
 	data.SpawnInterval = config.Spawn.Interval
 	data.ParticlesPerSpawn = config.Spawn.ParticlesPerSpawn
+	data.Blend = ParseBlendMode(config.Blend)
 	data.IsLoop = config.Spawn.IsLoop
 	if !data.IsLoop {
 		data.LifeTime = config.Spawn.LifeTime
