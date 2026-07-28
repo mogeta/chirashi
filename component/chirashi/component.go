@@ -77,12 +77,11 @@ type Instance struct {
 
 // SystemData represents the GPU-based particle system component data
 type SystemData struct {
-	// Pool of particles for efficient memory management
+	// Pool of particles. The pool is kept dense: ParticlePool[:ActiveCount]
+	// are the live particles (order is not stable), the rest are free slots.
+	// Update/draw therefore traverse memory linearly with no index
+	// indirection.
 	ParticlePool []Instance
-
-	// Index management for O(1) operations
-	ActiveIndices []int // Indices of active particles (compact array)
-	FreeIndices   []int // Stack of free particle indices
 
 	// Pre-allocated vertex/index buffers for batch rendering
 	Vertices []ebiten.Vertex

@@ -40,7 +40,7 @@ func shiftActiveParticlesForEmitterDelta(data *SystemData, dx, dy float32) {
 	if !data.EmitterLocalSpace || (dx == 0 && dy == 0) {
 		return
 	}
-	for _, idx := range data.ActiveIndices {
+	for idx := 0; idx < data.ActiveCount; idx++ {
 		p := &data.ParticlePool[idx]
 		p.StartX += dx
 		p.EndX += dx
@@ -59,7 +59,7 @@ func applyAnimationParamsToActiveParticles(data *SystemData) {
 	clr := data.AnimParams.Color
 	duration := data.AnimParams.Duration
 
-	for _, idx := range data.ActiveIndices {
+	for idx := 0; idx < data.ActiveCount; idx++ {
 		p := &data.ParticlePool[idx]
 		applyLiveDuration(data, p, duration)
 		applyLiveEasing(p, pos, app, clr)

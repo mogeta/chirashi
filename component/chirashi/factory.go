@@ -63,11 +63,6 @@ func buildSystemDataFromConfig(shader *ebiten.Shader, image *ebiten.Image, confi
 	emitterY := y + config.Emitter.Y
 	animParams := buildAnimationParams(config)
 
-	freeIndices := make([]int, config.Spawn.MaxParticles)
-	for i := range freeIndices {
-		freeIndices[i] = config.Spawn.MaxParticles - 1 - i
-	}
-
 	maxVertices := config.Spawn.MaxParticles * 4
 	// Index buffer is static and capped at one uint16-addressable batch.
 	maxIndexQuads := config.Spawn.MaxParticles
@@ -85,8 +80,6 @@ func buildSystemDataFromConfig(shader *ebiten.Shader, image *ebiten.Image, confi
 
 	data := SystemData{
 		ParticlePool:      make([]Instance, config.Spawn.MaxParticles),
-		ActiveIndices:     make([]int, 0, config.Spawn.MaxParticles),
-		FreeIndices:       freeIndices,
 		Vertices:          make([]ebiten.Vertex, 0, maxVertices),
 		Indices:           make([]uint16, 0, maxIndices),
 		Shader:            shader,

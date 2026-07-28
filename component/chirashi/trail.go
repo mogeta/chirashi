@@ -162,7 +162,7 @@ func trailHasVisiblePoints(data *SystemData) bool {
 		return false
 	}
 	if isParticleTrail(&data.Trail) {
-		for _, idx := range data.ActiveIndices {
+		for idx := 0; idx < data.ActiveCount; idx++ {
 			if len(data.ParticlePool[idx].TrailPoints) >= 2 {
 				return true
 			}
@@ -214,7 +214,7 @@ func buildEmitterTrailMesh(data *SystemData) {
 func updateParticleTrails(data *SystemData) {
 	currentTime := data.CurrentTime
 	pruneTrailGhosts(&data.Trail.Runtime, data.Trail.Params.MaxPointAge, currentTime)
-	for _, idx := range data.ActiveIndices {
+	for idx := 0; idx < data.ActiveCount; idx++ {
 		p := &data.ParticlePool[idx]
 		updateSingleParticleTrail(data, p, currentTime)
 	}
@@ -378,7 +378,7 @@ func drawParticleTrails(screen *ebiten.Image, data *SystemData) {
 	trail := &data.Trail
 	builder := newParticleTrailBatchBuilder(screen, &trail.Runtime)
 
-	for _, idx := range data.ActiveIndices {
+	for idx := 0; idx < data.ActiveCount; idx++ {
 		builder.Append(data, data.ParticlePool[idx].TrailPoints)
 	}
 	for _, ghost := range trail.Runtime.Ghosts {

@@ -106,16 +106,12 @@ func (sys *System) spawn(data *SystemData) {
 	currentTime := data.CurrentTime
 
 	for i := 0; i < data.ParticlesPerSpawn && data.ActiveCount < data.MaxParticles; i++ {
-		// O(1) free index retrieval
-		if len(data.FreeIndices) == 0 {
+		if data.ActiveCount >= len(data.ParticlePool) {
 			break
 		}
 
-		// Pop from free indices stack
-		freeIdx := data.FreeIndices[len(data.FreeIndices)-1]
-		data.FreeIndices = data.FreeIndices[:len(data.FreeIndices)-1]
-
-		particle := &data.ParticlePool[freeIdx]
+		// The pool is dense: the next free slot sits right after the actives.
+		particle := &data.ParticlePool[data.ActiveCount]
 		particle.TrailPoints = particle.TrailPoints[:0]
 
 		spawnX, spawnY := sampleEmitterPosition(data.EmitterX, data.EmitterY, data.EmitterShape, data.EmitterVector, i, data.ParticlesPerSpawn)
@@ -224,8 +220,6 @@ func (sys *System) spawn(data *SystemData) {
 			FillSnapshot(data.AlphaSeq, &particle.AlphaSnap, 0)
 		}
 
-		// Add to active indices
-		data.ActiveIndices = append(data.ActiveIndices, freeIdx)
 		data.ActiveCount++
 		data.Metrics.SpawnCount++
 	}
@@ -438,9 +432,8 @@ func (sys *System) updateParticles(data *SystemData, deltaTime float32) {
 	// Simulate first (parallel-capable), then sweep expired particles.
 	simulateActiveParticles(data, deltaTime)
 
-	for i := 0; i < len(data.ActiveIndices); i++ {
-		particleIdx := data.ActiveIndices[i]
-		particle := &data.ParticlePool[particleIdx]
+	for i := 0; i < data.ActiveCount; i++ {
+		particle := &data.ParticlePool[i]
 
 		elapsed := currentTime - particle.SpawnTime
 		if elapsed >= particle.Duration {
@@ -451,12 +444,12 @@ func (sys *System) updateParticles(data *SystemData, deltaTime float32) {
 			particle.TrailPoints = particle.TrailPoints[:0]
 			data.ActiveCount--
 			data.Metrics.DeactivateCount++
-			// Return to free indices pool
-			data.FreeIndices = append(data.FreeIndices, particleIdx)
-			lastIdx := len(data.ActiveIndices) - 1
-			data.ActiveIndices[i] = data.ActiveIndices[lastIdx]
-			data.ActiveIndices = data.ActiveIndices[:lastIdx]
-			i--
+			// Swap the last active particle into this slot to keep the pool
+			// dense; the freed slot keeps its recycled buffers.
+			if i != data.ActiveCount {
+				data.ParticlePool[i], data.ParticlePool[data.ActiveCount] = data.ParticlePool[data.ActiveCount], data.ParticlePool[i]
+				i--
+			}
 		}
 	}
 }
@@ -474,7 +467,7 @@ const (
 // active particles. Each particle only touches its own state, so the work is
 // split across goroutines for large pools.
 func simulateActiveParticles(data *SystemData, deltaTime float32) {
-	n := len(data.ActiveIndices)
+	n := data.ActiveCount
 	if n == 0 {
 		return
 	}
@@ -488,7 +481,7 @@ func simulateActiveParticles(data *SystemData, deltaTime float32) {
 		threshold = parallelSimulateThresholdFlow
 	}
 	if n < threshold || workers <= 1 {
-		simulateParticleRange(data, data.ActiveIndices, deltaTime)
+		simulateParticleRange(data, data.ParticlePool[:n], deltaTime)
 		return
 	}
 
@@ -500,19 +493,19 @@ func simulateActiveParticles(data *SystemData, deltaTime float32) {
 			end = n
 		}
 		wg.Add(1)
-		go func(indices []int) {
+		go func(particles []Instance) {
 			defer wg.Done()
-			simulateParticleRange(data, indices, deltaTime)
-		}(data.ActiveIndices[start:end])
+			simulateParticleRange(data, particles, deltaTime)
+		}(data.ParticlePool[start:end])
 	}
 	wg.Wait()
 }
 
-func simulateParticleRange(data *SystemData, indices []int, deltaTime float32) {
+func simulateParticleRange(data *SystemData, particles []Instance, deltaTime float32) {
 	currentTime := data.CurrentTime
 	hasFlow := data.AnimParams.Position.HasFlow
-	for _, particleIdx := range indices {
-		particle := &data.ParticlePool[particleIdx]
+	for i := range particles {
+		particle := &particles[i]
 		elapsed := currentTime - particle.SpawnTime
 		if particle.HasFlow && hasFlow {
 			normalizedT := elapsed / particle.Duration
@@ -541,7 +534,7 @@ func (sys *System) Draw(ecs *ecs.ECS, screen *ebiten.Image) {
 			continue
 		}
 
-		if len(data.ActiveIndices) == 0 {
+		if data.ActiveCount == 0 {
 			continue
 		}
 
@@ -549,7 +542,7 @@ func (sys *System) Draw(ecs *ecs.ECS, screen *ebiten.Image) {
 
 		// Build vertex buffer; the quad index pattern is static and grown once.
 		data.Vertices = data.Vertices[:0]
-		batchQuads := len(data.ActiveIndices)
+		batchQuads := data.ActiveCount
 		if batchQuads > maxParticleBatchVertices/4 {
 			batchQuads = maxParticleBatchVertices / 4
 		}
@@ -577,7 +570,7 @@ func (sys *System) Draw(ecs *ecs.ECS, screen *ebiten.Image) {
 			Blend:    data.Blend,
 		}
 
-		for _, particleIdx := range data.ActiveIndices {
+		for particleIdx := 0; particleIdx < data.ActiveCount; particleIdx++ {
 			// Flush before the vertex count overflows uint16 indices.
 			if len(data.Vertices) >= maxParticleBatchVertices {
 				screen.DrawTrianglesShader(data.Vertices, data.Indices[:len(data.Vertices)/4*6], data.Shader, opts)

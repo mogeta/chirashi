@@ -232,11 +232,10 @@ func TestApplyConfigLiveUpdatesActiveParticles(t *testing.T) {
 	entry := world.Entry(entity)
 
 	donburi.SetValue(entry, Component, SystemData{
-		CurrentTime:   5,
-		EmitterX:      100,
-		EmitterY:      200,
-		ActiveIndices: []int{0},
-		ActiveCount:   1,
+		CurrentTime: 5,
+		EmitterX:    100,
+		EmitterY:    200,
+		ActiveCount: 1,
 		ParticlePool: []Instance{
 			{
 				Active:         true,
@@ -344,7 +343,6 @@ func TestApplyConfigLiveDoesNotShiftActiveParticlesInWorldSpace(t *testing.T) {
 		EmitterX:          100,
 		EmitterY:          200,
 		EmitterLocalSpace: true,
-		ActiveIndices:     []int{0},
 		ActiveCount:       1,
 		ParticlePool: []Instance{
 			{
@@ -544,8 +542,6 @@ func TestAttractorParticleHasControlPoint(t *testing.T) {
 	// Build system data directly to test spawn sets HasAttractor and ControlX/Y
 	data := &SystemData{
 		ParticlePool:      make([]Instance, 5),
-		ActiveIndices:     make([]int, 0, 5),
-		FreeIndices:       []int{4, 3, 2, 1, 0},
 		SpawnInterval:     1,
 		ParticlesPerSpawn: 5,
 		MaxParticles:      5,
@@ -574,7 +570,7 @@ func TestAttractorParticleHasControlPoint(t *testing.T) {
 		t.Fatal("no particles spawned")
 	}
 
-	for _, idx := range data.ActiveIndices {
+	for idx := 0; idx < data.ActiveCount; idx++ {
 		p := &data.ParticlePool[idx]
 		if !p.HasAttractor {
 			t.Errorf("particle[%d]: HasAttractor should be true", idx)
@@ -601,7 +597,6 @@ func TestSetEmitterPositionShiftsLocalParticlesAndTrail(t *testing.T) {
 		EmitterX:          10,
 		EmitterY:          20,
 		EmitterLocalSpace: true,
-		ActiveIndices:     []int{0},
 		ActiveCount:       1,
 		ParticlePool: []Instance{
 			{
