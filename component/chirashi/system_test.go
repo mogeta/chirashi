@@ -912,6 +912,9 @@ func TestAssignParticleColorVariation(t *testing.T) {
 	var p Instance
 	for i := 0; i < 32; i++ {
 		assignParticleColor(&p, clr)
+		if p.ColorVariationMix < 0 || p.ColorVariationMix >= 1 {
+			t.Fatalf("variation mix out of range: %v", p.ColorVariationMix)
+		}
 		// Every channel must stay inside the [base, variation] envelope.
 		if p.StartR < 0 || p.StartR > 1 || p.StartB < 0 || p.StartB > 1 {
 			t.Fatalf("start color out of range: %+v", p)
@@ -924,6 +927,9 @@ func TestAssignParticleColorVariation(t *testing.T) {
 
 	clr.HasVariation = false
 	assignParticleColor(&p, clr)
+	if p.ColorVariationMix != 0 {
+		t.Fatalf("variation mix was not reset: %v", p.ColorVariationMix)
+	}
 	if p.StartR != 1 || p.StartG != 0 || p.StartB != 0 || p.EndG != 1 {
 		t.Fatalf("base color not applied verbatim: %+v", p)
 	}

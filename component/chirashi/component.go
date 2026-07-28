@@ -47,6 +47,7 @@ type Instance struct {
 	// Color animation (RGB 0-1)
 	StartR, StartG, StartB float32
 	EndR, EndG, EndB       float32
+	ColorVariationMix      float32 // spawn-time mix toward the variation gradient
 
 	// Easing types for each property
 	PositionEasing EasingType

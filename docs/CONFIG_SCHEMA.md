@@ -74,6 +74,13 @@ animation:
     end_g: float
     end_b: float
     easing: string
+    variation: # optional second gradient
+      start_r: float
+      start_g: float
+      start_b: float
+      end_r: float
+      end_g: float
+      end_b: float
 
 trail: # optional
   enabled: bool
@@ -124,6 +131,31 @@ steps:
     to_range: { min: float, max: float }   # optional
     duration: float
     easing: string
+```
+
+`animation.color.variation` defines a second RGB gradient. At spawn time,
+each particle samples one random mix factor and uses it for both the start and
+end colors, producing a random gradient between the base color and
+`variation`. The base color's `easing` controls interpolation over the
+particle lifetime; `easing` and nested `variation` values inside `variation`
+are ignored.
+
+```yaml
+color:
+  start_r: 1.0
+  start_g: 0.8
+  start_b: 0.2
+  end_r: 1.0
+  end_g: 0.1
+  end_b: 0.0
+  easing: "OutQuad"
+  variation:
+    start_r: 0.3
+    start_g: 0.8
+    start_b: 1.0
+    end_r: 0.1
+    end_g: 0.2
+    end_b: 1.0
 ```
 
 ## Validation rules (currently enforced)

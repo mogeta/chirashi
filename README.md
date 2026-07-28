@@ -125,6 +125,21 @@ animation:
     start: 0.0
     end: 3.14
     easing: "Linear"
+  color:
+    start_r: 1.0
+    start_g: 0.8
+    start_b: 0.2
+    end_r: 1.0
+    end_g: 0.1
+    end_b: 0.0
+    easing: "OutQuad"
+    variation:
+      start_r: 0.3
+      start_g: 0.8
+      start_b: 1.0
+      end_r: 0.1
+      end_g: 0.2
+      end_b: 1.0
 
 trail:
   enabled: true
@@ -158,6 +173,7 @@ Config highlights:
 - `emitter.space: world` lets emitted particles keep their world position when the emitter moves later.
 - `animation.position.type: attractor` curves particles toward a runtime target.
 - `animation.position.flow` adds low-cost curl flow on top of the base path for drifting smoke, space dust, and magic ambience.
+- `animation.color.variation` mixes the base and nested RGB gradients once per particle at spawn time.
 - `trail` adds optional `emitter` or `particle` ribbon trails in world or local space.
 - `PropertyConfig` supports both simple `start/end/easing` and multi-step `sequence` mode.
 - Example effects are available under `assets/particles/`.

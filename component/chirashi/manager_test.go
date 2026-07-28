@@ -390,6 +390,52 @@ func TestApplyConfigLiveDoesNotShiftActiveParticlesInWorldSpace(t *testing.T) {
 	}
 }
 
+func TestApplyConfigLivePreservesActiveParticleColorVariationMix(t *testing.T) {
+	world := donburi.NewWorld()
+	entity := world.Create(Component)
+	entry := world.Entry(entity)
+
+	donburi.SetValue(entry, Component, SystemData{
+		ActiveCount: 1,
+		ParticlePool: []Instance{
+			{
+				Active:            true,
+				Duration:          1,
+				ColorVariationMix: 0.25,
+			},
+		},
+		AnimParams: AnimationParams{
+			Duration: DurationParams{Base: 1},
+			Color:    ColorParams{HasVariation: true},
+		},
+	})
+
+	cfg := &ParticleConfig{
+		Animation: AnimationConfig{
+			Duration: DurationConfig{Value: 1},
+			Color: &ColorConfig{
+				StartR: 1,
+				EndG:   1,
+				Variation: &ColorConfig{
+					StartB: 1,
+					EndB:   1,
+				},
+			},
+		},
+		Spawn: SpawnConfig{IsLoop: true},
+	}
+
+	ApplyConfigLive(world, entity, cfg, 40, 50)
+
+	p := Component.Get(entry).ParticlePool[0]
+	if p.ColorVariationMix != 0.25 {
+		t.Fatalf("variation mix changed during live update: %v", p.ColorVariationMix)
+	}
+	if p.StartR != 0.75 || p.StartB != 0.25 || p.EndG != 0.75 || p.EndB != 0.25 {
+		t.Fatalf("color did not reuse the preserved variation mix: %+v", p)
+	}
+}
+
 func TestParticleManagerPreloadFromBytesAndSpawn(t *testing.T) {
 	// Use YAML bytes equivalent to minConfig
 	yaml := []byte(`

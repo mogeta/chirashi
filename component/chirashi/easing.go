@@ -34,10 +34,6 @@ const (
 	EasingInBack
 	EasingOutBack
 	EasingInOutBack
-
-	// easingTypeCount is a sentinel that equals the total number of easing types.
-	// It must stay last.
-	easingTypeCount
 )
 
 // ParseEasing converts a string to EasingType

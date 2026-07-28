@@ -560,7 +560,10 @@ func (sys *System) Draw(ecs *ecs.ECS, screen *ebiten.Image) {
 				Blend:    data.Blend,
 			}
 		} else {
-			plainOpts = &ebiten.DrawTrianglesOptions{Blend: data.Blend}
+			plainOpts = &ebiten.DrawTrianglesOptions{
+				ColorScaleMode: ebiten.ColorScaleModeStraightAlpha,
+				Blend:          data.Blend,
+			}
 		}
 		flush := func() {
 			indices := data.Indices[:len(data.Vertices)/4*6]
@@ -686,8 +689,16 @@ func ensureQuadIndices(data *SystemData, quadCount int) {
 // assignParticleColor sets a particle's color pair from config, mixing toward
 // the variation pair by one random factor when variation is enabled.
 func assignParticleColor(particle *Instance, clr *ColorParams) {
+	particle.ColorVariationMix = 0
 	if clr.HasVariation {
-		t := rand.Float32()
+		particle.ColorVariationMix = rand.Float32()
+	}
+	applyParticleColor(particle, clr)
+}
+
+func applyParticleColor(particle *Instance, clr *ColorParams) {
+	if clr.HasVariation {
+		t := particle.ColorVariationMix
 		particle.StartR = lerp(clr.StartR, clr.Start2R, t)
 		particle.StartG = lerp(clr.StartG, clr.Start2G, t)
 		particle.StartB = lerp(clr.StartB, clr.Start2B, t)
