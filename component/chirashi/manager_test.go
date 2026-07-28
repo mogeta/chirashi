@@ -232,10 +232,11 @@ func TestApplyConfigLiveUpdatesActiveParticles(t *testing.T) {
 	entry := world.Entry(entity)
 
 	donburi.SetValue(entry, Component, SystemData{
-		CurrentTime: 5,
-		EmitterX:    100,
-		EmitterY:    200,
-		ActiveCount: 1,
+		CurrentTime:   5,
+		EmitterX:      100,
+		EmitterY:      200,
+		ActiveIndices: []int{0},
+		ActiveCount:   1,
 		ParticlePool: []Instance{
 			{
 				Active:         true,
@@ -343,6 +344,7 @@ func TestApplyConfigLiveDoesNotShiftActiveParticlesInWorldSpace(t *testing.T) {
 		EmitterX:          100,
 		EmitterY:          200,
 		EmitterLocalSpace: true,
+		ActiveIndices:     []int{0},
 		ActiveCount:       1,
 		ParticlePool: []Instance{
 			{
@@ -387,52 +389,6 @@ func TestApplyConfigLiveDoesNotShiftActiveParticlesInWorldSpace(t *testing.T) {
 	}
 	if p.StartX != 110 || p.EndX != 140 || p.StartY != 210 || p.EndY != 240 {
 		t.Fatalf("expected active particle to keep world position, got start=(%v,%v) end=(%v,%v)", p.StartX, p.StartY, p.EndX, p.EndY)
-	}
-}
-
-func TestApplyConfigLivePreservesActiveParticleColorVariationMix(t *testing.T) {
-	world := donburi.NewWorld()
-	entity := world.Create(Component)
-	entry := world.Entry(entity)
-
-	donburi.SetValue(entry, Component, SystemData{
-		ActiveCount: 1,
-		ParticlePool: []Instance{
-			{
-				Active:            true,
-				Duration:          1,
-				ColorVariationMix: 0.25,
-			},
-		},
-		AnimParams: AnimationParams{
-			Duration: DurationParams{Base: 1},
-			Color:    ColorParams{HasVariation: true},
-		},
-	})
-
-	cfg := &ParticleConfig{
-		Animation: AnimationConfig{
-			Duration: DurationConfig{Value: 1},
-			Color: &ColorConfig{
-				StartR: 1,
-				EndG:   1,
-				Variation: &ColorConfig{
-					StartB: 1,
-					EndB:   1,
-				},
-			},
-		},
-		Spawn: SpawnConfig{IsLoop: true},
-	}
-
-	ApplyConfigLive(world, entity, cfg, 40, 50)
-
-	p := Component.Get(entry).ParticlePool[0]
-	if p.ColorVariationMix != 0.25 {
-		t.Fatalf("variation mix changed during live update: %v", p.ColorVariationMix)
-	}
-	if p.StartR != 0.75 || p.StartB != 0.25 || p.EndG != 0.75 || p.EndB != 0.25 {
-		t.Fatalf("color did not reuse the preserved variation mix: %+v", p)
 	}
 }
 
@@ -588,6 +544,8 @@ func TestAttractorParticleHasControlPoint(t *testing.T) {
 	// Build system data directly to test spawn sets HasAttractor and ControlX/Y
 	data := &SystemData{
 		ParticlePool:      make([]Instance, 5),
+		ActiveIndices:     make([]int, 0, 5),
+		FreeIndices:       []int{4, 3, 2, 1, 0},
 		SpawnInterval:     1,
 		ParticlesPerSpawn: 5,
 		MaxParticles:      5,
@@ -616,7 +574,7 @@ func TestAttractorParticleHasControlPoint(t *testing.T) {
 		t.Fatal("no particles spawned")
 	}
 
-	for idx := 0; idx < data.ActiveCount; idx++ {
+	for _, idx := range data.ActiveIndices {
 		p := &data.ParticlePool[idx]
 		if !p.HasAttractor {
 			t.Errorf("particle[%d]: HasAttractor should be true", idx)
@@ -643,6 +601,7 @@ func TestSetEmitterPositionShiftsLocalParticlesAndTrail(t *testing.T) {
 		EmitterX:          10,
 		EmitterY:          20,
 		EmitterLocalSpace: true,
+		ActiveIndices:     []int{0},
 		ActiveCount:       1,
 		ParticlePool: []Instance{
 			{

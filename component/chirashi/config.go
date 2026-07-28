@@ -178,20 +178,15 @@ func (c *PropertyConfig) IsSequence() bool {
 	return c.Type == "sequence" && len(c.Steps) > 0
 }
 
-// ColorConfig defines color animation (RGB values 0-1).
-// When Variation is set, each particle picks a random mix between this color
-// pair and the variation color pair at spawn time (Unity-style "random
-// between two gradients"). Variation's Easing and nested Variation are
-// ignored.
+// ColorConfig defines color animation (RGB values 0-1)
 type ColorConfig struct {
-	StartR    float32      `yaml:"start_r"`
-	StartG    float32      `yaml:"start_g"`
-	StartB    float32      `yaml:"start_b"`
-	EndR      float32      `yaml:"end_r"`
-	EndG      float32      `yaml:"end_g"`
-	EndB      float32      `yaml:"end_b"`
-	Easing    string       `yaml:"easing"`
-	Variation *ColorConfig `yaml:"variation,omitempty"`
+	StartR float32 `yaml:"start_r"`
+	StartG float32 `yaml:"start_g"`
+	StartB float32 `yaml:"start_b"`
+	EndR   float32 `yaml:"end_r"`
+	EndG   float32 `yaml:"end_g"`
+	EndB   float32 `yaml:"end_b"`
+	Easing string  `yaml:"easing"`
 }
 
 // TrailConfig defines an optional ribbon trail emitted from the emitter position.

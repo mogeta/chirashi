@@ -63,6 +63,11 @@ func buildSystemDataFromConfig(shader *ebiten.Shader, image *ebiten.Image, confi
 	emitterY := y + config.Emitter.Y
 	animParams := buildAnimationParams(config)
 
+	freeIndices := make([]int, config.Spawn.MaxParticles)
+	for i := range freeIndices {
+		freeIndices[i] = config.Spawn.MaxParticles - 1 - i
+	}
+
 	maxVertices := config.Spawn.MaxParticles * 4
 	// Index buffer is static and capped at one uint16-addressable batch.
 	maxIndexQuads := config.Spawn.MaxParticles
@@ -80,6 +85,8 @@ func buildSystemDataFromConfig(shader *ebiten.Shader, image *ebiten.Image, confi
 
 	data := SystemData{
 		ParticlePool:      make([]Instance, config.Spawn.MaxParticles),
+		ActiveIndices:     make([]int, 0, config.Spawn.MaxParticles),
+		FreeIndices:       freeIndices,
 		Vertices:          make([]ebiten.Vertex, 0, maxVertices),
 		Indices:           make([]uint16, 0, maxIndices),
 		Shader:            shader,
@@ -440,15 +447,6 @@ func buildAnimationParams(config *ParticleConfig) AnimationParams {
 			EndG:    config.Animation.Color.EndG,
 			EndB:    config.Animation.Color.EndB,
 			Easing:  ParseEasing(config.Animation.Color.Easing),
-		}
-		if v := config.Animation.Color.Variation; v != nil {
-			clr.HasVariation = true
-			clr.Start2R = v.StartR
-			clr.Start2G = v.StartG
-			clr.Start2B = v.StartB
-			clr.End2R = v.EndR
-			clr.End2G = v.EndG
-			clr.End2B = v.EndB
 		}
 	} else {
 		clr = ColorParams{StartR: 1, StartG: 1, StartB: 1, EndR: 1, EndG: 1, EndB: 1}

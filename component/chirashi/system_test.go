@@ -12,6 +12,8 @@ func TestSpawnRespectsMaxParticles(t *testing.T) {
 	sys := &System{cnt: 0}
 	data := &SystemData{
 		ParticlePool:      make([]Instance, 3),
+		ActiveIndices:     make([]int, 0, 3),
+		FreeIndices:       []int{2, 1, 0},
 		SpawnInterval:     1,
 		ParticlesPerSpawn: 10,
 		MaxParticles:      3,
@@ -41,8 +43,11 @@ func TestSpawnRespectsMaxParticles(t *testing.T) {
 	if got := data.ActiveCount; got != 3 {
 		t.Fatalf("active count got %d, want 3", got)
 	}
-	if got := data.ActiveCount; got != 3 {
+	if got := len(data.ActiveIndices); got != 3 {
 		t.Fatalf("active indices length got %d, want 3", got)
+	}
+	if got := len(data.FreeIndices); got != 0 {
+		t.Fatalf("free indices length got %d, want 0", got)
 	}
 	if got := data.Metrics.SpawnCount; got != 3 {
 		t.Fatalf("spawn count got %d, want 3", got)
@@ -56,8 +61,10 @@ func TestUpdateParticlesDeactivatesExpired(t *testing.T) {
 			{Active: true, SpawnTime: 0, Duration: 0.5},
 			{Active: true, SpawnTime: 1.5, Duration: 1.0},
 		},
-		ActiveCount: 2,
-		CurrentTime: 1.0,
+		ActiveIndices: []int{0, 1},
+		FreeIndices:   []int{},
+		ActiveCount:   2,
+		CurrentTime:   1.0,
 	}
 
 	sys.updateParticles(data, 1.0/60.0)
@@ -65,8 +72,11 @@ func TestUpdateParticlesDeactivatesExpired(t *testing.T) {
 	if got := data.ActiveCount; got != 1 {
 		t.Fatalf("active count got %d, want 1", got)
 	}
-	if got := data.ActiveCount; got != 1 {
+	if got := len(data.ActiveIndices); got != 1 {
 		t.Fatalf("active indices length got %d, want 1", got)
+	}
+	if got := len(data.FreeIndices); got != 1 || data.FreeIndices[0] != 0 {
+		t.Fatalf("free indices got %v, want [0]", data.FreeIndices)
 	}
 	if got := data.Metrics.DeactivateCount; got != 1 {
 		t.Fatalf("deactivate count got %d, want 1", got)
@@ -121,8 +131,9 @@ func TestUpdateParticlesAppliesCurlFlow(t *testing.T) {
 				FlowSeedY:      -0.4,
 			},
 		},
-		ActiveCount: 1,
-		CurrentTime: 0.5,
+		ActiveIndices: []int{0},
+		ActiveCount:   1,
+		CurrentTime:   0.5,
 		AnimParams: AnimationParams{
 			Position: PositionParams{
 				Easing:          EasingLinear,
@@ -153,11 +164,12 @@ func TestUpdateParticlesAppliesCurlFlow(t *testing.T) {
 func TestUpdateParticlesResetsFlowWhenLeavingBounds(t *testing.T) {
 	sys := &System{}
 	data := &SystemData{
-		EmitterX:     0,
-		EmitterY:     0,
-		ParticlePool: []Instance{{Active: true, SpawnTime: 0, Duration: 10, PositionEasing: EasingLinear, HasFlow: true, FlowGain: 12, FlowOffsetX: 30, FlowOffsetY: 0, FlowVelX: 5, FlowVelY: 5}},
-		ActiveCount:  1,
-		CurrentTime:  0.5,
+		EmitterX:      0,
+		EmitterY:      0,
+		ParticlePool:  []Instance{{Active: true, SpawnTime: 0, Duration: 10, PositionEasing: EasingLinear, HasFlow: true, FlowGain: 12, FlowOffsetX: 30, FlowOffsetY: 0, FlowVelX: 5, FlowVelY: 5}},
+		ActiveIndices: []int{0},
+		ActiveCount:   1,
+		CurrentTime:   0.5,
 		AnimParams: AnimationParams{
 			Position: PositionParams{
 				Easing:              EasingLinear,
@@ -274,8 +286,8 @@ func TestBuildTrailDataDefaults(t *testing.T) {
 
 func TestUpdateTrailTracksParticleHistory(t *testing.T) {
 	data := &SystemData{
-		CurrentTime: 0.10,
-		ActiveCount: 1,
+		CurrentTime:   0.10,
+		ActiveIndices: []int{0},
 		ParticlePool: []Instance{
 			{
 				Active:         true,
@@ -332,7 +344,8 @@ func TestExpiredParticleTrailBecomesGhostUntilFadeCompletes(t *testing.T) {
 				TrailPoints: []TrailPoint{{X: 0, Y: 0, CapturedAt: 0.2}, {X: 10, Y: 0, CapturedAt: 0.5}},
 			},
 		},
-		ActiveCount: 1,
+		ActiveIndices: []int{0},
+		ActiveCount:   1,
 		Trail: TrailData{
 			Params: TrailParams{
 				Enabled:     true,
@@ -396,6 +409,8 @@ func TestSpawnCircleEmitterSamplesInsideRadius(t *testing.T) {
 	sys := &System{cnt: 0}
 	data := &SystemData{
 		ParticlePool:      make([]Instance, 32),
+		ActiveIndices:     make([]int, 0, 32),
+		FreeIndices:       make([]int, 32),
 		SpawnInterval:     1,
 		ParticlesPerSpawn: 32,
 		MaxParticles:      32,
@@ -424,10 +439,13 @@ func TestSpawnCircleEmitterSamplesInsideRadius(t *testing.T) {
 			Position: PositionParams{Easing: EasingLinear},
 		},
 	}
+	for i := range data.FreeIndices {
+		data.FreeIndices[i] = len(data.FreeIndices) - 1 - i
+	}
 
 	sys.spawn(data)
 
-	for idx := 0; idx < data.ActiveCount; idx++ {
+	for _, idx := range data.ActiveIndices {
 		p := data.ParticlePool[idx]
 		dx := p.StartX - data.EmitterX
 		dy := p.StartY - data.EmitterY
@@ -442,6 +460,8 @@ func TestSpawnLineEmitterRespectsRotation(t *testing.T) {
 	sys := &System{cnt: 0}
 	data := &SystemData{
 		ParticlePool:      make([]Instance, 16),
+		ActiveIndices:     make([]int, 0, 16),
+		FreeIndices:       make([]int, 16),
 		SpawnInterval:     1,
 		ParticlesPerSpawn: 16,
 		MaxParticles:      16,
@@ -470,10 +490,13 @@ func TestSpawnLineEmitterRespectsRotation(t *testing.T) {
 			Position: PositionParams{Easing: EasingLinear},
 		},
 	}
+	for i := range data.FreeIndices {
+		data.FreeIndices[i] = len(data.FreeIndices) - 1 - i
+	}
 
 	sys.spawn(data)
 
-	for idx := 0; idx < data.ActiveCount; idx++ {
+	for _, idx := range data.ActiveIndices {
 		p := data.ParticlePool[idx]
 		if math.Abs(float64(p.StartX-data.EmitterX)) > 0.001 {
 			t.Fatalf("line emitter with vertical rotation should keep x constant, got startX=%v emitterX=%v", p.StartX, data.EmitterX)
@@ -488,6 +511,8 @@ func TestSpawnRectVectorFillDistributesAcrossArea(t *testing.T) {
 	sys := &System{cnt: 0}
 	data := &SystemData{
 		ParticlePool:      make([]Instance, 9),
+		ActiveIndices:     make([]int, 0, 9),
+		FreeIndices:       make([]int, 9),
 		SpawnInterval:     1,
 		ParticlesPerSpawn: 9,
 		MaxParticles:      9,
@@ -513,12 +538,15 @@ func TestSpawnRectVectorFillDistributesAcrossArea(t *testing.T) {
 			Position: PositionParams{Easing: EasingLinear},
 		},
 	}
+	for i := range data.FreeIndices {
+		data.FreeIndices[i] = len(data.FreeIndices) - 1 - i
+	}
 
 	sys.spawn(data)
 
 	seenCols := map[int]bool{}
 	seenRows := map[int]bool{}
-	for idx := 0; idx < data.ActiveCount; idx++ {
+	for _, idx := range data.ActiveIndices {
 		p := data.ParticlePool[idx]
 		dx := p.StartX - data.EmitterX
 		dy := p.StartY - data.EmitterY
@@ -539,6 +567,8 @@ func TestSpawnRectVectorSurfaceStaysOnPerimeter(t *testing.T) {
 	sys := &System{cnt: 0}
 	data := &SystemData{
 		ParticlePool:      make([]Instance, 8),
+		ActiveIndices:     make([]int, 0, 8),
+		FreeIndices:       make([]int, 8),
 		SpawnInterval:     1,
 		ParticlesPerSpawn: 8,
 		MaxParticles:      8,
@@ -564,10 +594,13 @@ func TestSpawnRectVectorSurfaceStaysOnPerimeter(t *testing.T) {
 			Position: PositionParams{Easing: EasingLinear},
 		},
 	}
+	for i := range data.FreeIndices {
+		data.FreeIndices[i] = len(data.FreeIndices) - 1 - i
+	}
 
 	sys.spawn(data)
 
-	for idx := 0; idx < data.ActiveCount; idx++ {
+	for _, idx := range data.ActiveIndices {
 		p := data.ParticlePool[idx]
 		x := p.StartX
 		y := p.StartY
@@ -583,6 +616,8 @@ func TestSpawnPolylineVectorSurfaceStaysOnSegments(t *testing.T) {
 	sys := &System{cnt: 0}
 	data := &SystemData{
 		ParticlePool:      make([]Instance, 6),
+		ActiveIndices:     make([]int, 0, 6),
+		FreeIndices:       make([]int, 6),
 		SpawnInterval:     1,
 		ParticlesPerSpawn: 6,
 		MaxParticles:      6,
@@ -614,10 +649,13 @@ func TestSpawnPolylineVectorSurfaceStaysOnSegments(t *testing.T) {
 			Position: PositionParams{Easing: EasingLinear},
 		},
 	}
+	for i := range data.FreeIndices {
+		data.FreeIndices[i] = len(data.FreeIndices) - 1 - i
+	}
 
 	sys.spawn(data)
 
-	for idx := 0; idx < data.ActiveCount; idx++ {
+	for _, idx := range data.ActiveIndices {
 		p := data.ParticlePool[idx]
 		onHorizontal := math.Abs(float64(p.StartY)) < 0.001 && p.StartX >= -30.001 && p.StartX <= 0.001
 		onVertical := math.Abs(float64(p.StartX)) < 0.001 && p.StartY >= -0.001 && p.StartY <= 30.001
@@ -653,6 +691,8 @@ func TestSpawnCircleEmitterArcLimitsAngle(t *testing.T) {
 	sys := &System{cnt: 0}
 	data := &SystemData{
 		ParticlePool:      make([]Instance, 16),
+		ActiveIndices:     make([]int, 0, 16),
+		FreeIndices:       make([]int, 16),
 		SpawnInterval:     1,
 		ParticlesPerSpawn: 16,
 		MaxParticles:      16,
@@ -682,10 +722,13 @@ func TestSpawnCircleEmitterArcLimitsAngle(t *testing.T) {
 			Position: PositionParams{Easing: EasingLinear},
 		},
 	}
+	for i := range data.FreeIndices {
+		data.FreeIndices[i] = len(data.FreeIndices) - 1 - i
+	}
 
 	sys.spawn(data)
 
-	for idx := 0; idx < data.ActiveCount; idx++ {
+	for _, idx := range data.ActiveIndices {
 		p := data.ParticlePool[idx]
 		if p.StartX < -0.001 || p.StartY < -0.001 {
 			t.Fatalf("arc emitter spawned outside first quadrant: (%v, %v)", p.StartX, p.StartY)
@@ -697,6 +740,8 @@ func TestSpawnBoxEmitterFromEdgeStaysOnPerimeter(t *testing.T) {
 	sys := &System{cnt: 0}
 	data := &SystemData{
 		ParticlePool:      make([]Instance, 16),
+		ActiveIndices:     make([]int, 0, 16),
+		FreeIndices:       make([]int, 16),
 		SpawnInterval:     1,
 		ParticlesPerSpawn: 16,
 		MaxParticles:      16,
@@ -726,10 +771,13 @@ func TestSpawnBoxEmitterFromEdgeStaysOnPerimeter(t *testing.T) {
 			Position: PositionParams{Easing: EasingLinear},
 		},
 	}
+	for i := range data.FreeIndices {
+		data.FreeIndices[i] = len(data.FreeIndices) - 1 - i
+	}
 
 	sys.spawn(data)
 
-	for idx := 0; idx < data.ActiveCount; idx++ {
+	for _, idx := range data.ActiveIndices {
 		p := data.ParticlePool[idx]
 		dx := p.StartX - data.EmitterX
 		dy := p.StartY - data.EmitterY
@@ -745,6 +793,8 @@ func TestSpawnCircleEmitterFullCircleWithTwoPiEndAngle(t *testing.T) {
 	sys := &System{cnt: 0}
 	data := &SystemData{
 		ParticlePool:      make([]Instance, 128),
+		ActiveIndices:     make([]int, 0, 128),
+		FreeIndices:       make([]int, 128),
 		SpawnInterval:     1,
 		ParticlesPerSpawn: 128,
 		MaxParticles:      128,
@@ -774,11 +824,14 @@ func TestSpawnCircleEmitterFullCircleWithTwoPiEndAngle(t *testing.T) {
 			Position: PositionParams{Easing: EasingLinear},
 		},
 	}
+	for i := range data.FreeIndices {
+		data.FreeIndices[i] = len(data.FreeIndices) - 1 - i
+	}
 
 	sys.spawn(data)
 
 	var hasNegX, hasPosX, hasNegY, hasPosY bool
-	for idx := 0; idx < data.ActiveCount; idx++ {
+	for _, idx := range data.ActiveIndices {
 		p := data.ParticlePool[idx]
 		if p.StartX < 0 {
 			hasNegX = true
@@ -802,6 +855,8 @@ func TestSpawnCircleEmitterTreatsSixPointTwoEightAsFullCircle(t *testing.T) {
 	sys := &System{cnt: 0}
 	data := &SystemData{
 		ParticlePool:      make([]Instance, 128),
+		ActiveIndices:     make([]int, 0, 128),
+		FreeIndices:       make([]int, 128),
 		SpawnInterval:     1,
 		ParticlesPerSpawn: 128,
 		MaxParticles:      128,
@@ -831,11 +886,14 @@ func TestSpawnCircleEmitterTreatsSixPointTwoEightAsFullCircle(t *testing.T) {
 			Position: PositionParams{Easing: EasingLinear},
 		},
 	}
+	for i := range data.FreeIndices {
+		data.FreeIndices[i] = len(data.FreeIndices) - 1 - i
+	}
 
 	sys.spawn(data)
 
 	var hasNegX, hasPosX, hasNegY, hasPosY bool
-	for idx := 0; idx < data.ActiveCount; idx++ {
+	for _, idx := range data.ActiveIndices {
 		p := data.ParticlePool[idx]
 		if p.StartX < 0 {
 			hasNegX = true
@@ -859,6 +917,8 @@ func TestSpawnCircleEmitterWrapArc(t *testing.T) {
 	sys := &System{cnt: 0}
 	data := &SystemData{
 		ParticlePool:      make([]Instance, 64),
+		ActiveIndices:     make([]int, 0, 64),
+		FreeIndices:       make([]int, 64),
 		SpawnInterval:     1,
 		ParticlesPerSpawn: 64,
 		MaxParticles:      64,
@@ -888,49 +948,17 @@ func TestSpawnCircleEmitterWrapArc(t *testing.T) {
 			Position: PositionParams{Easing: EasingLinear},
 		},
 	}
+	for i := range data.FreeIndices {
+		data.FreeIndices[i] = len(data.FreeIndices) - 1 - i
+	}
 
 	sys.spawn(data)
 
-	for idx := 0; idx < data.ActiveCount; idx++ {
+	for _, idx := range data.ActiveIndices {
 		p := data.ParticlePool[idx]
 		angle := normalizeAngle(float32(math.Atan2(float64(p.StartY), float64(p.StartX))))
 		if angle > 0.5 && angle < 5.5 {
 			t.Fatalf("wrap arc sampled outside expected range: angle=%v", angle)
 		}
-	}
-}
-
-func TestAssignParticleColorVariation(t *testing.T) {
-	clr := &ColorParams{
-		Enabled: true,
-		StartR:  1, StartG: 0, StartB: 0,
-		EndR: 1, EndG: 1, EndB: 0,
-		HasVariation: true,
-		Start2R:      0, Start2G: 0, Start2B: 1,
-		End2R: 0, End2G: 1, End2B: 1,
-	}
-	var p Instance
-	for i := 0; i < 32; i++ {
-		assignParticleColor(&p, clr)
-		if p.ColorVariationMix < 0 || p.ColorVariationMix >= 1 {
-			t.Fatalf("variation mix out of range: %v", p.ColorVariationMix)
-		}
-		// Every channel must stay inside the [base, variation] envelope.
-		if p.StartR < 0 || p.StartR > 1 || p.StartB < 0 || p.StartB > 1 {
-			t.Fatalf("start color out of range: %+v", p)
-		}
-		// Mix factor is shared across channels: StartR + StartB == 1 here.
-		if diff := p.StartR + p.StartB - 1; diff > 1e-6 || diff < -1e-6 {
-			t.Fatalf("channels not mixed by a single factor: R=%v B=%v", p.StartR, p.StartB)
-		}
-	}
-
-	clr.HasVariation = false
-	assignParticleColor(&p, clr)
-	if p.ColorVariationMix != 0 {
-		t.Fatalf("variation mix was not reset: %v", p.ColorVariationMix)
-	}
-	if p.StartR != 1 || p.StartG != 0 || p.StartB != 0 || p.EndG != 1 {
-		t.Fatalf("base color not applied verbatim: %+v", p)
 	}
 }

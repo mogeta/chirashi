@@ -106,12 +106,16 @@ func (sys *System) spawn(data *SystemData) {
 	currentTime := data.CurrentTime
 
 	for i := 0; i < data.ParticlesPerSpawn && data.ActiveCount < data.MaxParticles; i++ {
-		if data.ActiveCount >= len(data.ParticlePool) {
+		// O(1) free index retrieval
+		if len(data.FreeIndices) == 0 {
 			break
 		}
 
-		// The pool is dense: the next free slot sits right after the actives.
-		particle := &data.ParticlePool[data.ActiveCount]
+		// Pop from free indices stack
+		freeIdx := data.FreeIndices[len(data.FreeIndices)-1]
+		data.FreeIndices = data.FreeIndices[:len(data.FreeIndices)-1]
+
+		particle := &data.ParticlePool[freeIdx]
 		particle.TrailPoints = particle.TrailPoints[:0]
 
 		spawnX, spawnY := sampleEmitterPosition(data.EmitterX, data.EmitterY, data.EmitterShape, data.EmitterVector, i, data.ParticlesPerSpawn)
@@ -188,7 +192,13 @@ func (sys *System) spawn(data *SystemData) {
 		particle.RotationEasing = app.RotationEasing
 
 		// Color
-		assignParticleColor(particle, clr)
+		particle.StartR = clr.StartR
+		particle.StartG = clr.StartG
+		particle.StartB = clr.StartB
+		particle.EndR = clr.EndR
+		particle.EndG = clr.EndG
+		particle.EndB = clr.EndB
+		particle.ColorEasing = clr.Easing
 
 		particle.Active = true
 
@@ -214,6 +224,8 @@ func (sys *System) spawn(data *SystemData) {
 			FillSnapshot(data.AlphaSeq, &particle.AlphaSnap, 0)
 		}
 
+		// Add to active indices
+		data.ActiveIndices = append(data.ActiveIndices, freeIdx)
 		data.ActiveCount++
 		data.Metrics.SpawnCount++
 	}
@@ -426,8 +438,9 @@ func (sys *System) updateParticles(data *SystemData, deltaTime float32) {
 	// Simulate first (parallel-capable), then sweep expired particles.
 	simulateActiveParticles(data, deltaTime)
 
-	for i := 0; i < data.ActiveCount; i++ {
-		particle := &data.ParticlePool[i]
+	for i := 0; i < len(data.ActiveIndices); i++ {
+		particleIdx := data.ActiveIndices[i]
+		particle := &data.ParticlePool[particleIdx]
 
 		elapsed := currentTime - particle.SpawnTime
 		if elapsed >= particle.Duration {
@@ -438,12 +451,12 @@ func (sys *System) updateParticles(data *SystemData, deltaTime float32) {
 			particle.TrailPoints = particle.TrailPoints[:0]
 			data.ActiveCount--
 			data.Metrics.DeactivateCount++
-			// Swap the last active particle into this slot to keep the pool
-			// dense; the freed slot keeps its recycled buffers.
-			if i != data.ActiveCount {
-				data.ParticlePool[i], data.ParticlePool[data.ActiveCount] = data.ParticlePool[data.ActiveCount], data.ParticlePool[i]
-				i--
-			}
+			// Return to free indices pool
+			data.FreeIndices = append(data.FreeIndices, particleIdx)
+			lastIdx := len(data.ActiveIndices) - 1
+			data.ActiveIndices[i] = data.ActiveIndices[lastIdx]
+			data.ActiveIndices = data.ActiveIndices[:lastIdx]
+			i--
 		}
 	}
 }
@@ -461,7 +474,7 @@ const (
 // active particles. Each particle only touches its own state, so the work is
 // split across goroutines for large pools.
 func simulateActiveParticles(data *SystemData, deltaTime float32) {
-	n := data.ActiveCount
+	n := len(data.ActiveIndices)
 	if n == 0 {
 		return
 	}
@@ -475,7 +488,7 @@ func simulateActiveParticles(data *SystemData, deltaTime float32) {
 		threshold = parallelSimulateThresholdFlow
 	}
 	if n < threshold || workers <= 1 {
-		simulateParticleRange(data, data.ParticlePool[:n], deltaTime)
+		simulateParticleRange(data, data.ActiveIndices, deltaTime)
 		return
 	}
 
@@ -487,19 +500,19 @@ func simulateActiveParticles(data *SystemData, deltaTime float32) {
 			end = n
 		}
 		wg.Add(1)
-		go func(particles []Instance) {
+		go func(indices []int) {
 			defer wg.Done()
-			simulateParticleRange(data, particles, deltaTime)
-		}(data.ParticlePool[start:end])
+			simulateParticleRange(data, indices, deltaTime)
+		}(data.ActiveIndices[start:end])
 	}
 	wg.Wait()
 }
 
-func simulateParticleRange(data *SystemData, particles []Instance, deltaTime float32) {
+func simulateParticleRange(data *SystemData, indices []int, deltaTime float32) {
 	currentTime := data.CurrentTime
 	hasFlow := data.AnimParams.Position.HasFlow
-	for i := range particles {
-		particle := &particles[i]
+	for _, particleIdx := range indices {
+		particle := &data.ParticlePool[particleIdx]
 		elapsed := currentTime - particle.SpawnTime
 		if particle.HasFlow && hasFlow {
 			normalizedT := elapsed / particle.Duration
@@ -524,11 +537,11 @@ func (sys *System) Draw(ecs *ecs.ECS, screen *ebiten.Image) {
 			drawTrail(screen, data)
 		}
 
-		if data.SourceImage == nil {
+		if data.SourceImage == nil || data.Shader == nil {
 			continue
 		}
 
-		if data.ActiveCount == 0 {
+		if len(data.ActiveIndices) == 0 {
 			continue
 		}
 
@@ -536,7 +549,7 @@ func (sys *System) Draw(ecs *ecs.ECS, screen *ebiten.Image) {
 
 		// Build vertex buffer; the quad index pattern is static and grown once.
 		data.Vertices = data.Vertices[:0]
-		batchQuads := data.ActiveCount
+		batchQuads := len(data.ActiveIndices)
 		if batchQuads > maxParticleBatchVertices/4 {
 			batchQuads = maxParticleBatchVertices / 4
 		}
@@ -548,46 +561,33 @@ func (sys *System) Draw(ecs *ecs.ECS, screen *ebiten.Image) {
 		halfW := imgW / 2
 		halfH := imgH / 2
 
-		// Colors are fully evaluated on the CPU into vertex data, so the
-		// shader-less path renders with plain DrawTriangles and benefits
-		// from Ebiten's internal draw-command batching across systems.
-		var shaderOpts *ebiten.DrawTrianglesShaderOptions
-		var plainOpts *ebiten.DrawTrianglesOptions
-		if data.Shader != nil {
-			shaderOpts = &ebiten.DrawTrianglesShaderOptions{
-				Uniforms: data.ShaderUniforms,
-				Images:   [4]*ebiten.Image{data.SourceImage},
-				Blend:    data.Blend,
-			}
-		} else {
-			plainOpts = &ebiten.DrawTrianglesOptions{
-				ColorScaleMode: ebiten.ColorScaleModeStraightAlpha,
-				Blend:          data.Blend,
-			}
+		clr := &data.AnimParams.Color
+		uniforms := data.ShaderUniforms
+		if uniforms == nil {
+			uniforms = make(map[string]interface{}, 4)
+			data.ShaderUniforms = uniforms
 		}
-		flush := func() {
-			indices := data.Indices[:len(data.Vertices)/4*6]
-			if data.Shader != nil {
-				screen.DrawTrianglesShader(data.Vertices, indices, data.Shader, shaderOpts)
-			} else {
-				screen.DrawTriangles(data.Vertices, indices, data.SourceImage, plainOpts)
-			}
-			data.Vertices = data.Vertices[:0]
+		uniforms["Time"] = currentTime
+		uniforms["StartColor"] = [3]float32{clr.StartR, clr.StartG, clr.StartB}
+		uniforms["EndColor"] = [3]float32{clr.EndR, clr.EndG, clr.EndB}
+		uniforms["ColorEasing"] = float32(clr.Easing)
+		opts := &ebiten.DrawTrianglesShaderOptions{
+			Uniforms: uniforms,
+			Images:   [4]*ebiten.Image{data.SourceImage},
+			Blend:    data.Blend,
 		}
 
-		for particleIdx := 0; particleIdx < data.ActiveCount; particleIdx++ {
+		for _, particleIdx := range data.ActiveIndices {
 			// Flush before the vertex count overflows uint16 indices.
 			if len(data.Vertices) >= maxParticleBatchVertices {
-				flush()
+				screen.DrawTrianglesShader(data.Vertices, data.Indices[:len(data.Vertices)/4*6], data.Shader, opts)
+				data.Vertices = data.Vertices[:0]
 			}
 			p := &data.ParticlePool[particleIdx]
 
 			// Calculate normalized time
 			elapsed := currentTime - p.SpawnTime
 			normalizedT := elapsed / p.Duration
-			if normalizedT < 0 {
-				normalizedT = 0
-			}
 			if normalizedT > 1 {
 				normalizedT = 1
 			}
@@ -620,19 +620,22 @@ func (sys *System) Draw(ecs *ecs.ECS, screen *ebiten.Image) {
 				sin, cos = fastSincos(rotation)
 			}
 
-			// Evaluate alpha and tint per particle; vertex colors carry the
-			// final straight-alpha color (custom.x carries normalized time
-			// for effect shaders such as blur).
-			var alpha float32
+			// Vertex custom data layout:
+			// color.r = startAlpha, color.g = endAlpha, color.b = alphaEasing (normalized)
+			// custom.x = spawnTime, custom.y = duration
+			// Color and colorEasing are passed as shader uniforms (same for all particles in system)
+			var startAlpha, endAlpha, alphaEasingNorm float32
 			if p.HasAlphaSeq {
-				alpha = EvaluateSequence(data.AlphaSeq, &p.AlphaSnap, elapsed)
+				// CPU-evaluated alpha: pass same value as both start and end
+				cpuAlpha := EvaluateSequence(data.AlphaSeq, &p.AlphaSnap, elapsed)
+				startAlpha = cpuAlpha
+				endAlpha = cpuAlpha
+				alphaEasingNorm = 0 // Linear (no-op since start==end)
 			} else {
-				alpha = lerp(p.StartAlpha, p.EndAlpha, ApplyEasing(normalizedT, p.AlphaEasing))
+				startAlpha = p.StartAlpha
+				endAlpha = p.EndAlpha
+				alphaEasingNorm = float32(p.AlphaEasing) / float32(easingTypeCount)
 			}
-			colorT := ApplyEasing(normalizedT, p.ColorEasing)
-			tintR := lerp(p.StartR, p.EndR, colorT)
-			tintG := lerp(p.StartG, p.EndG, colorT)
-			tintB := lerp(p.StartB, p.EndB, colorT)
 
 			// Rotated half extents; the four corners are +/- combinations.
 			// Top-left, Top-right, Bottom-left, Bottom-right
@@ -642,11 +645,11 @@ func (sys *System) Draw(ecs *ecs.ECS, screen *ebiten.Image) {
 			hy := scaledHalfH * cos
 
 			vertex := ebiten.Vertex{
-				ColorR:  tintR,
-				ColorG:  tintG,
-				ColorB:  tintB,
-				ColorA:  alpha,
-				Custom0: normalizedT,
+				ColorR:  startAlpha,
+				ColorG:  endAlpha,
+				ColorB:  alphaEasingNorm,
+				Custom0: p.SpawnTime,
+				Custom1: p.Duration,
 			}
 			vertex.DstX, vertex.DstY = x-wx-hx, y-wy-hy
 			vertex.SrcX, vertex.SrcY = 0, 0
@@ -663,7 +666,7 @@ func (sys *System) Draw(ecs *ecs.ECS, screen *ebiten.Image) {
 		}
 
 		if len(data.Vertices) > 0 {
-			flush()
+			screen.DrawTrianglesShader(data.Vertices, data.Indices[:len(data.Vertices)/4*6], data.Shader, opts)
 		}
 
 		data.Metrics.DrawTimeUs = time.Since(startTime).Microseconds()
@@ -684,36 +687,6 @@ func ensureQuadIndices(data *SystemData, quadCount int) {
 			base+1, base+3, base+2,
 		)
 	}
-}
-
-// assignParticleColor sets a particle's color pair from config, mixing toward
-// the variation pair by one random factor when variation is enabled.
-func assignParticleColor(particle *Instance, clr *ColorParams) {
-	particle.ColorVariationMix = 0
-	if clr.HasVariation {
-		particle.ColorVariationMix = rand.Float32()
-	}
-	applyParticleColor(particle, clr)
-}
-
-func applyParticleColor(particle *Instance, clr *ColorParams) {
-	if clr.HasVariation {
-		t := particle.ColorVariationMix
-		particle.StartR = lerp(clr.StartR, clr.Start2R, t)
-		particle.StartG = lerp(clr.StartG, clr.Start2G, t)
-		particle.StartB = lerp(clr.StartB, clr.Start2B, t)
-		particle.EndR = lerp(clr.EndR, clr.End2R, t)
-		particle.EndG = lerp(clr.EndG, clr.End2G, t)
-		particle.EndB = lerp(clr.EndB, clr.End2B, t)
-	} else {
-		particle.StartR = clr.StartR
-		particle.StartG = clr.StartG
-		particle.StartB = clr.StartB
-		particle.EndR = clr.EndR
-		particle.EndG = clr.EndG
-		particle.EndB = clr.EndB
-	}
-	particle.ColorEasing = clr.Easing
 }
 
 // Helper functions

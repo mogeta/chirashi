@@ -28,20 +28,19 @@ func ApplyConfigLive(world donburi.World, entity donburi.Entity, config *Particl
 		data.LifeTime = config.Spawn.LifeTime
 	}
 
-	hadColorVariation := data.AnimParams.Color.HasVariation
 	data.AnimParams = buildAnimationParams(config)
 	buildSequenceConfigs(config, data)
 
 	shiftActiveParticlesForEmitterDelta(data, data.EmitterX-prevEmitterX, data.EmitterY-prevEmitterY)
 	applyTrailConfigLive(data, config.Trail, data.EmitterX-prevEmitterX, data.EmitterY-prevEmitterY)
-	applyAnimationParamsToActiveParticles(data, hadColorVariation)
+	applyAnimationParamsToActiveParticles(data)
 }
 
 func shiftActiveParticlesForEmitterDelta(data *SystemData, dx, dy float32) {
 	if !data.EmitterLocalSpace || (dx == 0 && dy == 0) {
 		return
 	}
-	for idx := 0; idx < data.ActiveCount; idx++ {
+	for _, idx := range data.ActiveIndices {
 		p := &data.ParticlePool[idx]
 		p.StartX += dx
 		p.EndX += dx
@@ -54,19 +53,19 @@ func shiftActiveParticlesForEmitterDelta(data *SystemData, dx, dy float32) {
 	}
 }
 
-func applyAnimationParamsToActiveParticles(data *SystemData, hadColorVariation bool) {
+func applyAnimationParamsToActiveParticles(data *SystemData) {
 	pos := data.AnimParams.Position
 	app := data.AnimParams.Appearance
 	clr := data.AnimParams.Color
 	duration := data.AnimParams.Duration
 
-	for idx := 0; idx < data.ActiveCount; idx++ {
+	for _, idx := range data.ActiveIndices {
 		p := &data.ParticlePool[idx]
 		applyLiveDuration(data, p, duration)
 		applyLiveEasing(p, pos, app, clr)
 		applyLiveAppearance(data, p, app)
 		applyLivePositionSequences(data, p)
-		applyLiveColor(p, clr, hadColorVariation)
+		applyLiveColor(p, clr)
 		applyLiveFlow(p, pos)
 	}
 }
@@ -139,15 +138,13 @@ func applyLivePositionSequences(data *SystemData, p *Instance) {
 	}
 }
 
-func applyLiveColor(p *Instance, clr ColorParams, hadColorVariation bool) {
-	if clr.HasVariation && !hadColorVariation {
-		assignParticleColor(p, &clr)
-		return
-	}
-	if !clr.HasVariation {
-		p.ColorVariationMix = 0
-	}
-	applyParticleColor(p, &clr)
+func applyLiveColor(p *Instance, clr ColorParams) {
+	p.StartR = clr.StartR
+	p.StartG = clr.StartG
+	p.StartB = clr.StartB
+	p.EndR = clr.EndR
+	p.EndG = clr.EndG
+	p.EndB = clr.EndB
 }
 
 func applyLiveFlow(p *Instance, pos PositionParams) {
