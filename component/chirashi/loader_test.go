@@ -4,6 +4,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"gopkg.in/yaml.v3"
 )
 
 func validParticleConfigForTest() *ParticleConfig {
@@ -59,6 +61,48 @@ func TestValidateConfigRejectsInvalidValues(t *testing.T) {
 				c.Name = ""
 			},
 			wantErr: "name is required",
+		},
+		{
+			name: "invalid blend",
+			mutate: func(c *ParticleConfig) {
+				c.Blend = "multiply"
+			},
+			wantErr: "blend must be normal or additive",
+		},
+		{
+			name: "invalid particle shader",
+			mutate: func(c *ParticleConfig) {
+				c.Render.ParticleShader = "pixelate"
+			},
+			wantErr: "render.particle_shader",
+		},
+		{
+			name: "invalid glitch intensity",
+			mutate: func(c *ParticleConfig) {
+				c.Render.GlitchIntensity = 1.1
+			},
+			wantErr: "render.glitch_intensity",
+		},
+		{
+			name: "invalid bloom threshold",
+			mutate: func(c *ParticleConfig) {
+				c.Render.Bloom = &BloomConfig{Threshold: 1.1, Intensity: 1, Passes: 1}
+			},
+			wantErr: "render.bloom.threshold",
+		},
+		{
+			name: "invalid bloom passes",
+			mutate: func(c *ParticleConfig) {
+				c.Render.Bloom = &BloomConfig{Threshold: 0.6, Intensity: 1, Passes: 0}
+			},
+			wantErr: "render.bloom.passes",
+		},
+		{
+			name: "invalid afterimage decay",
+			mutate: func(c *ParticleConfig) {
+				c.Render.Afterimage = &AfterimageConfig{Decay: 1}
+			},
+			wantErr: "render.afterimage.decay",
 		},
 		{
 			name: "invalid max_particles",
@@ -256,6 +300,50 @@ func TestValidateConfigRejectsInvalidValues(t *testing.T) {
 	}
 }
 
+func TestRenderConfigRoundTripsThroughYAMLStorage(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "render.yaml")
+	cfg := validParticleConfigForTest()
+	cfg.Blend = "additive"
+	cfg.Render = RenderConfig{
+		ParticleShader:  "blur",
+		GlitchIntensity: 0.2,
+		Bloom:           &BloomConfig{Threshold: 0.55, Intensity: 1.4, Passes: 3},
+		Afterimage:      &AfterimageConfig{Decay: 0.88},
+	}
+
+	loader := NewConfigLoader()
+	if err := loader.SaveConfig(path, cfg); err != nil {
+		t.Fatalf("SaveConfig: %v", err)
+	}
+
+	loaded, err := NewConfigLoader().LoadConfig(path)
+	if err != nil {
+		t.Fatalf("LoadConfig: %v", err)
+	}
+	if loaded.Blend != "additive" || loaded.Render.ParticleShader != "blur" {
+		t.Fatalf("render mode did not round-trip: blend=%q shader=%q", loaded.Blend, loaded.Render.ParticleShader)
+	}
+	if loaded.Render.GlitchIntensity != 0.2 {
+		t.Fatalf("glitch intensity did not round-trip: %v", loaded.Render.GlitchIntensity)
+	}
+	if loaded.Render.Bloom == nil || *loaded.Render.Bloom != *cfg.Render.Bloom {
+		t.Fatalf("bloom config did not round-trip: %+v", loaded.Render.Bloom)
+	}
+	if loaded.Render.Afterimage == nil || *loaded.Render.Afterimage != *cfg.Render.Afterimage {
+		t.Fatalf("afterimage config did not round-trip: %+v", loaded.Render.Afterimage)
+	}
+}
+
+func TestEmptyRenderConfigIsOmittedFromYAML(t *testing.T) {
+	data, err := yaml.Marshal(validParticleConfigForTest())
+	if err != nil {
+		t.Fatalf("yaml.Marshal: %v", err)
+	}
+	if strings.Contains(string(data), "render:") {
+		t.Fatalf("empty render config should be omitted:\n%s", data)
+	}
+}
+
 func TestLoadReentryPlasmaWakeSample(t *testing.T) {
 	loader := NewConfigLoader()
 	path := filepath.Join("..", "..", "assets", "particles", "reentry_plasma_wake.yaml")
@@ -269,5 +357,11 @@ func TestLoadReentryPlasmaWakeSample(t *testing.T) {
 	}
 	if cfg.Animation.Position.Flow == nil || cfg.Animation.Position.Flow.Type != "curl" {
 		t.Fatalf("expected reentry_plasma_wake sample to use curl flow, got: %+v", cfg.Animation.Position.Flow)
+	}
+	if cfg.Blend != "additive" || cfg.Render.ParticleShader != "blur" {
+		t.Fatalf("expected reentry_plasma_wake render modes, got blend=%q shader=%q", cfg.Blend, cfg.Render.ParticleShader)
+	}
+	if cfg.Render.Bloom == nil || cfg.Render.Afterimage == nil {
+		t.Fatalf("expected reentry_plasma_wake post effects, got render=%+v", cfg.Render)
 	}
 }

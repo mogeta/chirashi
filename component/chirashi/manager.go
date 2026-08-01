@@ -162,6 +162,14 @@ func SetEmissionScale(world donburi.World, entity donburi.Entity, scale float32)
 // copyConfig creates a deep copy of ParticleConfig
 func copyConfig(src *ParticleConfig) *ParticleConfig {
 	dst := *src
+	if src.Render.Bloom != nil {
+		bloom := *src.Render.Bloom
+		dst.Render.Bloom = &bloom
+	}
+	if src.Render.Afterimage != nil {
+		afterimage := *src.Render.Afterimage
+		dst.Render.Afterimage = &afterimage
+	}
 
 	if src.Animation.Duration.Range != nil {
 		r := *src.Animation.Duration.Range

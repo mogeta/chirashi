@@ -126,6 +126,37 @@ func (l *ConfigLoader) validateConfig(config *ParticleConfig) error {
 		return fmt.Errorf("name is required")
 	}
 
+	switch config.Blend {
+	case "", "normal", "additive", "lighter":
+	default:
+		return fmt.Errorf("blend must be normal or additive")
+	}
+
+	switch config.Render.ParticleShader {
+	case "", "default", "blur":
+	default:
+		return fmt.Errorf("render.particle_shader must be default or blur")
+	}
+	if config.Render.GlitchIntensity < 0 || config.Render.GlitchIntensity > 1 {
+		return fmt.Errorf("render.glitch_intensity must be within [0,1]")
+	}
+	if bloom := config.Render.Bloom; bloom != nil {
+		if bloom.Threshold < 0 || bloom.Threshold > 1 {
+			return fmt.Errorf("render.bloom.threshold must be within [0,1]")
+		}
+		if bloom.Intensity < 0 {
+			return fmt.Errorf("render.bloom.intensity must be greater than or equal to 0")
+		}
+		if bloom.Passes < 1 {
+			return fmt.Errorf("render.bloom.passes must be greater than or equal to 1")
+		}
+	}
+	if afterimage := config.Render.Afterimage; afterimage != nil {
+		if afterimage.Decay < 0 || afterimage.Decay >= 1 {
+			return fmt.Errorf("render.afterimage.decay must be within [0,1)")
+		}
+	}
+
 	if config.Spawn.MaxParticles <= 0 {
 		return fmt.Errorf("max_particles must be greater than 0")
 	}

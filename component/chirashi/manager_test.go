@@ -566,6 +566,26 @@ spawn:
 	}
 }
 
+func TestCopyConfigDeepCopiesRenderEffects(t *testing.T) {
+	src := validParticleConfigForTest()
+	src.Render = RenderConfig{
+		ParticleShader: "blur",
+		Bloom:          &BloomConfig{Threshold: 0.5, Intensity: 1.2, Passes: 2},
+		Afterimage:     &AfterimageConfig{Decay: 0.9},
+	}
+
+	dst := copyConfig(src)
+	dst.Render.Bloom.Intensity = 2.5
+	dst.Render.Afterimage.Decay = 0.75
+
+	if src.Render.Bloom.Intensity != 1.2 {
+		t.Fatalf("source bloom config was mutated: %+v", src.Render.Bloom)
+	}
+	if src.Render.Afterimage.Decay != 0.9 {
+		t.Fatalf("source afterimage config was mutated: %+v", src.Render.Afterimage)
+	}
+}
+
 func TestAttractorSpawnSetsControlPoint(t *testing.T) {
 	yaml := []byte(`
 name: attractor_test

@@ -12,6 +12,18 @@ image:
   image_from: string
   image_id: int
 
+blend: "normal" | "additive" # optional, defaults to normal
+
+render: # optional
+  particle_shader: "default" | "blur"
+  glitch_intensity: float # optional, 0..1
+  bloom: # optional; scene-level post effect
+    threshold: float # 0..1
+    intensity: float # >= 0
+    passes: int      # >= 1
+  afterimage: # optional; scene-level persistence effect
+    decay: float # 0 <= decay < 1
+
 emitter:
   x: float
   y: float
@@ -27,19 +39,25 @@ emitter:
     rotation: float # box/line only, radians
     from_edge: bool # circle/box only
   vector: # optional
-    type: "rect"
+    type: "rect" | "polyline"
     placement: "fill" | "surface" # optional
-    rect:
+    rect: # type: rect
       width: float
       height: float
       rotation: float # optional, radians
+    polyline: # type: polyline
+      closed: bool # optional
+      interpolation: "linear" | "quadratic" # optional
+      curve_steps: int # optional; quadratic only
+      points:
+        - { x: float, y: float }
 
 animation:
   duration:
     value: float
     range: { min: float, max: float } # optional
   position:
-    type: "cartesian" | "polar"       # optional
+    type: "cartesian" | "polar" | "attractor" # optional
     # cartesian fields (simple mode)
     start_x: { min: float, max: float } # optional
     end_x:   { min: float, max: float } # optional
@@ -51,6 +69,11 @@ animation:
     # polar fields
     angle:    { min: float, max: float } # optional
     distance: { min: float, max: float } # optional
+    speed: { min: float, max: float } # optional; enables velocity mode
+    angular_speed: { min: float, max: float } # optional, radians/sec
+    # attractor fields
+    control_x: { min: float, max: float } # optional bezier control offset
+    control_y: { min: float, max: float } # optional bezier control offset
     flow: # optional
       type: "curl"
       strength: { min: float, max: float } # optional
@@ -163,6 +186,13 @@ color:
 Validation is performed by `ConfigLoader`:
 
 - `name` is required.
+- `blend` must be `normal` or `additive` (`lighter` remains accepted as an additive compatibility alias).
+- `render.particle_shader` must be `default` or `blur`.
+- `render.glitch_intensity` must be within `[0,1]`.
+- `render.bloom.threshold` must be within `[0,1]`.
+- `render.bloom.intensity` must be `>= 0`.
+- `render.bloom.passes` must be `>= 1`.
+- `render.afterimage.decay` must be within `[0,1)`.
 - `spawn.max_particles` must be `> 0`.
 - `spawn.particles_per_spawn` must be `> 0`.
 - `spawn.interval` must be `> 0`.
@@ -197,8 +227,14 @@ If validation fails, loading returns an error.
 ## Runtime defaults and fallback behavior
 
 - Unknown or empty easing names fall back to `Linear`.
+- `blend` defaults to normal source-over blending. `additive` applies to both particles and trails.
+- `render.particle_shader` defaults to the shader passed by the caller; `blur` selects chirashi's built-in soft particle shader when the system is created.
+- `render.glitch_intensity` defaults to `0` and is restored by the editor's final preview shader.
+- `render.bloom` and `render.afterimage` are disabled when omitted. The editor applies them automatically when present.
+- Bloom and afterimage are scene-level post effects and are not run inside `System.Draw`. Games should render to an offscreen target and use `NewBloomEffect` / `NewPersistenceEffect` with the YAML values.
 - `animation.position.type`:
   - `"polar"` uses `angle` + `distance`.
+  - `"attractor"` uses `control_x` / `control_y` and a target set with `SetAttractor`.
   - any other value (including empty) is treated as cartesian mode.
 - `animation.position.flow`:
   - `type` defaults to `curl`.
