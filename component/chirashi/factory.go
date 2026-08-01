@@ -92,6 +92,7 @@ func buildSystemDataFromConfig(shader *ebiten.Shader, image *ebiten.Image, confi
 		SpawnInterval:     config.Spawn.Interval,
 		ParticlesPerSpawn: config.Spawn.ParticlesPerSpawn,
 		MaxParticles:      config.Spawn.MaxParticles,
+		EmissionScale:     1,
 		SourceImage:       image,
 		ImageWidth:        imgWidth,
 		ImageHeight:       imgHeight,

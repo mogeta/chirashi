@@ -104,19 +104,25 @@ type SystemData struct {
 	SpawnInterval     int
 	ParticlesPerSpawn int
 	MaxParticles      int
+	// EmissionScale scales the configured emission rate and active-particle cap
+	// without overwriting the YAML-derived spawn values. Values are clamped to
+	// [0, 1]; 0 pauses emission and 1 uses the configured values unchanged.
+	// Factory-created systems initialize this field to 1.
+	EmissionScale float32
 
 	// Rendering
 	SourceImage    *ebiten.Image
-	ImageWidth     float32 // Cached image width
-	ImageHeight    float32 // Cached image height
+	ImageWidth     float32      // Cached image width
+	ImageHeight    float32      // Cached image height
 	Blend          ebiten.Blend // Zero value = source-over (alpha blending)
 	ShaderUniforms map[string]interface{}
 	Trail          TrailData
 
 	// Internal state
-	ActiveCount int
-	IsLoop      bool
-	LifeTime    int // Remaining lifetime in frames (if not looping)
+	ActiveCount       int
+	emissionRemainder float32
+	IsLoop            bool
+	LifeTime          int // Remaining lifetime in frames (if not looping)
 
 	// Animation parameters (from config, used for spawning)
 	AnimParams AnimationParams

@@ -56,8 +56,9 @@ var (
 	NewParticlesFromConfig = core.NewParticlesFromConfig
 	NewParticlesFromFile   = core.NewParticlesFromFile
 
-	// SetAttractor Attractor helpers.
-	SetAttractor = core.SetAttractor
+	// Runtime particle controls.
+	SetAttractor     = core.SetAttractor
+	SetEmissionScale = core.SetEmissionScale
 
 	// ParseEasing Easing and sequence helpers.
 	ParseEasing       = core.ParseEasing
