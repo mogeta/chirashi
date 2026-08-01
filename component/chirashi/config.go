@@ -6,10 +6,34 @@ type ParticleConfig struct {
 	Description string          `yaml:"description"`
 	Image       ImageConfig     `yaml:"image"`
 	Blend       string          `yaml:"blend,omitempty"` // normal (default) or additive
+	Render      RenderConfig    `yaml:"render,omitempty"`
 	Emitter     EmitterConfig   `yaml:"emitter"`
 	Animation   AnimationConfig `yaml:"animation"`
 	Trail       *TrailConfig    `yaml:"trail,omitempty"`
 	Spawn       SpawnConfig     `yaml:"spawn"`
+}
+
+// RenderConfig defines optional rendering and scene-level post effects.
+// ParticleShader is applied by the particle factory. Bloom and Afterimage are
+// applied by the editor; games can use the same values with BloomEffect and
+// PersistenceEffect around their scene render target.
+type RenderConfig struct {
+	ParticleShader  string            `yaml:"particle_shader,omitempty"` // default or blur
+	GlitchIntensity float32           `yaml:"glitch_intensity,omitempty"`
+	Bloom           *BloomConfig      `yaml:"bloom,omitempty"`
+	Afterimage      *AfterimageConfig `yaml:"afterimage,omitempty"`
+}
+
+// BloomConfig defines the multi-pass bloom parameters stored in YAML.
+type BloomConfig struct {
+	Threshold float32 `yaml:"threshold"`
+	Intensity float32 `yaml:"intensity"`
+	Passes    int     `yaml:"passes"`
+}
+
+// AfterimageConfig defines persistence/afterimage parameters stored in YAML.
+type AfterimageConfig struct {
+	Decay float32 `yaml:"decay"`
 }
 
 // ImageConfig defines image source parameters
@@ -119,8 +143,8 @@ type PositionConfig struct {
 	Y *PropertyConfig `yaml:"y,omitempty"` // Y axis sequence
 
 	// Polar mode
-	Angle    *RangeFloat `yaml:"angle,omitempty"`    // Radians (0 to 2π for full circle)
-	Distance *RangeFloat `yaml:"distance,omitempty"` // Distance from emitter (spawn offset in velocity mode)
+	Angle        *RangeFloat `yaml:"angle,omitempty"`         // Radians (0 to 2π for full circle)
+	Distance     *RangeFloat `yaml:"distance,omitempty"`      // Distance from emitter (spawn offset in velocity mode)
 	Speed        *RangeFloat `yaml:"speed,omitempty"`         // units/sec; presence enables velocity mode (duration = lifetime only)
 	AngularSpeed *RangeFloat `yaml:"angular_speed,omitempty"` // rad/sec; positive = CCW, negative = CW
 

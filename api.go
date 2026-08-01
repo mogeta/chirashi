@@ -13,26 +13,31 @@ type (
 
 // Configuration types.
 type (
-	ParticleConfig  = core.ParticleConfig
-	ImageConfig     = core.ImageConfig
-	EmitterConfig   = core.EmitterConfig
-	AnimationConfig = core.AnimationConfig
-	DurationConfig  = core.DurationConfig
-	RangeFloat      = core.RangeFloat
-	PositionConfig  = core.PositionConfig
-	PropertyConfig  = core.PropertyConfig
-	StepConfig      = core.StepConfig
-	ColorConfig     = core.ColorConfig
-	SpawnConfig     = core.SpawnConfig
+	ParticleConfig   = core.ParticleConfig
+	ImageConfig      = core.ImageConfig
+	RenderConfig     = core.RenderConfig
+	BloomConfig      = core.BloomConfig
+	AfterimageConfig = core.AfterimageConfig
+	EmitterConfig    = core.EmitterConfig
+	AnimationConfig  = core.AnimationConfig
+	DurationConfig   = core.DurationConfig
+	RangeFloat       = core.RangeFloat
+	PositionConfig   = core.PositionConfig
+	PropertyConfig   = core.PropertyConfig
+	StepConfig       = core.StepConfig
+	ColorConfig      = core.ColorConfig
+	SpawnConfig      = core.SpawnConfig
 )
 
 // Component/data types for ECS integration.
 type (
-	Instance        = core.Instance
-	SystemData      = core.SystemData
-	AnimationParams = core.AnimationParams
-	Metrics         = core.Metrics
-	ParticleStorage = core.ParticleStorage
+	Instance          = core.Instance
+	SystemData        = core.SystemData
+	AnimationParams   = core.AnimationParams
+	Metrics           = core.Metrics
+	ParticleStorage   = core.ParticleStorage
+	BloomEffect       = core.BloomEffect
+	PersistenceEffect = core.PersistenceEffect
 )
 
 // Easing and sequence helpers.
@@ -48,9 +53,11 @@ var (
 	Component = core.Component
 
 	// NewSystem Runtime constructors.
-	NewSystem          = core.NewSystem
-	NewParticleManager = core.NewParticleManager
-	NewConfigLoader    = core.NewConfigLoader
+	NewSystem            = core.NewSystem
+	NewParticleManager   = core.NewParticleManager
+	NewConfigLoader      = core.NewConfigLoader
+	NewBloomEffect       = core.NewBloomEffect
+	NewPersistenceEffect = core.NewPersistenceEffect
 
 	// NewParticlesFromConfig Particle creation helpers.
 	NewParticlesFromConfig = core.NewParticlesFromConfig

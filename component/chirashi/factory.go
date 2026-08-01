@@ -1,9 +1,12 @@
 package chirashi
 
 import (
+	"fmt"
 	"math"
+	"sync"
 
 	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/mogeta/chirashi/assets"
 	"github.com/yohamta/donburi"
 )
 
@@ -21,6 +24,10 @@ const (
 var (
 	// Global configuration loader instance
 	configLoader = NewConfigLoader()
+
+	builtinBlurShaderOnce sync.Once
+	builtinBlurShader     *ebiten.Shader
+	builtinBlurShaderErr  error
 )
 
 // NewParticlesFromConfig creates a GPU particle system from a configuration struct
@@ -46,16 +53,37 @@ func createParticlesFromConfig(w donburi.World, shader *ebiten.Shader, image *eb
 
 func createParticleEntityFromConfig(w donburi.World, shader *ebiten.Shader, image *ebiten.Image, config *ParticleConfig, x, y float32) (donburi.Entity, error) {
 	normalizeParticleConfig(config)
+	resolvedShader, err := resolveParticleShader(shader, config.Render.ParticleShader)
+	if err != nil {
+		return 0, err
+	}
 
 	entity := w.Create(Component)
 	entry := w.Entry(entity)
-	systemData := buildSystemDataFromConfig(shader, image, config, x, y)
+	systemData := buildSystemDataFromConfig(resolvedShader, image, config, x, y)
 
 	// Apply sequence configurations if present
 	buildSequenceConfigs(config, &systemData)
 
 	donburi.SetValue(entry, Component, systemData)
 	return entity, nil
+}
+
+func resolveParticleShader(fallback *ebiten.Shader, name string) (*ebiten.Shader, error) {
+	switch name {
+	case "", "default":
+		return fallback, nil
+	case "blur":
+		builtinBlurShaderOnce.Do(func() {
+			builtinBlurShader, builtinBlurShaderErr = ebiten.NewShader(assets.ParticleShaderBlur)
+		})
+		if builtinBlurShaderErr != nil {
+			return nil, fmt.Errorf("compile built-in blur particle shader: %w", builtinBlurShaderErr)
+		}
+		return builtinBlurShader, nil
+	default:
+		return nil, fmt.Errorf("unknown particle shader %q", name)
+	}
 }
 
 func buildSystemDataFromConfig(shader *ebiten.Shader, image *ebiten.Image, config *ParticleConfig, x, y float32) SystemData {

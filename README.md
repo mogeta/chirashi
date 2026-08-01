@@ -29,6 +29,7 @@ You can try it in your browser:
 - Property animation with easing and multi-step sequences
 - Runtime attractor target updates for UI/item-collection effects
 - Runtime emission scaling without overwriting YAML preset values
+- YAML-persisted render settings for additive blend, built-in blur, glitch, bloom, and afterimage
 - Save/load particle configs as YAML
 - donburi (ECS) integration
 
@@ -208,6 +209,8 @@ Notable samples:
 - `SetEmitterPosition` can be called each frame for moving emitters and ribbon trails.
 - `SetEmissionScale` accepts `0.0` to `1.0`, preserves the preset's spawn values, and can be changed at runtime. Fractional emission is carried across spawn ticks so low scales remain smooth.
 - Emission scaling adds only constant-time arithmetic on configured spawn ticks and does not resize the particle pool.
+- `render.particle_shader: blur` selects the built-in soft blur shader when the particle system is created.
+- `render.bloom` and `render.afterimage` are restored automatically by the editor. In games they are scene-level effects: render to an offscreen target, then apply `NewBloomEffect` and/or `NewPersistenceEffect` using the YAML values.
 
 ## Public API
 

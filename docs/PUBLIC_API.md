@@ -25,12 +25,15 @@ The following are intended as the primary API for consumers:
 - Runtime setup
   - `chirashi.NewSystem`
   - `chirashi.NewParticleManager`
+  - `chirashi.NewBloomEffect`
+  - `chirashi.NewPersistenceEffect`
 - Spawning/helpers
   - `chirashi.NewParticlesFromConfig`
   - `chirashi.NewParticlesFromFile`
   - `chirashi.SetEmissionScale`
 - Configuration
   - `chirashi.ParticleConfig` and nested config types
+  - `chirashi.RenderConfig`, `chirashi.BloomConfig`, and `chirashi.AfterimageConfig`
   - `chirashi.NewConfigLoader`
   - `chirashi.GetConfigLoader`
 - ECS integration

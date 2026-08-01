@@ -42,17 +42,10 @@ type ParticleEditorScene struct {
 	loader                   *chirashi.ConfigLoader
 	img                      *ebiten.Image
 	debugui                  debugui.DebugUI
-	defaultShader            *ebiten.Shader
-	shader                   *ebiten.Shader
-	blurShader               *ebiten.Shader
 	bloomShader              *ebiten.Shader
 	offscreen                *ebiten.Image
 	persistence              *chirashi.PersistenceEffect
-	usePersistence           bool
 	bloom                    *chirashi.BloomEffect
-	useBloom                 bool
-	glitchIntensity          float64
-	useBlurShader            bool
 	vsyncEnabled             bool
 	dragEmitter              bool
 	time                     float64
@@ -99,11 +92,6 @@ func NewParticleEditorScene() (*ParticleEditorScene, error) {
 		return nil, fmt.Errorf("load bloom shader: %w", err)
 	}
 
-	blurShader, err := ebiten.NewShader(assets.ParticleShaderBlur)
-	if err != nil {
-		return nil, fmt.Errorf("load blur shader: %w", err)
-	}
-
 	bloom, err := chirashi.NewBloomEffect()
 	if err != nil {
 		return nil, fmt.Errorf("load bloom effect shaders: %w", err)
@@ -127,9 +115,6 @@ func NewParticleEditorScene() (*ParticleEditorScene, error) {
 		config:                   config,
 		loader:                   loader,
 		img:                      img,
-		defaultShader:            nil,
-		shader:                   nil,
-		blurShader:               blurShader,
 		bloomShader:              bloomShader,
 		persistence:              chirashi.NewPersistenceEffect(0.9),
 		bloom:                    bloom,
@@ -231,7 +216,8 @@ func (s *ParticleEditorScene) Draw(screen *ebiten.Image) {
 	s.offscreen.Fill(color.RGBA{0x20, 0x20, 0x20, 0xff})
 
 	// Draw particles to offscreen, optionally through the afterimage buffer
-	if s.usePersistence {
+	if afterimage := s.config.Render.Afterimage; afterimage != nil {
+		s.persistence.Decay = afterimage.Decay
 		target := s.persistence.Target(s.offscreen.Bounds().Dx(), s.offscreen.Bounds().Dy())
 		s.container.Draw(target)
 		s.persistence.Compose(s.offscreen)
@@ -239,7 +225,10 @@ func (s *ParticleEditorScene) Draw(screen *ebiten.Image) {
 		s.container.Draw(s.offscreen)
 	}
 
-	if s.useBloom {
+	if bloom := s.config.Render.Bloom; bloom != nil {
+		s.bloom.Threshold = bloom.Threshold
+		s.bloom.Intensity = bloom.Intensity
+		s.bloom.Passes = bloom.Passes
 		s.bloom.Apply(s.offscreen, s.offscreen)
 	}
 
@@ -248,7 +237,7 @@ func (s *ParticleEditorScene) Draw(screen *ebiten.Image) {
 	op.Images[0] = s.offscreen
 	op.Uniforms = map[string]interface{}{
 		"Time":            float32(s.time),
-		"GlitchIntensity": float32(s.glitchIntensity),
+		"GlitchIntensity": s.config.Render.GlitchIntensity,
 	}
 	screen.DrawRectShader(screen.Bounds().Dx(), screen.Bounds().Dy(), s.bloomShader, op)
 
@@ -273,7 +262,7 @@ func (s *ParticleEditorScene) recreateParticles() {
 
 	// Create new particles
 	log.Printf("Creating particles with config: %s, PosType=%s", s.config.Name, s.config.Animation.Position.Type)
-	if err := chirashi.NewParticlesFromConfig(s.world, s.shader, s.img, s.config, editorCenterX, editorCenterY); err != nil {
+	if err := chirashi.NewParticlesFromConfig(s.world, nil, s.img, s.config, editorCenterX, editorCenterY); err != nil {
 		log.Println("Failed to recreate particles:", err)
 		return
 	}
@@ -602,7 +591,7 @@ func (s *ParticleEditorScene) drawVisualFeatureControls(ctx *debugui.Context) {
 }
 
 func (s *ParticleEditorScene) drawShaderControls(ctx *debugui.Context) {
-	s.sliderControl(ctx, "Glitch Intensity", &s.glitchIntensity, 0.0, 1.0, 0.01)
+	s.sliderControl32(ctx, "Glitch Intensity", &s.config.Render.GlitchIntensity, 0.0, 1.0, 0.01)
 
 	vsyncLabel := "VSync: OFF"
 	if s.vsyncEnabled {
@@ -613,18 +602,17 @@ func (s *ParticleEditorScene) drawShaderControls(ctx *debugui.Context) {
 		ebiten.SetVsyncEnabled(s.vsyncEnabled)
 	})
 
-	mode := "Default"
-	if s.useBlurShader {
-		mode = "Blur"
+	mode := s.config.Render.ParticleShader
+	if mode == "" {
+		mode = "default"
 	}
 	ctx.SetGridLayout([]int{180, 180}, nil)
 	ctx.Text("Particle Shader: " + mode)
 	ctx.Button("Toggle Blur").On(func() {
-		s.useBlurShader = !s.useBlurShader
-		if s.useBlurShader {
-			s.shader = s.blurShader
+		if s.config.Render.ParticleShader == "blur" {
+			s.config.Render.ParticleShader = ""
 		} else {
-			s.shader = s.defaultShader
+			s.config.Render.ParticleShader = "blur"
 		}
 		s.applyChange(applyModeRecreate)
 	})
@@ -644,29 +632,36 @@ func (s *ParticleEditorScene) drawShaderControls(ctx *debugui.Context) {
 	})
 
 	persistenceLabel := "Afterimage: OFF"
-	if s.usePersistence {
+	if s.config.Render.Afterimage != nil {
 		persistenceLabel = "Afterimage: ON"
 	}
 	ctx.Button(persistenceLabel).On(func() {
-		s.usePersistence = !s.usePersistence
-		if !s.usePersistence {
+		if s.config.Render.Afterimage == nil {
+			s.config.Render.Afterimage = &chirashi.AfterimageConfig{Decay: 0.9}
+		} else {
+			s.config.Render.Afterimage = nil
 			s.persistence.Clear()
 		}
 	})
-	if s.usePersistence {
-		s.sliderControl32(ctx, "Afterimage Decay", &s.persistence.Decay, 0.5, 0.99, 0.01)
+	if afterimage := s.config.Render.Afterimage; afterimage != nil {
+		s.sliderControl32(ctx, "Afterimage Decay", &afterimage.Decay, 0.0, 0.99, 0.01)
 	}
 
 	bloomLabel := "Bloom: OFF"
-	if s.useBloom {
+	if s.config.Render.Bloom != nil {
 		bloomLabel = "Bloom: ON"
 	}
 	ctx.Button(bloomLabel).On(func() {
-		s.useBloom = !s.useBloom
+		if s.config.Render.Bloom == nil {
+			s.config.Render.Bloom = &chirashi.BloomConfig{Threshold: 0.6, Intensity: 1.2, Passes: 2}
+		} else {
+			s.config.Render.Bloom = nil
+		}
 	})
-	if s.useBloom {
-		s.sliderControl32(ctx, "Bloom Threshold", &s.bloom.Threshold, 0.0, 1.0, 0.02)
-		s.sliderControl32(ctx, "Bloom Intensity", &s.bloom.Intensity, 0.0, 3.0, 0.05)
+	if bloom := s.config.Render.Bloom; bloom != nil {
+		s.sliderControl32(ctx, "Bloom Threshold", &bloom.Threshold, 0.0, 1.0, 0.02)
+		s.sliderControl32(ctx, "Bloom Intensity", &bloom.Intensity, 0.0, 3.0, 0.05)
+		s.sliderIntControl(ctx, "Bloom Passes", &bloom.Passes, 1, 8, 1, applyModeLive)
 	}
 }
 
@@ -1575,6 +1570,7 @@ func (s *ParticleEditorScene) drawFileContents(ctx *debugui.Context) {
 					log.Println("Load error:", err)
 				} else {
 					s.config = cfg
+					s.persistence.Clear()
 					// Reset attractor target to screen center for new configs
 					s.attractorX = editorCenterX
 					s.attractorY = editorCenterY

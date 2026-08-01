@@ -248,6 +248,21 @@ chirashi.SetEmissionScale(world, entity, scale) // 0.0〜1.0
 を上書きせず、実効排出レートと最大アクティブ数を変更します。`0` で新規排出を
 停止し、`1` でプリセット本来の密度に戻します。
 
+### 描画エフェクト設定
+
+```yaml
+blend: additive
+render:
+  particle_shader: blur
+  glitch_intensity: 0.0
+  bloom: { threshold: 0.6, intensity: 1.2, passes: 2 }
+  afterimage: { decay: 0.9 }
+```
+
+`particle_shader` はパーティクル生成時に反映されます。BloomとAfterimageは画面全体の
+後処理なので、エディタでは自動反映されますが、ゲーム側ではオフスクリーンへ描画後に
+`NewBloomEffect` / `NewPersistenceEffect` を使って適用してください。
+
 ### 直接生成（低レベルAPI）
 
 ```go

@@ -1,6 +1,16 @@
 name: "reentry_plasma_wake"
 description: "Orange-white plasma wake for meteors, drop pods, and high-speed atmospheric entries."
 image: { image_from: "ef1", image_id: 16 }
+blend: "additive"
+
+render:
+  particle_shader: "blur"
+  bloom:
+    threshold: 0.55
+    intensity: 1.25
+    passes: 2
+  afterimage:
+    decay: 0.88
 
 emitter:
   x: 0

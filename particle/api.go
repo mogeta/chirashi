@@ -16,26 +16,31 @@ type (
 
 // Configuration types.
 type (
-	ParticleConfig  = root.ParticleConfig
-	ImageConfig     = root.ImageConfig
-	EmitterConfig   = root.EmitterConfig
-	AnimationConfig = root.AnimationConfig
-	DurationConfig  = root.DurationConfig
-	RangeFloat      = root.RangeFloat
-	PositionConfig  = root.PositionConfig
-	PropertyConfig  = root.PropertyConfig
-	StepConfig      = root.StepConfig
-	ColorConfig     = root.ColorConfig
-	SpawnConfig     = root.SpawnConfig
+	ParticleConfig   = root.ParticleConfig
+	ImageConfig      = root.ImageConfig
+	RenderConfig     = root.RenderConfig
+	BloomConfig      = root.BloomConfig
+	AfterimageConfig = root.AfterimageConfig
+	EmitterConfig    = root.EmitterConfig
+	AnimationConfig  = root.AnimationConfig
+	DurationConfig   = root.DurationConfig
+	RangeFloat       = root.RangeFloat
+	PositionConfig   = root.PositionConfig
+	PropertyConfig   = root.PropertyConfig
+	StepConfig       = root.StepConfig
+	ColorConfig      = root.ColorConfig
+	SpawnConfig      = root.SpawnConfig
 )
 
 // Component/data types for ECS integration.
 type (
-	Instance        = root.Instance
-	SystemData      = root.SystemData
-	AnimationParams = root.AnimationParams
-	Metrics         = root.Metrics
-	ParticleStorage = root.ParticleStorage
+	Instance          = root.Instance
+	SystemData        = root.SystemData
+	AnimationParams   = root.AnimationParams
+	Metrics           = root.Metrics
+	ParticleStorage   = root.ParticleStorage
+	BloomEffect       = root.BloomEffect
+	PersistenceEffect = root.PersistenceEffect
 )
 
 // Easing and sequence helpers.
@@ -51,9 +56,11 @@ var (
 	Component = root.Component
 
 	// Runtime constructors.
-	NewSystem          = root.NewSystem
-	NewParticleManager = root.NewParticleManager
-	NewConfigLoader    = root.NewConfigLoader
+	NewSystem            = root.NewSystem
+	NewParticleManager   = root.NewParticleManager
+	NewConfigLoader      = root.NewConfigLoader
+	NewBloomEffect       = root.NewBloomEffect
+	NewPersistenceEffect = root.NewPersistenceEffect
 
 	// Particle creation helpers.
 	NewParticlesFromConfig = root.NewParticlesFromConfig
