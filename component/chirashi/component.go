@@ -107,6 +107,7 @@ type SystemData struct {
 	// EmissionScale scales the configured emission rate and active-particle cap
 	// without overwriting the YAML-derived spawn values. Values are clamped to
 	// [0, 1]; 0 pauses emission and 1 uses the configured values unchanged.
+	// Factory-created systems initialize this field to 1.
 	EmissionScale float32
 
 	// Rendering
@@ -118,11 +119,10 @@ type SystemData struct {
 	Trail          TrailData
 
 	// Internal state
-	ActiveCount              int
-	emissionScaleInitialized bool
-	emissionRemainder        float32
-	IsLoop                   bool
-	LifeTime                 int // Remaining lifetime in frames (if not looping)
+	ActiveCount       int
+	emissionRemainder float32
+	IsLoop            bool
+	LifeTime          int // Remaining lifetime in frames (if not looping)
 
 	// Animation parameters (from config, used for spawning)
 	AnimParams AnimationParams

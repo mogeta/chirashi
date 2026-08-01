@@ -71,6 +71,7 @@ func BenchmarkSpawnWithSequences(b *testing.B) {
 		MaxParticles:      256,
 		SpawnInterval:     1,
 		ParticlesPerSpawn: 256,
+		EmissionScale:     1,
 		IsLoop:            true,
 		PosXSeq:           seq,
 		PosYSeq:           seq,
@@ -114,6 +115,7 @@ func BenchmarkChurnFlow4000(b *testing.B) {
 		MaxParticles:      maxParticles,
 		SpawnInterval:     1,
 		ParticlesPerSpawn: 60,
+		EmissionScale:     1,
 		IsLoop:            true,
 		AnimParams: AnimationParams{
 			Duration: DurationParams{Base: 0.9, Range: 0.5},

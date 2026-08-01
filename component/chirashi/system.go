@@ -99,7 +99,7 @@ func (sys *System) spawn(data *SystemData) {
 		return
 	}
 
-	emissionScale := effectiveEmissionScale(data)
+	emissionScale := clampEmissionScale(data.EmissionScale)
 	if emissionScale <= 0 {
 		return
 	}
@@ -237,16 +237,6 @@ func (sys *System) spawn(data *SystemData) {
 		data.ActiveCount++
 		data.Metrics.SpawnCount++
 	}
-}
-
-func effectiveEmissionScale(data *SystemData) float32 {
-	// SystemData has historically been usable as a struct literal. Treat its
-	// untouched zero value as 1 so existing callers retain their old behavior.
-	if !data.emissionScaleInitialized && data.EmissionScale == 0 {
-		return 1
-	}
-	data.emissionScaleInitialized = true
-	return clampEmissionScale(data.EmissionScale)
 }
 
 func clampEmissionScale(scale float32) float32 {

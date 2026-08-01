@@ -157,7 +157,6 @@ func SetEmissionScale(world donburi.World, entity donburi.Entity, scale float32)
 	}
 	data := Component.Get(entry)
 	data.EmissionScale = clampEmissionScale(scale)
-	data.emissionScaleInitialized = true
 }
 
 // copyConfig creates a deep copy of ParticleConfig

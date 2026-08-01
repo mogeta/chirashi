@@ -622,6 +622,7 @@ func TestAttractorParticleHasControlPoint(t *testing.T) {
 		SpawnInterval:     1,
 		ParticlesPerSpawn: 5,
 		MaxParticles:      5,
+		EmissionScale:     1,
 		IsLoop:            true,
 		EmitterX:          100,
 		EmitterY:          200,

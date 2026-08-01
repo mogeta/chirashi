@@ -15,6 +15,7 @@ func TestSpawnRespectsMaxParticles(t *testing.T) {
 		SpawnInterval:     1,
 		ParticlesPerSpawn: 10,
 		MaxParticles:      3,
+		EmissionScale:     1,
 		IsLoop:            true,
 		EmitterX:          100,
 		EmitterY:          200,
@@ -99,16 +100,32 @@ func TestSpawnCarriesFractionalEmissionAtLowScale(t *testing.T) {
 	}
 }
 
+func TestSpawnHonorsExplicitZeroEmissionScale(t *testing.T) {
+	sys := &System{cnt: 0}
+	data := &SystemData{
+		ParticlePool:      make([]Instance, 4),
+		SpawnInterval:     1,
+		ParticlesPerSpawn: 2,
+		MaxParticles:      4,
+		EmissionScale:     0,
+		IsLoop:            true,
+	}
+
+	sys.spawn(data)
+	if got := data.ActiveCount; got != 0 {
+		t.Fatalf("active count got %d, want 0 for explicit zero scale", got)
+	}
+}
+
 func TestSpawnFollowsRuntimeEmissionScaleChanges(t *testing.T) {
 	sys := &System{cnt: 0}
 	data := &SystemData{
-		ParticlePool:             make([]Instance, 8),
-		SpawnInterval:            1,
-		ParticlesPerSpawn:        2,
-		MaxParticles:             8,
-		EmissionScale:            1,
-		emissionScaleInitialized: true,
-		IsLoop:                   true,
+		ParticlePool:      make([]Instance, 8),
+		SpawnInterval:     1,
+		ParticlesPerSpawn: 2,
+		MaxParticles:      8,
+		EmissionScale:     1,
+		IsLoop:            true,
 		AnimParams: AnimationParams{
 			Duration: DurationParams{Base: 1},
 		},
@@ -488,6 +505,7 @@ func TestSpawnCircleEmitterSamplesInsideRadius(t *testing.T) {
 		SpawnInterval:     1,
 		ParticlesPerSpawn: 32,
 		MaxParticles:      32,
+		EmissionScale:     1,
 		IsLoop:            true,
 		EmitterX:          100,
 		EmitterY:          200,
@@ -534,6 +552,7 @@ func TestSpawnLineEmitterRespectsRotation(t *testing.T) {
 		SpawnInterval:     1,
 		ParticlesPerSpawn: 16,
 		MaxParticles:      16,
+		EmissionScale:     1,
 		IsLoop:            true,
 		EmitterX:          50,
 		EmitterY:          80,
@@ -580,6 +599,7 @@ func TestSpawnRectVectorFillDistributesAcrossArea(t *testing.T) {
 		SpawnInterval:     1,
 		ParticlesPerSpawn: 9,
 		MaxParticles:      9,
+		EmissionScale:     1,
 		IsLoop:            true,
 		EmitterX:          100,
 		EmitterY:          200,
@@ -631,6 +651,7 @@ func TestSpawnRectVectorSurfaceStaysOnPerimeter(t *testing.T) {
 		SpawnInterval:     1,
 		ParticlesPerSpawn: 8,
 		MaxParticles:      8,
+		EmissionScale:     1,
 		IsLoop:            true,
 		EmitterX:          0,
 		EmitterY:          0,
@@ -675,6 +696,7 @@ func TestSpawnPolylineVectorSurfaceStaysOnSegments(t *testing.T) {
 		SpawnInterval:     1,
 		ParticlesPerSpawn: 6,
 		MaxParticles:      6,
+		EmissionScale:     1,
 		IsLoop:            true,
 		EmitterX:          0,
 		EmitterY:          0,
@@ -745,6 +767,7 @@ func TestSpawnCircleEmitterArcLimitsAngle(t *testing.T) {
 		SpawnInterval:     1,
 		ParticlesPerSpawn: 16,
 		MaxParticles:      16,
+		EmissionScale:     1,
 		IsLoop:            true,
 		EmitterShape: EmitterShapeParams{
 			Type:       EmitterShapeCircle,
@@ -789,6 +812,7 @@ func TestSpawnBoxEmitterFromEdgeStaysOnPerimeter(t *testing.T) {
 		SpawnInterval:     1,
 		ParticlesPerSpawn: 16,
 		MaxParticles:      16,
+		EmissionScale:     1,
 		IsLoop:            true,
 		EmitterX:          10,
 		EmitterY:          20,
@@ -837,6 +861,7 @@ func TestSpawnCircleEmitterFullCircleWithTwoPiEndAngle(t *testing.T) {
 		SpawnInterval:     1,
 		ParticlesPerSpawn: 128,
 		MaxParticles:      128,
+		EmissionScale:     1,
 		IsLoop:            true,
 		EmitterShape: EmitterShapeParams{
 			Type:       EmitterShapeCircle,
@@ -894,6 +919,7 @@ func TestSpawnCircleEmitterTreatsSixPointTwoEightAsFullCircle(t *testing.T) {
 		SpawnInterval:     1,
 		ParticlesPerSpawn: 128,
 		MaxParticles:      128,
+		EmissionScale:     1,
 		IsLoop:            true,
 		EmitterShape: EmitterShapeParams{
 			Type:       EmitterShapeCircle,
@@ -951,6 +977,7 @@ func TestSpawnCircleEmitterWrapArc(t *testing.T) {
 		SpawnInterval:     1,
 		ParticlesPerSpawn: 64,
 		MaxParticles:      64,
+		EmissionScale:     1,
 		IsLoop:            true,
 		EmitterShape: EmitterShapeParams{
 			Type:       EmitterShapeCircle,
