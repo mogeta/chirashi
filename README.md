@@ -28,6 +28,7 @@ You can try it in your browser:
 - Optional emitter or per-particle ribbon trails with width/alpha/color gradients
 - Property animation with easing and multi-step sequences
 - Runtime attractor target updates for UI/item-collection effects
+- Runtime emission scaling without overwriting YAML preset values
 - Save/load particle configs as YAML
 - donburi (ECS) integration
 
@@ -64,7 +65,11 @@ image := ebiten.NewImage(8, 8)
 // *ebiten.Shader only for bespoke particle rendering.
 manager := chirashi.NewParticleManager(nil, image)
 _ = manager.Preload("sample", "assets/particles/sample.yaml")
-_, _ = manager.SpawnLoop(world, "sample", 640, 480)
+entity, _ := manager.SpawnLoop(world, "sample", 640, 480)
+
+// Reduce both emission rate and the active-particle cap to 50% while keeping
+// the YAML values intact. Set the scale back to 1 to restore the preset.
+chirashi.SetEmissionScale(world, entity, 0.5)
 ```
 
 Runnable examples:
@@ -201,6 +206,8 @@ Notable samples:
 - `ParticleManager.SpawnLoop` returns an entity so the effect can be removed manually later.
 - `SetAttractor` can be called each frame for moving attractor targets.
 - `SetEmitterPosition` can be called each frame for moving emitters and ribbon trails.
+- `SetEmissionScale` accepts `0.0` to `1.0`, preserves the preset's spawn values, and can be changed at runtime. Fractional emission is carried across spawn ticks so low scales remain smooth.
+- Emission scaling adds only constant-time arithmetic on configured spawn ticks and does not resize the particle pool.
 
 ## Public API
 

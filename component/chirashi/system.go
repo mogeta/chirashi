@@ -99,13 +99,33 @@ func (sys *System) spawn(data *SystemData) {
 		return
 	}
 
+	emissionScale := effectiveEmissionScale(data)
+	if emissionScale <= 0 {
+		return
+	}
+
+	maxParticles := scaledMaxParticles(data.MaxParticles, emissionScale)
+	if data.ActiveCount >= maxParticles {
+		return
+	}
+
+	// Preserve fractional emission so low scales still work for presets that
+	// spawn one particle at a time. For example, scale 0.5 emits one particle
+	// every other configured spawn tick instead of rounding down to zero.
+	data.emissionRemainder += float32(data.ParticlesPerSpawn) * emissionScale
+	particlesToSpawn := int(data.emissionRemainder)
+	if particlesToSpawn <= 0 {
+		return
+	}
+	data.emissionRemainder -= float32(particlesToSpawn)
+
 	dur := &data.AnimParams.Duration
 	pos := &data.AnimParams.Position
 	app := &data.AnimParams.Appearance
 	clr := &data.AnimParams.Color
 	currentTime := data.CurrentTime
 
-	for i := 0; i < data.ParticlesPerSpawn && data.ActiveCount < data.MaxParticles; i++ {
+	for i := 0; i < particlesToSpawn && data.ActiveCount < maxParticles; i++ {
 		if data.ActiveCount >= len(data.ParticlePool) {
 			break
 		}
@@ -114,7 +134,7 @@ func (sys *System) spawn(data *SystemData) {
 		particle := &data.ParticlePool[data.ActiveCount]
 		particle.TrailPoints = particle.TrailPoints[:0]
 
-		spawnX, spawnY := sampleEmitterPosition(data.EmitterX, data.EmitterY, data.EmitterShape, data.EmitterVector, i, data.ParticlesPerSpawn)
+		spawnX, spawnY := sampleEmitterPosition(data.EmitterX, data.EmitterY, data.EmitterShape, data.EmitterVector, i, particlesToSpawn)
 
 		// Initialize particle with randomized values
 		particle.SpawnTime = currentTime
@@ -217,6 +237,40 @@ func (sys *System) spawn(data *SystemData) {
 		data.ActiveCount++
 		data.Metrics.SpawnCount++
 	}
+}
+
+func effectiveEmissionScale(data *SystemData) float32 {
+	// SystemData has historically been usable as a struct literal. Treat its
+	// untouched zero value as 1 so existing callers retain their old behavior.
+	if !data.emissionScaleInitialized && data.EmissionScale == 0 {
+		return 1
+	}
+	data.emissionScaleInitialized = true
+	return clampEmissionScale(data.EmissionScale)
+}
+
+func clampEmissionScale(scale float32) float32 {
+	if math.IsNaN(float64(scale)) {
+		return 1
+	}
+	if scale < 0 {
+		return 0
+	}
+	if scale > 1 {
+		return 1
+	}
+	return scale
+}
+
+func scaledMaxParticles(maxParticles int, scale float32) int {
+	if maxParticles <= 0 || scale <= 0 {
+		return 0
+	}
+	scaled := int(float32(maxParticles) * scale)
+	if scaled < 1 {
+		return 1
+	}
+	return scaled
 }
 
 func sampleEmitterPosition(emitterX, emitterY float32, shape EmitterShapeParams, vector EmitterVectorParams, spawnIndex, spawnTotal int) (float32, float32) {

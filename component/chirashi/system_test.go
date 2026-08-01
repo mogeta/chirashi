@@ -49,6 +49,95 @@ func TestSpawnRespectsMaxParticles(t *testing.T) {
 	}
 }
 
+func TestSpawnAppliesEmissionScaleWithoutMutatingBaseValues(t *testing.T) {
+	sys := &System{cnt: 0}
+	data := &SystemData{
+		ParticlePool:      make([]Instance, 10),
+		SpawnInterval:     1,
+		ParticlesPerSpawn: 4,
+		MaxParticles:      10,
+		EmissionScale:     0.5,
+		IsLoop:            true,
+		AnimParams: AnimationParams{
+			Duration: DurationParams{Base: 1},
+		},
+	}
+
+	for range 3 {
+		sys.spawn(data)
+	}
+
+	if got := data.ActiveCount; got != 5 {
+		t.Fatalf("active count got %d, want scaled cap 5", got)
+	}
+	if data.SpawnInterval != 1 || data.ParticlesPerSpawn != 4 || data.MaxParticles != 10 {
+		t.Fatalf("base spawn values changed: interval=%d particles=%d max=%d", data.SpawnInterval, data.ParticlesPerSpawn, data.MaxParticles)
+	}
+}
+
+func TestSpawnCarriesFractionalEmissionAtLowScale(t *testing.T) {
+	sys := &System{cnt: 0}
+	data := &SystemData{
+		ParticlePool:      make([]Instance, 4),
+		SpawnInterval:     1,
+		ParticlesPerSpawn: 1,
+		MaxParticles:      4,
+		EmissionScale:     0.5,
+		IsLoop:            true,
+		AnimParams: AnimationParams{
+			Duration: DurationParams{Base: 1},
+		},
+	}
+
+	sys.spawn(data)
+	if got := data.ActiveCount; got != 0 {
+		t.Fatalf("first spawn tick active count got %d, want 0", got)
+	}
+	sys.spawn(data)
+	if got := data.ActiveCount; got != 1 {
+		t.Fatalf("second spawn tick active count got %d, want 1", got)
+	}
+}
+
+func TestSpawnFollowsRuntimeEmissionScaleChanges(t *testing.T) {
+	sys := &System{cnt: 0}
+	data := &SystemData{
+		ParticlePool:             make([]Instance, 8),
+		SpawnInterval:            1,
+		ParticlesPerSpawn:        2,
+		MaxParticles:             8,
+		EmissionScale:            1,
+		emissionScaleInitialized: true,
+		IsLoop:                   true,
+		AnimParams: AnimationParams{
+			Duration: DurationParams{Base: 1},
+		},
+	}
+
+	sys.spawn(data)
+	if got := data.ActiveCount; got != 2 {
+		t.Fatalf("full-scale active count got %d, want 2", got)
+	}
+
+	data.EmissionScale = 0
+	sys.spawn(data)
+	if got := data.ActiveCount; got != 2 {
+		t.Fatalf("paused active count got %d, want 2", got)
+	}
+
+	data.EmissionScale = 0.5
+	sys.spawn(data)
+	if got := data.ActiveCount; got != 3 {
+		t.Fatalf("half-scale active count got %d, want 3", got)
+	}
+
+	data.EmissionScale = 1
+	sys.spawn(data)
+	if got := data.ActiveCount; got != 5 {
+		t.Fatalf("restored active count got %d, want 5", got)
+	}
+}
+
 func TestUpdateParticlesDeactivatesExpired(t *testing.T) {
 	sys := &System{}
 	data := &SystemData{

@@ -34,3 +34,13 @@ func TestBuildSystemDataFromConfigSetsBlend(t *testing.T) {
 		t.Errorf("Blend = %v, want BlendLighter", data.Blend)
 	}
 }
+
+func TestBuildSystemDataFromConfigDefaultsEmissionScale(t *testing.T) {
+	config := &ParticleConfig{
+		Spawn: SpawnConfig{MaxParticles: 4},
+	}
+	data := buildSystemDataFromConfig(nil, nil, config, 0, 0)
+	if data.EmissionScale != 1 {
+		t.Errorf("EmissionScale = %v, want 1", data.EmissionScale)
+	}
+}

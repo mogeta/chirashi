@@ -59,6 +59,9 @@ var (
 	NewParticlesFromConfig = root.NewParticlesFromConfig
 	NewParticlesFromFile   = root.NewParticlesFromFile
 
+	// Runtime particle controls.
+	SetEmissionScale = root.SetEmissionScale
+
 	// Easing and sequence helpers.
 	ParseEasing       = root.ParseEasing
 	ApplyEasing       = root.ApplyEasing

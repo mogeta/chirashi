@@ -28,6 +28,7 @@ The following are intended as the primary API for consumers:
 - Spawning/helpers
   - `chirashi.NewParticlesFromConfig`
   - `chirashi.NewParticlesFromFile`
+  - `chirashi.SetEmissionScale`
 - Configuration
   - `chirashi.ParticleConfig` and nested config types
   - `chirashi.NewConfigLoader`

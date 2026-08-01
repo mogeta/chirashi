@@ -241,7 +241,12 @@ pm.SetShader(shader *ebiten.Shader)
 pm.SetImage(image *ebiten.Image)
 chirashi.SetEmitterPosition(world, entity, x, y)
 chirashi.SetAttractor(world, entity, x, y)
+chirashi.SetEmissionScale(world, entity, scale) // 0.0〜1.0
 ```
+
+`SetEmissionScale` は YAML の `interval`、`particles_per_spawn`、`max_particles`
+を上書きせず、実効排出レートと最大アクティブ数を変更します。`0` で新規排出を
+停止し、`1` でプリセット本来の密度に戻します。
 
 ### 直接生成（低レベルAPI）
 

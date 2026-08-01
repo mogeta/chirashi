@@ -494,6 +494,37 @@ func TestParticleManagerSpawnLoopNotFound(t *testing.T) {
 	}
 }
 
+func TestSetEmissionScaleClampsAndPreservesSpawnValues(t *testing.T) {
+	world := donburi.NewWorld()
+	entity := world.Create(Component)
+	entry := world.Entry(entity)
+	donburi.SetValue(entry, Component, SystemData{
+		SpawnInterval:     3,
+		ParticlesPerSpawn: 4,
+		MaxParticles:      20,
+		EmissionScale:     1,
+	})
+
+	SetEmissionScale(world, entity, 0.25)
+	data := Component.Get(entry)
+	if data.EmissionScale != 0.25 {
+		t.Fatalf("EmissionScale got %v, want 0.25", data.EmissionScale)
+	}
+
+	SetEmissionScale(world, entity, -1)
+	if data.EmissionScale != 0 {
+		t.Fatalf("negative scale got %v, want 0", data.EmissionScale)
+	}
+
+	SetEmissionScale(world, entity, 2)
+	if data.EmissionScale != 1 {
+		t.Fatalf("scale above one got %v, want 1", data.EmissionScale)
+	}
+	if data.SpawnInterval != 3 || data.ParticlesPerSpawn != 4 || data.MaxParticles != 20 {
+		t.Fatalf("base spawn values changed: interval=%d particles=%d max=%d", data.SpawnInterval, data.ParticlesPerSpawn, data.MaxParticles)
+	}
+}
+
 func TestParticleManagerCopiesConfigOnSpawn(t *testing.T) {
 	yaml := []byte(`
 name: copytest

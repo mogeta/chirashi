@@ -144,6 +144,22 @@ func SetEmitterPosition(world donburi.World, entity donburi.Entity, x, y float32
 	}
 }
 
+// SetEmissionScale changes the emission density of a particle entity without
+// overwriting its YAML-derived spawn settings. Scale is clamped to [0, 1]; 0
+// pauses new emission and 1 restores the configured rate and particle cap.
+func SetEmissionScale(world donburi.World, entity donburi.Entity, scale float32) {
+	if !world.Valid(entity) {
+		return
+	}
+	entry := world.Entry(entity)
+	if !entry.HasComponent(Component) {
+		return
+	}
+	data := Component.Get(entry)
+	data.EmissionScale = clampEmissionScale(scale)
+	data.emissionScaleInitialized = true
+}
+
 // copyConfig creates a deep copy of ParticleConfig
 func copyConfig(src *ParticleConfig) *ParticleConfig {
 	dst := *src
