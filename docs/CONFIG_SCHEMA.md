@@ -20,7 +20,7 @@ render: # optional
   bloom: # optional; scene-level post effect
     threshold: float # 0..1
     intensity: float # >= 0
-    passes: int      # >= 1
+    passes: int      # 1..8
   afterimage: # optional; scene-level persistence effect
     decay: float # 0 <= decay < 1
 
@@ -186,12 +186,11 @@ color:
 Validation is performed by `ConfigLoader`:
 
 - `name` is required.
-- `blend` must be `normal` or `additive` (`lighter` remains accepted as an additive compatibility alias).
 - `render.particle_shader` must be `default` or `blur`.
 - `render.glitch_intensity` must be within `[0,1]`.
 - `render.bloom.threshold` must be within `[0,1]`.
 - `render.bloom.intensity` must be `>= 0`.
-- `render.bloom.passes` must be `>= 1`.
+- `render.bloom.passes` must be within `[1,8]`.
 - `render.afterimage.decay` must be within `[0,1)`.
 - `spawn.max_particles` must be `> 0`.
 - `spawn.particles_per_spawn` must be `> 0`.
@@ -227,7 +226,7 @@ If validation fails, loading returns an error.
 ## Runtime defaults and fallback behavior
 
 - Unknown or empty easing names fall back to `Linear`.
-- `blend` defaults to normal source-over blending. `additive` applies to both particles and trails.
+- `blend` defaults to normal source-over blending. `additive` applies to both particles and trails. Unknown values retain the compatibility fallback to normal blending; `lighter` remains an additive alias.
 - `render.particle_shader` defaults to the shader passed by the caller; `blur` selects chirashi's built-in soft particle shader when the system is created.
 - `render.glitch_intensity` defaults to `0` and is restored by the editor's final preview shader.
 - `render.bloom` and `render.afterimage` are disabled when omitted. The editor applies them automatically when present.

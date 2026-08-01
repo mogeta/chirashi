@@ -63,13 +63,6 @@ func TestValidateConfigRejectsInvalidValues(t *testing.T) {
 			wantErr: "name is required",
 		},
 		{
-			name: "invalid blend",
-			mutate: func(c *ParticleConfig) {
-				c.Blend = "multiply"
-			},
-			wantErr: "blend must be normal or additive",
-		},
-		{
 			name: "invalid particle shader",
 			mutate: func(c *ParticleConfig) {
 				c.Render.ParticleShader = "pixelate"
@@ -94,6 +87,13 @@ func TestValidateConfigRejectsInvalidValues(t *testing.T) {
 			name: "invalid bloom passes",
 			mutate: func(c *ParticleConfig) {
 				c.Render.Bloom = &BloomConfig{Threshold: 0.6, Intensity: 1, Passes: 0}
+			},
+			wantErr: "render.bloom.passes",
+		},
+		{
+			name: "excessive bloom passes",
+			mutate: func(c *ParticleConfig) {
+				c.Render.Bloom = &BloomConfig{Threshold: 0.6, Intensity: 1, Passes: 9}
 			},
 			wantErr: "render.bloom.passes",
 		},
@@ -297,6 +297,14 @@ func TestValidateConfigRejectsInvalidValues(t *testing.T) {
 				t.Fatalf("expected error containing %q, got %q", tt.wantErr, err.Error())
 			}
 		})
+	}
+}
+
+func TestValidateConfigAcceptsUnknownBlendForCompatibility(t *testing.T) {
+	cfg := validParticleConfigForTest()
+	cfg.Blend = "multiply"
+	if err := NewConfigLoader().validateConfig(cfg); err != nil {
+		t.Fatalf("legacy unknown blend should use runtime fallback, got: %v", err)
 	}
 }
 

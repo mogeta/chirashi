@@ -126,12 +126,6 @@ func (l *ConfigLoader) validateConfig(config *ParticleConfig) error {
 		return fmt.Errorf("name is required")
 	}
 
-	switch config.Blend {
-	case "", "normal", "additive", "lighter":
-	default:
-		return fmt.Errorf("blend must be normal or additive")
-	}
-
 	switch config.Render.ParticleShader {
 	case "", "default", "blur":
 	default:
@@ -147,8 +141,8 @@ func (l *ConfigLoader) validateConfig(config *ParticleConfig) error {
 		if bloom.Intensity < 0 {
 			return fmt.Errorf("render.bloom.intensity must be greater than or equal to 0")
 		}
-		if bloom.Passes < 1 {
-			return fmt.Errorf("render.bloom.passes must be greater than or equal to 1")
+		if bloom.Passes < 1 || bloom.Passes > 8 {
+			return fmt.Errorf("render.bloom.passes must be within [1,8]")
 		}
 	}
 	if afterimage := config.Render.Afterimage; afterimage != nil {
